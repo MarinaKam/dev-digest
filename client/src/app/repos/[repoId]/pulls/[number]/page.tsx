@@ -56,6 +56,16 @@ export default function PRDetailPage() {
   const invalidateRunHistory = () => {
     if (prId) qc.invalidateQueries({ queryKey: ["pr-runs", prId] });
   };
+  // With several agents the runs finish one by one. Refresh the run history
+  // and the reviews every time the set of in-flight runs changes (a run
+  // started or one of them settled), not only when the last one is done —
+  // otherwise a finished agent stays invisible until the slowest one ends.
+  const liveRunKey = liveRunIds.join(",");
+  React.useEffect(() => {
+    if (!prId) return;
+    qc.invalidateQueries({ queryKey: ["pr-runs", prId] });
+    qc.invalidateQueries({ queryKey: ["reviews", prId] });
+  }, [liveRunKey, prId, qc]);
 
   const tab = search.get("tab") ?? "overview";
   const traceRunId = search.get("trace");
