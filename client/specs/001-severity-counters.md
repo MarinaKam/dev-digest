@@ -27,7 +27,9 @@ on a level narrows the list to that level.
    and do not change with "Hide low confidence" or with the active filter, so
    they always add up to "N findings" in the run header.
 5. **A click filters the list** of this run to the clicked level. The active
-   counter is filled with the severity colour.
+   counter is filled with the severity colour and the other levels are faded.
+   The highlight does not depend on hover and stays for as long as the filter
+   is on.
 6. **One level at a time.** A click on another level moves the filter to it.
 7. **A click on the active level clears the filter** and restores the full list.
 8. **The filter combines with "Hide low confidence".** A card is shown only if
@@ -39,6 +41,12 @@ on a level narrows the list to that level.
     that the active level drops to zero, the full list is shown.
 11. **Changing the filter moves keyboard focus to the first card** (j/k
     navigation starts from the top of the new list).
+12. **Nothing is requested.** Counting and filtering use the findings already
+    loaded for the page; a click sends no request and starts no run.
+13. **Accept and dismiss do not change the counts.** An accepted or dismissed
+    finding stays in the list, so it stays in its level's count.
+14. **Colours and level names come from `SEV`** (`@devdigest/ui`); the label
+    template is `panel.severityCount` in `messages/en/prReview.json`.
 
 ## Accessibility
 

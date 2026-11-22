@@ -174,6 +174,37 @@ describe("FindingsPanel severity counters", () => {
     expect(mutate).toHaveBeenCalledWith({ findingId: "s1", action: "accept", prId: "pr1" });
   });
 
+  it("keeps counters and list in step after a finding is accepted or dismissed", () => {
+    const { rerender } = renderWithIntl(<FindingsPanel findings={MIXED} prId="pr1" />);
+    const acted = MIXED.map((f) =>
+      f.id === "c1"
+        ? { ...f, dismissed_at: "2026-11-21T00:00:00Z" }
+        : f.id === "w1"
+          ? { ...f, accepted_at: "2026-11-21T00:00:00Z" }
+          : f,
+    );
+    rerender(
+      <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
+        <FindingsPanel findings={acted} prId="pr1" />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByRole("button", { name: "1 CRITICAL" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "2 WARNING" })).toBeInTheDocument();
+    expect(shownTitles()).toEqual(TITLES);
+    fireEvent.click(screen.getByRole("button", { name: "1 CRITICAL" }));
+    expect(shownTitles()).toEqual(["Missing auth check"]);
+  });
+
+  it("filters without sending anything to the server", () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    renderWithIntl(<FindingsPanel findings={MIXED} prId="pr1" />);
+    fireEvent.click(screen.getByRole("button", { name: "2 WARNING" }));
+    fireEvent.click(screen.getByRole("button", { name: "2 WARNING" }));
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(mutate).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
   it("shows no counters for a run without findings", () => {
     renderWithIntl(<FindingsPanel findings={[]} prId="pr1" />);
     expect(screen.queryByRole("button", { name: /CRITICAL/ })).not.toBeInTheDocument();

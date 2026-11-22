@@ -67,6 +67,18 @@ describe("SeverityCounters", () => {
     );
   });
 
+  it("fades the other levels while a filter is on, and none when it is off", () => {
+    renderCounters({ active: "WARNING" });
+    expect(screen.getByRole("button", { name: "3 WARNING" })).toHaveStyle({ opacity: "1" });
+    expect(screen.getByRole("button", { name: "1 CRITICAL" })).toHaveStyle({ opacity: "0.45" });
+    expect(screen.getByRole("button", { name: "1 SUGGESTION" })).toHaveStyle({ opacity: "0.45" });
+    cleanup();
+    renderCounters();
+    for (const button of screen.getAllByRole("button")) {
+      expect(button).toHaveStyle({ opacity: "1" });
+    }
+  });
+
   it("no level is pressed when the filter is off", () => {
     renderCounters();
     for (const button of screen.getAllByRole("button")) {

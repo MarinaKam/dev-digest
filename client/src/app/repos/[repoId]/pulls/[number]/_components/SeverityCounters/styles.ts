@@ -20,7 +20,7 @@ const pill: CSSProperties = {
   letterSpacing: "0.04em",
   whiteSpace: "nowrap",
   cursor: "pointer",
-  transition: "background .12s, color .12s",
+  transition: "background .12s, color .12s, opacity .12s",
 };
 
 /** Co-located styles for SeverityCounters. */
@@ -35,12 +35,17 @@ export const s = {
   } satisfies CSSProperties,
 } as const;
 
-/** Outlined in the severity colour; filled with it when the level is the active filter. */
-export function pillStyle(color: string, active: boolean): CSSProperties {
+/** Opacity of a level that the active filter hides. */
+const DIMMED_OPACITY = 0.45;
+
+/** Outlined in the severity colour; filled with it when the level is the active
+    filter; faded when another level is the active filter. */
+export function pillStyle(color: string, active: boolean, dimmed: boolean): CSSProperties {
   return {
     ...pill,
     borderColor: color,
     color: active ? ON_SEVERITY_COLOR : color,
     background: active ? color : "transparent",
+    opacity: dimmed ? DIMMED_OPACITY : 1,
   };
 }

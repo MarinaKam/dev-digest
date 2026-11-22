@@ -29,6 +29,8 @@ export function SeverityCounters({ counts, active, onSelect }: SeverityCountersP
         const count = counts[level];
         const isActive = active === level;
         const isEmpty = count === 0;
+        // While a filter is on, the levels it hides step back.
+        const isDimmed = active !== null && !isActive;
         return (
           <button
             key={level}
@@ -37,9 +39,9 @@ export function SeverityCounters({ counts, active, onSelect }: SeverityCountersP
             disabled={isEmpty}
             aria-pressed={isActive}
             onClick={() => onSelect(isActive ? null : level)}
-            style={isEmpty ? s.empty : pillStyle(SEV[level].c, isActive)}
+            style={isEmpty ? s.empty : pillStyle(SEV[level].c, isActive, isDimmed)}
           >
-            {t(`panel.severityCount.${level}`, { count })}
+            {t("panel.severityCount", { count, level: SEV[level].label.toUpperCase() })}
           </button>
         );
       })}

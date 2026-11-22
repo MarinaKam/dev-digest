@@ -37,6 +37,11 @@ only if it is not obvious from reading the code.
 
 ## Session Notes
 <!-- What a session accomplished or decided, one line per point, under a `### YYYY-MM-DD` subheading. -->
+### 2026-11-21
+- Added severity counters to a review run (`client/specs/001-severity-counters.md`): counted and filtered in `FindingsPanel` from the findings `usePrReviews` already loaded; no API change.
+- Decided that all three levels are always shown and a level without findings is a disabled `0` counter. The task's reference screenshot hides the empty level; its acceptance criteria ask for three levels and for `0`, and the criteria won.
+- Decided that counts cover the whole run and ignore "Hide low confidence", so they add up to "N findings" in the run header.
+- A browser tab opened before the change kept showing the old panel until a reload; `next dev` did not hot-swap it. Reload before judging that a UI change "is not there".
 
 ## Open Questions
 <!-- What was left unresolved or needs more investigation. -->
