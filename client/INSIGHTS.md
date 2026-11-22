@@ -34,6 +34,9 @@ only if it is not obvious from reading the code.
 - **2026-11-21** — Supersedes the 2026-11-21 entry on white text over a severity fill: the severity counters no longer use a solid fill. The active counter is the severity colour as text and border on the `--*-bg` tint, like `SeverityBadge`; inactive counters are neutral grey. The contrast figures in that entry still hold for any future solid fill. Evidence: `client/src/app/repos/[repoId]/pulls/[number]/_components/SeverityCounters/styles.ts:39`.
 - **2026-11-21** — A hover popover whose panel is offset with `margin` closes while the pointer crosses the gap. Put the gap inside the hover area: an absolutely positioned wrapper flush under the trigger with `paddingTop`, and the panel inside it. Pin on click for content with links. Evidence: `client/src/app/repos/[repoId]/pulls/[number]/_components/RunFindingsPopover/styles.ts:16`.
 
+- **2026-11-21** — A popover inside the PR list must be `position: fixed` with coordinates taken from the trigger's `getBoundingClientRect()`: the table card has `overflow: hidden` for its rounded corners and clips anything positioned `absolute` inside a row. A fixed popover must then close on page scroll, or it drifts away from its trigger. Evidence: `client/src/app/repos/[repoId]/pulls/styles.ts:90`.
+- **2026-11-21** — A control placed inside a `PRRow` must stop click propagation on its own root: the whole row has an `onClick` that navigates to the PR. Evidence: `client/src/app/repos/[repoId]/pulls/_components/FindingsPopover/FindingsPopover.tsx:122`.
+
 ## Tool & Library Notes
 <!-- Quirks and gotchas of dependencies and tooling. -->
 

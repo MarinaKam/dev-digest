@@ -5,7 +5,8 @@ import { useTranslations } from "next-intl";
 import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
 import type { FindingRecord, RunSummary, PrCommit } from "@devdigest/shared";
 import { RunCostBadge } from "../../../_components/RunCostBadge";
-import { RunFindingsPopover } from "../RunFindingsPopover";
+import { FindingsPopover } from "../../../_components/FindingsPopover";
+import { countBySeverity, visibleFindings } from "../FindingsPanel/helpers";
 import { completedRunCost } from "../../../helpers";
 
 /**
@@ -212,11 +213,13 @@ export function RunHistory({
               {settled && (
                 <div style={settledLineStyle}>
                   {runFindings.length > 0 ? (
-                    <RunFindingsPopover
-                      findings={runFindings}
+                    <FindingsPopover
+                      counts={countBySeverity(runFindings)}
+                      findings={visibleFindings(runFindings, false)}
+                      heading={t("timeline.findingsInRun", { count: runFindings.length })}
                       repoFullName={repoFullName}
                       headSha={headSha}
-                      onGoToReview={onGoToReview ? () => onGoToReview(r.run_id) : undefined}
+                      onSelect={onGoToReview ? () => onGoToReview(r.run_id) : undefined}
                     />
                   ) : (
                     t("runStatus.findings", { count: r.findings_count ?? 0 })

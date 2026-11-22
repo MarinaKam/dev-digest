@@ -107,6 +107,10 @@
     "emptyAllBody": "No open PRs found for this repo yet. Refresh to sync from GitHub.",
     "emptyStatusBody": "No PRs with status “{status}”."
   },
+  "popover": {
+    "loading": "Loading findings…",
+    "findingsInPr": "{count, plural, one {# finding} other {# findings}}"
+  },
   "timeline": {
     "goToReview": "Jump to this run’s findings below",
     "findingsInRun": "{count, plural, one {# finding in this run} other {# findings in this run}}",

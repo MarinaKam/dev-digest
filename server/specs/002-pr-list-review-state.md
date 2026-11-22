@@ -16,7 +16,7 @@ severity there are.
 | Screen | Place | Shows |
 |---|---|---|
 | PR list | STATUS column | `Reviewing…` with a spinner while a review runs, instead of the review status |
-| PR list | new FINDINGS column, between SCORE and STATUS | an icon and a count per severity, e.g. `⊘ 2  ⚠ 1` |
+| PR list | new FINDINGS column, between SCORE and STATUS | an icon and a count per severity, e.g. `⊘ 2  ⚠ 1`; hover or click lists the PR's current findings |
 | PR detail, Timeline | second line of a settled run | the same icon-and-count tally, then ` · N blockers`; hover or click lists the run's findings |
 
 ## Rules
@@ -41,14 +41,22 @@ severity there are.
    review was deleted) keeps the plain `N finding(s)` text.
 9. **Colours, icons and level names come from `SEV`.** Each count carries a
    text label (`2 Critical`) for assistive technology.
-10. **The timeline tally opens the run's findings.** Hovering it previews the
+10. **A tally opens its findings**, on the timeline (the run's findings) and
+    on the PR list (the PR's current findings, rule 5). Hovering it previews the
     list ("N findings in this run": severity, title, category, file:line,
     confidence, the start of the rationale, most severe first) and the pointer
     can move into the list. A click pins it open; Escape, a second click or a
-    click outside closes it.
+    click outside closes it. Scrolling the page closes it, pinned or not;
+    scrolling inside the list does not.
 11. **The list is navigable, not actionable.** A finding's file opens on GitHub
-    at the reviewed commit; its title jumps to the run's findings below. Accept
-    and dismiss stay in the run's panel.
+    at the reviewed commit. Its title jumps to the run's findings below (on the
+    timeline) or opens the PR's Agent runs tab (on the PR list). Accept and
+    dismiss stay in the run's panel.
+12. **On the PR list a click on the tally never opens the PR.** Only a finding's
+    title does; the rest of the row still opens the PR as before.
+13. **The PR list loads findings on demand.** The list endpoint returns counts
+    only; a row's findings are requested (`GET /pulls/:id/reviews`) the first
+    time its list is opened, and "Loading findings…" is shown meanwhile.
 
 ## API changes
 
@@ -62,8 +70,7 @@ No schema change, no migration.
 
 ## Out of scope
 
-The hover list of findings on the PR list's FINDINGS column (the list endpoint
-returns counts, not findings), a progress percentage, a live push channel for the list (it
+A progress percentage, a live push channel for the list (it
 polls), a FINDINGS filter or sort on the list.
 
 ## Known limits

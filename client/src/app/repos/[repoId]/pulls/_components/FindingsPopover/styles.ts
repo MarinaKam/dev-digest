@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 
-/** Co-located styles for RunFindingsPopover. */
+/** Co-located styles for FindingsPopover. */
 export const s = {
   anchor: { position: "relative", display: "inline-flex", alignItems: "center" } satisfies CSSProperties,
   trigger: {
@@ -12,18 +12,12 @@ export const s = {
     font: "inherit",
     cursor: "pointer",
   } satisfies CSSProperties,
-  /** Sits flush under the trigger so the pointer can travel into the panel
-      without leaving the hover area; the gap is padding, not margin. */
-  bridge: {
-    position: "absolute",
-    top: "100%",
-    left: 0,
-    zIndex: 20,
-    paddingTop: 6,
-  } satisfies CSSProperties,
+  /** Placed flush under the trigger (coordinates come from the component) so
+      the pointer can travel into the panel without leaving the hover area;
+      the gap is padding, not margin. */
+  bridge: { position: "fixed", zIndex: 50, paddingTop: 6 } satisfies CSSProperties,
   panel: {
     width: 400,
-    maxHeight: 420,
     overflowY: "auto",
     borderRadius: 8,
     border: "1px solid var(--border-strong)",
@@ -44,6 +38,7 @@ export const s = {
     borderBottom: "1px solid var(--border)",
   } satisfies CSSProperties,
   list: { listStyle: "none", margin: 0, padding: 0 } satisfies CSSProperties,
+  loading: { padding: "14px 12px", fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
   item: {
     display: "flex",
     flexDirection: "column",

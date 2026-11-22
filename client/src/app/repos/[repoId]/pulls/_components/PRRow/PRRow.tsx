@@ -10,7 +10,9 @@ import { SIZE_COLOR, STATUS_META } from "../../constants";
 import { relativeTime, sizeOf } from "../../helpers";
 import { s } from "../../styles";
 import { RunCostBadge } from "../RunCostBadge";
-import { SeverityTally } from "../SeverityTally";
+import { FindingsPopover } from "../FindingsPopover";
+import { usePrReviews } from "@/lib/hooks/reviews";
+import { currentFindings } from "../../helpers";
 
 const reviewingStyle: React.CSSProperties = {
   display: "inline-flex",
@@ -23,7 +25,16 @@ const reviewingStyle: React.CSSProperties = {
 };
 const spinnerStyle: React.CSSProperties = { animation: "ddspin 1s linear infinite" };
 
-export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
+export function PRRow({
+  pr,
+  repoId,
+  repoFullName,
+}: {
+  pr: PrMeta;
+  repoId: string;
+  /** owner/repo — lets a finding's file:line in the findings list link to GitHub. */
+  repoFullName?: string | null;
+}) {
   const t = useTranslations("prReview");
   const router = useRouter();
   const [h, setH] = React.useState(false);
@@ -33,6 +44,17 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
   const activeRuns = pr.active_runs ?? 0;
   const found = pr.findings_by_severity ?? null; // null ⇒ never reviewed
   const foundTotal = found ? found.CRITICAL + found.WARNING + found.SUGGESTION : 0;
+  // The list endpoint carries counts only; the findings themselves are loaded
+  // the first time this row's findings list is opened.
+  const [findingsOpened, setFindingsOpened] = React.useState(false);
+  const { data: reviews } = usePrReviews(findingsOpened ? pr.id : null);
+  const listedFindings = React.useMemo(
+    () => (reviews ? currentFindings(reviews) : undefined),
+    [reviews],
+  );
+  const handleFindingsOpen = React.useCallback((open: boolean) => {
+    if (open) setFindingsOpened(true);
+  }, []);
   return (
     <div
       onMouseEnter={() => setH(true)}
@@ -77,7 +99,15 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
             0
           </span>
         ) : (
-          <SeverityTally counts={found} />
+          <FindingsPopover
+            counts={found}
+            findings={listedFindings}
+            heading={t("popover.findingsInPr", { count: foundTotal })}
+            repoFullName={repoFullName}
+            headSha={pr.head_sha}
+            onOpenChange={handleFindingsOpen}
+            onSelect={() => router.push(`/repos/${repoId}/pulls/${pr.number}?tab=findings`)}
+          />
         )}
       </div>
       <div>

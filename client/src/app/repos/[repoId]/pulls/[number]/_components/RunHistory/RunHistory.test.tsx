@@ -185,6 +185,23 @@ describe("RunHistory — findings per severity", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("scrolling the page closes a pinned list; scrolling inside the list does not", () => {
+    renderHistory({ "run-1": FOUND });
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
+    fireEvent.scroll(screen.getByRole("dialog"));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.scroll(document);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("scrolling the page also closes a list that is only hovered", () => {
+    renderHistory({ "run-1": FOUND });
+    fireEvent.mouseEnter(screen.getByRole("button", { expanded: false }).parentElement!);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.scroll(document);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("a finding's file links to GitHub and its title jumps to the run's findings", () => {
     const onGoToReview = vi.fn();
     render(
