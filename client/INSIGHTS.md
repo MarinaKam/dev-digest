@@ -43,6 +43,9 @@ only if it is not obvious from reading the code.
 ## Tool & Library Notes
 <!-- Quirks and gotchas of dependencies and tooling. -->
 
+- **2026-11-22** — Biome 2.6.8 is the linter (`pnpm lint`); one `biome.json` at the repo root serves all four packages, each run from its own folder finds it. Things that cost time: (1) the `recommended: true` rule switch is deprecated in favour of `"preset": "recommended"`; (2) file arguments containing `[repoId]` are read as globs and match nothing — lint a directory instead; (3) `role="presentation"` does not satisfy `noStaticElementInteractions`, a wrapper with hover handlers needs a `biome-ignore` with a reason; (4) Tailwind 4 directives in `styles.css` need `css.parser.tailwindDirectives`. Evidence: `biome.json:1`.
+- **2026-11-22** — Starter code fails ~100 recommended rules (mostly a11y in `src/vendor/ui`). They are downgraded to warnings for a fixed list of starter paths in `biome.json` `overrides`; any file outside that list is checked at full strength. Add nothing to the list; fix or suppress one line with a reason. Evidence: `biome.json:33`.
+
 ## Recurring Errors & Fixes
 <!-- Errors seen more than once, with the fix. -->
 

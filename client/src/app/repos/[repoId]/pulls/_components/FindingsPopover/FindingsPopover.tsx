@@ -126,13 +126,15 @@ export function FindingsPopover({
 
   if (counts.CRITICAL + counts.WARNING + counts.SUGGESTION === 0) return null;
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: the wrapper only widens the hover area (trigger + list); keyboard and screen-reader users operate the button inside it, which pins the list
     <span
       ref={rootRef}
       style={s.anchor}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      // The tally can sit inside a clickable row; its clicks are its own.
-      onClick={(e) => e.stopPropagation()}
+      // The tally can sit inside a clickable row. A row must not treat clicks
+      // in here (the trigger, a link, a finding's title) as clicks on itself.
+      data-row-action
     >
       <button
         type="button"

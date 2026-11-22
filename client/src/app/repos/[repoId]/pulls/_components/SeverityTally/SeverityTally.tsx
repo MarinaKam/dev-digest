@@ -2,7 +2,7 @@
    most severe first. Presentational: used in the PR list and in the run
    timeline. Renders nothing when every count is zero; the caller decides what
    an empty tally means there. */
-import React from "react";
+import type React from "react";
 import { useTranslations } from "next-intl";
 import { Icon, SEV } from "@devdigest/ui";
 import type { Severity } from "@devdigest/shared";

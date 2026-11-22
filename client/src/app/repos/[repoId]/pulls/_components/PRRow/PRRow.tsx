@@ -66,7 +66,12 @@ export function PRRow({
     <div
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
-      onClick={() => router.push(`/repos/${repoId}/pulls/${pr.number}`)}
+      onClick={(e) => {
+        // A control inside the row marks itself with `data-row-action`; its
+        // clicks belong to it, not to the row.
+        if ((e.target as HTMLElement).closest("[data-row-action]")) return;
+        router.push(`/repos/${repoId}/pulls/${pr.number}`);
+      }}
       style={s.row(h)}
     >
       <div style={s.rowTitleCell}>

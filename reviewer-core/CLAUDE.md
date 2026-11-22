@@ -8,7 +8,7 @@ The pure review engine: diff -> prompt -> LLM -> structured findings -> groundin
   this source directly.
 
 ## Verify a change
-- `npm run typecheck` and `npm test` here, after every change.
+- `npm run typecheck`, `npm run lint` and `npm test` here, after every change.
 - Then `pnpm typecheck` and the unit tests in `../server/`: the server imports
   this source directly, so a change here can break it without failing here.
 

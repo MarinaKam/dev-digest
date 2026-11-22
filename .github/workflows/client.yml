@@ -10,10 +10,12 @@ on:
     paths:
       - 'client/**'
       - '.github/workflows/client.yml'
+      - 'biome.json'
   pull_request:
     paths:
       - 'client/**'
       - '.github/workflows/client.yml'
+      - 'biome.json'
 
 permissions:
   contents: read
@@ -45,5 +47,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm typecheck
+
+      - run: pnpm lint
 
       - run: pnpm test

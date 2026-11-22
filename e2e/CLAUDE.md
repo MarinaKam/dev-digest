@@ -9,7 +9,7 @@ Deterministic browser flows, driven by the `agent-browser` CLI. Not Playwright.
   before you run it and confirm those ports are free.
 
 ## Verify a change
-- `npm run typecheck` after a change to the runner.
+- `npm run typecheck` and `npm run lint` after a change to the runner.
 - A new or changed flow is run with `npm run e2e:hermetic`. It needs ports
   `:5433`, `:3101` and `:3100` free; a machine that already publishes Postgres
   on `:5433` collides with it.

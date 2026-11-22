@@ -4,7 +4,6 @@
    counts and the active level. */
 "use client";
 
-import React from "react";
 import { useTranslations } from "next-intl";
 import { Icon, SEV } from "@devdigest/ui";
 import type { Severity } from "@devdigest/shared";
@@ -24,7 +23,7 @@ export interface SeverityCountersProps {
 export function SeverityCounters({ counts, active, onSelect }: SeverityCountersProps) {
   const t = useTranslations("prReview");
   return (
-    <div role="group" aria-label={t("panel.severityFilterLabel")} style={s.row}>
+    <fieldset aria-label={t("panel.severityFilterLabel")} style={s.row}>
       {SEVERITY_LEVELS.map((level) => {
         const count = counts[level];
         const isActive = active === level;
@@ -47,6 +46,6 @@ export function SeverityCounters({ counts, active, onSelect }: SeverityCountersP
           </button>
         );
       })}
-    </div>
+    </fieldset>
   );
 }

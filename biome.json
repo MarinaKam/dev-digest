@@ -1,0 +1,78 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.8/schema.json",
+  "root": true,
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": ["**", "!**/src/db/migrations/**", "!**/*.flow.json"]
+  },
+  "formatter": {
+    "enabled": false
+  },
+  "assist": {
+    "enabled": false
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended"
+    },
+    "domains": {
+      "react": "recommended",
+      "next": "recommended"
+    }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "client/src/vendor/ui/**",
+        "client/src/components/diff-viewer/**",
+        "client/src/app/agents/**",
+        "client/src/app/layout.tsx",
+        "client/src/app/repos/*/pulls/page.tsx",
+        "client/src/lib/toast.tsx",
+        "client/src/lib/hooks/reviews.ts",
+        "**/RunTraceDrawer/**",
+        "**/FindingCard/FindingCard.tsx",
+        "**/ReviewRunAccordion/ReviewRunAccordion.tsx",
+        "**/PRRow/PRRow.tsx",
+        "server/src/adapters/codeindex/ripgrep.ts",
+        "server/src/modules/repo-intel/service.ts",
+        "server/src/modules/reviews/run-executor.ts",
+        "server/src/platform/container.ts"
+      ],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "noLabelWithoutControl": "warn",
+            "noStaticElementInteractions": "warn",
+            "noSvgWithoutTitle": "warn",
+            "useButtonType": "warn",
+            "useFocusableInteractive": "warn",
+            "useKeyWithClickEvents": "warn",
+            "useSemanticElements": "warn"
+          },
+          "correctness": {
+            "useExhaustiveDependencies": "warn"
+          },
+          "security": {
+            "noDangerouslySetInnerHtml": "warn"
+          },
+          "suspicious": {
+            "noArrayIndexKey": "warn",
+            "noAssignInExpressions": "warn",
+            "noImplicitAnyLet": "warn"
+          }
+        }
+      }
+    }
+  ]
+}

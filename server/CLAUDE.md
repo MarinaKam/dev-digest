@@ -3,12 +3,12 @@
 Fastify API over Postgres. Imports repos and PRs, indexes them, runs reviews.
 
 ## Commands
-- `pnpm dev` · `pnpm typecheck` · `pnpm db:generate` · `pnpm db:migrate` · `pnpm db:seed`
+- `pnpm dev` · `pnpm typecheck` · `pnpm lint` · `pnpm db:generate` · `pnpm db:migrate` · `pnpm db:seed`
 - Unit (no Docker): `pnpm exec vitest run --exclude '**/*.it.test.ts'`
 - Integration (needs Docker): `pnpm exec vitest run .it.test`
 
 ## Verify a change
-- `pnpm typecheck` after every change.
+- `pnpm typecheck` and `pnpm lint` after every change.
 - Unit tests after every change:
   `pnpm exec vitest run --exclude '**/*.it.test.ts'`.
 - Integration tests when you touch a route, a query or the schema:

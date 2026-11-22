@@ -3,10 +3,11 @@
 Next.js web app. Talks to the API on `:3001`; has no backend logic of its own.
 
 ## Commands
-- `pnpm dev` · `pnpm typecheck` · `pnpm test` · `pnpm build`
+- `pnpm dev` · `pnpm typecheck` · `pnpm lint` · `pnpm test` · `pnpm build`
 
 ## Verify a change
-- `pnpm typecheck` and `pnpm test`, both green, after every change.
+- `pnpm typecheck`, `pnpm lint` and `pnpm test`, all green, after every change.
+  `pnpm lint` passing with warnings is fine; a new error is not.
 - Then look at the change in the running app (`:3000`). Reload the tab first:
   a tab opened before the change can keep showing the old code.
 - A change to `src/vendor/shared` is made in `../server/src/vendor/shared`

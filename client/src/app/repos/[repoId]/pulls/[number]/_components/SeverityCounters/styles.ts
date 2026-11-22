@@ -22,7 +22,17 @@ const pill: CSSProperties = {
 
 /** Co-located styles for SeverityCounters. */
 export const s = {
-  row: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } satisfies CSSProperties,
+  /** A `<fieldset>` (the semantic group), with the browser's frame reset. */
+  row: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+    margin: 0,
+    padding: 0,
+    border: "none",
+    minWidth: 0,
+  } satisfies CSSProperties,
   /** A level that is not the active filter: neutral, no severity colour. */
   pill,
   /** A level without findings: neutral, fainter, not clickable. */

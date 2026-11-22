@@ -61,6 +61,7 @@ export default function PRDetailPage() {
   // started or one of them settled), not only when the last one is done —
   // otherwise a finished agent stays invisible until the slowest one ends.
   const liveRunKey = liveRunIds.join(",");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: liveRunKey is the trigger — the effect must re-run when the set of in-flight runs changes
   React.useEffect(() => {
     if (!prId) return;
     qc.invalidateQueries({ queryKey: ["pr-runs", prId] });
@@ -78,10 +79,10 @@ export default function PRDetailPage() {
   const setTab = (t: string) => setParam("tab", t);
 
   // Reviews come newest-first; each is its own run (grouped into accordions).
-  const reviewList = reviews ?? [];
+  const reviewList = React.useMemo(() => reviews ?? [], [reviews]);
   const allFindings: FindingRecord[] = React.useMemo(
     () => reviewList.flatMap((r) => r.findings),
-    [reviews],
+    [reviewList],
   );
   const lethalTrifecta = allFindings.filter((f) => f.kind === "lethal_trifecta");
   const findingsCount = allFindings.length;

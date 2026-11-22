@@ -26,12 +26,22 @@ Each of these has its own `CLAUDE.md` with the conventions for that module.
 Run the checks of every package you touched, inside that package. A change is
 not done until they pass; quote the output, do not summarise it.
 
-| Package | Type check | Tests |
-|---|---|---|
-| `client/` | `pnpm typecheck` | `pnpm test` |
-| `server/` | `pnpm typecheck` | `pnpm exec vitest run --exclude '**/*.it.test.ts'` (unit) · `pnpm exec vitest run .it.test` (integration, needs Docker) |
-| `reviewer-core/` | `npm run typecheck` | `npm test` |
-| `e2e/` | `npm run typecheck` | `npm run e2e:hermetic` |
+| Package | Type check | Lint | Tests |
+|---|---|---|---|
+| `client/` | `pnpm typecheck` | `pnpm lint` | `pnpm test` |
+| `server/` | `pnpm typecheck` | `pnpm lint` | `pnpm exec vitest run --exclude '**/*.it.test.ts'` (unit) · `pnpm exec vitest run .it.test` (integration, needs Docker) |
+| `reviewer-core/` | `npm run typecheck` | `npm run lint` | `npm test` |
+| `e2e/` | `npm run typecheck` | `npm run lint` | `npm run e2e:hermetic` |
+
+- Lint is Biome (`biome.json` at the repo root, one config for all packages;
+  linter only, formatting is not Biome's job here). `lint` fails on errors.
+  Warnings are the known baseline of the starter code: do not add to them.
+- Never run `biome lint --write` over a package: it rewrites hundreds of
+  starter files. Fix the lines you touched by hand.
+- Silence a rule only on one line, with
+  `// biome-ignore lint/<group>/<rule>: <reason>`. Do not add a file to the
+  `overrides` list in `biome.json` to make new code pass; that list is the
+  baseline of starter files and should only shrink.
 
 - A change in `reviewer-core/` or in `server/src/vendor/shared` also needs
   `pnpm typecheck` in `server/` and, for the shared contracts, in `client/`.
