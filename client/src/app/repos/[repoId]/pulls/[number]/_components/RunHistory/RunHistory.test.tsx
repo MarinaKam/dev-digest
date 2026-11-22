@@ -25,6 +25,7 @@ function run(o: Partial<RunSummary>): RunSummary {
     duration_ms: 1000,
     tokens_in: 100,
     tokens_out: 50,
+    cost_usd: null,
     findings_count: 0,
     grounding: "0/0 passed",
     ran_at: "2026-06-11T18:44:34.000Z",
@@ -71,5 +72,31 @@ describe("RunHistory — outcome badge", () => {
   it("a running run reads 'running'", () => {
     renderRuns([run({ status: "running", score: null, blockers: null })]);
     expect(screen.getByText("running")).toBeInTheDocument();
+  });
+});
+
+describe("RunHistory — run cost", () => {
+  it("a done run with cost data shows the cost and the in→out tokens", () => {
+    renderRuns([run({ status: "done", cost_usd: 0.0013, tokens_in: 9119, tokens_out: 1240 })]);
+    expect(screen.getByText("$0.0013")).toBeInTheDocument();
+    expect(screen.getByText("9.1K→1.2K")).toBeInTheDocument();
+  });
+
+  it("a done run on a free model shows $0.00, not an em dash", () => {
+    renderRuns([run({ status: "done", cost_usd: 0 })]);
+    expect(screen.getByText("$0.00")).toBeInTheDocument();
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
+  });
+
+  it("a done run without cost data shows an em dash", () => {
+    renderRuns([run({ status: "done", cost_usd: null })]);
+    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
+  });
+
+  it.each(["running", "failed", "cancelled"])("a %s run never shows a price", (status) => {
+    renderRuns([run({ status, cost_usd: 0.5, error: status === "failed" ? "boom" : null })]);
+    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
   });
 });

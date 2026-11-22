@@ -12,6 +12,9 @@ import {
   EvalRun,
   MemoryItem,
   RunTrace,
+  RunStats,
+  RunSummary,
+  PrMeta,
   Settings,
   Repo,
   PrDetail,
@@ -206,5 +209,68 @@ describe('platform DTOs', () => {
         commits: [],
       }),
     ).not.toThrow();
+  });
+});
+
+describe('run cost contracts', () => {
+  const stats = { duration_ms: 8200, tokens_in: 8200, tokens_out: 1300, findings: 2, grounding: '2/2 passed' };
+  const summary = {
+    run_id: 'r1',
+    agent_id: 'a1',
+    agent_name: 'Security Reviewer',
+    provider: 'openrouter',
+    model: 'deepseek/deepseek-v4-flash',
+    status: 'done',
+    error: null,
+    duration_ms: 8200,
+    tokens_in: 8200,
+    tokens_out: 1300,
+    findings_count: 2,
+    grounding: '2/2 passed',
+    ran_at: '2026-06-11T18:44:34.000Z',
+    score: 61,
+    blockers: 0,
+  };
+  const pr = {
+    number: 482,
+    title: 't',
+    author: 'a',
+    branch: 'b',
+    base: 'main',
+    head_sha: 'sha',
+    additions: 1,
+    deletions: 0,
+    files_count: 1,
+    status: 'needs_review',
+  };
+
+  it('RunStats keeps a cost, keeps a real zero, and keeps null apart from zero', () => {
+    expect(RunStats.parse({ ...stats, cost_usd: 0.014 }).cost_usd).toBe(0.014);
+    expect(RunStats.parse({ ...stats, cost_usd: 0 }).cost_usd).toBe(0);
+    expect(RunStats.parse({ ...stats, cost_usd: null }).cost_usd).toBeNull();
+  });
+
+  it('RunStats still parses a trace stored before the cost field existed', () => {
+    expect(RunStats.parse(stats).cost_usd ?? null).toBeNull();
+  });
+
+  it('RunSummary requires cost_usd and distinguishes null from zero', () => {
+    expect(RunSummary.parse({ ...summary, cost_usd: 0.014 }).cost_usd).toBe(0.014);
+    expect(RunSummary.parse({ ...summary, cost_usd: 0 }).cost_usd).toBe(0);
+    expect(RunSummary.parse({ ...summary, cost_usd: null }).cost_usd).toBeNull();
+    expect(() => RunSummary.parse(summary)).toThrow();
+  });
+
+  it('PrMeta carries the PR cost on the list endpoint', () => {
+    expect(PrMeta.parse({ ...pr, cost_usd: 0.022 }).cost_usd).toBe(0.022);
+    expect(PrMeta.parse({ ...pr, cost_usd: 0 }).cost_usd).toBe(0);
+    expect(PrMeta.parse({ ...pr, cost_usd: null }).cost_usd).toBeNull();
+    expect(PrMeta.parse(pr).cost_usd ?? null).toBeNull();
+  });
+
+  it('a cost must be a number', () => {
+    expect(() => RunSummary.parse({ ...summary, cost_usd: '0.014' })).toThrow();
+    expect(() => RunStats.parse({ ...stats, cost_usd: '0.014' })).toThrow();
+    expect(() => PrMeta.parse({ ...pr, cost_usd: '0.014' })).toThrow();
   });
 });

@@ -211,6 +211,11 @@ export class ReviewRunExecutor {
         },
       });
       const { tokensIn, tokensOut, grounding } = outcome;
+      // null = the price is unknown; 0 = a free model. Keep them apart (`??`).
+      const costUsd = outcome.costUsd ?? null;
+      runLog.info(
+        `usage: in=${tokensIn} out=${tokensOut} cost=${costUsd == null ? 'unknown' : `$${costUsd}`}`,
+      );
 
       const keptFindings = outcome.review.findings;
 
@@ -245,6 +250,7 @@ export class ReviewRunExecutor {
         durationMs,
         tokensIn,
         tokensOut,
+        costUsd,
         findingsCount: findingRows.length,
         grounding,
         score: outcome.review.score,
@@ -265,6 +271,7 @@ export class ReviewRunExecutor {
           duration_ms: durationMs,
           tokens_in: tokensIn,
           tokens_out: tokensOut,
+          cost_usd: costUsd,
           findings: findingRows.length,
           grounding,
         },
@@ -421,7 +428,7 @@ export class ReviewRunExecutor {
         pr: pull.number,
         source: 'local',
       },
-      stats: { duration_ms: durationMs, tokens_in: 0, tokens_out: 0, findings: 0, grounding },
+      stats: { duration_ms: durationMs, tokens_in: 0, tokens_out: 0, cost_usd: null, findings: 0, grounding },
       prompt_assembly: { system: agent.systemPrompt, skills: null, memory: null, specs: null, user: '' },
       tool_calls: [],
       raw_output: '',

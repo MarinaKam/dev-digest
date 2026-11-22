@@ -110,7 +110,11 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     await pg?.stop();
   });
 
-  function appWith(structured: unknown, provider: 'openai' | 'anthropic' = 'openai') {
+  function appWith(
+    structured: unknown,
+    provider: 'openai' | 'anthropic' = 'openai',
+    llmOpts: { costUsd?: number | null } = {},
+  ) {
     return buildApp({
       config: config(),
       db: pg.handle.db,
@@ -118,7 +122,7 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
         embedder: new MockEmbedder(),
         git: new MockGitClient({ diff: DIFF }),
         llm: {
-          [provider]: new MockLLMProvider(provider, { structured }),
+          [provider]: new MockLLMProvider(provider, { structured, ...llmOpts }),
         },
       },
     });
@@ -297,6 +301,141 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     ).json();
     // seed has 2 enabled agents; we may have created more above in this PR's ws.
     expect(body.runs.length).toBeGreaterThanOrEqual(2);
+    await app.close();
+  });
+
+  // ---- Run cost (spec 001) --------------------------------------------------
+  type App = Awaited<ReturnType<typeof appWith>>;
+
+  async function makeAgent(app: App) {
+    return (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: `Cost-${repoSeq}`, provider: 'openai', model: 'gpt-4.1', system_prompt: 'sec' },
+      })
+    ).json();
+  }
+
+  async function reviewOnce(app: App, prId: string, agentId: string, expected: number) {
+    await app.inject({ method: 'POST', url: `/pulls/${prId}/review`, payload: { agentId } });
+    await waitForPrRuns(pg.handle.db, prId, { expected });
+  }
+
+  async function listedPr(app: App, repoId: string, prId: string) {
+    const list = (await app.inject({ method: 'GET', url: `/repos/${repoId}/pulls` })).json();
+    return list.find((p: { id: string }) => p.id === prId);
+  }
+
+  it('run cost: a completed run stores its cost; runs, trace and run log expose it; the PR list sums runs', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const agent = await makeAgent(app);
+
+    await reviewOnce(app, pr.id, agent.id, 1);
+    await reviewOnce(app, pr.id, agent.id, 2);
+
+    const rows = await pg.handle.db.select().from(t.agentRuns).where(eq(t.agentRuns.prId, pr.id));
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.status).toBe('done');
+      expect(row.costUsd).toBeGreaterThan(0);
+    }
+
+    const runs = (await app.inject({ method: 'GET', url: `/pulls/${pr.id}/runs` })).json();
+    expect(runs).toHaveLength(2);
+    for (const run of runs) {
+      const row = rows.find((r) => r.id === run.run_id)!;
+      expect(run.cost_usd).toBe(row.costUsd);
+
+      const trace = (await app.inject({ method: 'GET', url: `/runs/${run.run_id}/trace` })).json();
+      expect(trace.stats.cost_usd).toBe(row.costUsd);
+      const usageLine = trace.log.find((l: { msg: string }) => l.msg.startsWith('usage:'));
+      expect(usageLine?.msg).toContain(`in=${row.tokensIn} out=${row.tokensOut}`);
+      expect(usageLine?.msg).toContain(`cost=$${row.costUsd}`);
+    }
+
+    const listed = await listedPr(app, repo.id, pr.id);
+    expect(listed.cost_usd).toBeCloseTo(rows[0]!.costUsd! + rows[1]!.costUsd!, 10);
+    await app.close();
+  });
+
+  it('run cost: a free model stores 0 (not null) and the PR list shows 0', async () => {
+    const app = await appWith(REVIEW_FIXTURE, 'openai', { costUsd: 0 });
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const agent = await makeAgent(app);
+    await reviewOnce(app, pr.id, agent.id, 1);
+
+    const [row] = await pg.handle.db.select().from(t.agentRuns).where(eq(t.agentRuns.prId, pr.id));
+    expect(row!.status).toBe('done');
+    expect(row!.costUsd).toBe(0);
+    expect((await listedPr(app, repo.id, pr.id)).cost_usd).toBe(0);
+    await app.close();
+  });
+
+  it('run cost: an unknown price stores null and the PR list shows null (not 0)', async () => {
+    const app = await appWith(REVIEW_FIXTURE, 'openai', { costUsd: null });
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const agent = await makeAgent(app);
+    await reviewOnce(app, pr.id, agent.id, 1);
+
+    const [row] = await pg.handle.db.select().from(t.agentRuns).where(eq(t.agentRuns.prId, pr.id));
+    expect(row!.status).toBe('done');
+    expect(row!.costUsd).toBeNull();
+    const runs = (await app.inject({ method: 'GET', url: `/pulls/${pr.id}/runs` })).json();
+    expect(runs[0].cost_usd).toBeNull();
+    expect((await listedPr(app, repo.id, pr.id)).cost_usd).toBeNull();
+    await app.close();
+  });
+
+  it('run cost: a failed run stores no cost and does not count in the PR list', async () => {
+    // A fixture that fails the Review schema makes the mock model call throw.
+    const app = await appWith({ not: 'a review' });
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const agent = await makeAgent(app);
+    await reviewOnce(app, pr.id, agent.id, 1);
+
+    const [row] = await pg.handle.db.select().from(t.agentRuns).where(eq(t.agentRuns.prId, pr.id));
+    expect(row!.status).toBe('failed');
+    expect(row!.costUsd).toBeNull();
+    const trace = (await app.inject({ method: 'GET', url: `/runs/${row!.id}/trace` })).json();
+    expect(trace.stats.cost_usd).toBeNull();
+    expect((await listedPr(app, repo.id, pr.id)).cost_usd).toBeNull();
+    await app.close();
+  });
+
+  it('run cost: the PR list counts completed runs only, even if another run carries a cost', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const base = { workspaceId, prId: pr.id, provider: 'openai', model: 'gpt-4.1' };
+    await pg.handle.db.insert(t.agentRuns).values([
+      { ...base, status: 'done', costUsd: 0.01 },
+      { ...base, status: 'done', costUsd: 0.02 },
+      { ...base, status: 'done', costUsd: null },
+      { ...base, status: 'running', costUsd: 0.5 },
+      { ...base, status: 'failed', costUsd: 0.5 },
+      { ...base, status: 'cancelled', costUsd: 0.5 },
+    ]);
+    expect((await listedPr(app, repo.id, pr.id)).cost_usd).toBeCloseTo(0.03, 10);
+    await app.close();
+  });
+
+  it('run cost: a PR whose only costed runs are not completed lists a null cost', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const base = { workspaceId, prId: pr.id, provider: 'openai', model: 'gpt-4.1' };
+    await pg.handle.db.insert(t.agentRuns).values([
+      { ...base, status: 'running', costUsd: 0.5 },
+      { ...base, status: 'failed', costUsd: 0.5 },
+    ]);
+    expect((await listedPr(app, repo.id, pr.id)).cost_usd).toBeNull();
+    await app.close();
+  });
+
+  it('run cost: a PR with no runs lists a null cost', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    expect((await listedPr(app, repo.id, pr.id)).cost_usd).toBeNull();
     await app.close();
   });
 });
