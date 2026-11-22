@@ -45,3 +45,10 @@ Each of these has its own `CLAUDE.md` with the conventions for that module.
   the session ends, append what you learned that the code does not show and that
   the file does not already hold (skill `engineering-insights`). Never rewrite
   entries.
+
+## Homework pull requests
+- Homework is submitted as a pull request in my fork: `gh pr create --repo MarinaKam/dev-digest --base main`.
+- Write the description by filling in every section of `.github/pull_request_template.md`. Do not replace the template with free text.
+- Paste the homework checklist from the course materials; if I have not given it to you, ask me for it.
+- "Not done / known limits" must list every open item from your final report.
+- Remind me to record and attach the screencast before the PR is ready.
