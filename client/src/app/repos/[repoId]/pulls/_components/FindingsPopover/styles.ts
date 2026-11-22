@@ -12,10 +12,10 @@ export const s = {
     font: "inherit",
     cursor: "pointer",
   } satisfies CSSProperties,
-  /** Placed flush under the trigger (coordinates come from the component) so
-      the pointer can travel into the panel without leaving the hover area;
-      the gap is padding, not margin. */
-  bridge: { position: "fixed", zIndex: 50, paddingTop: 6 } satisfies CSSProperties,
+  /** Placed flush against the trigger, under or above it (coordinates and the
+      padding that makes the gap come from the component), so the pointer can
+      travel into the panel without leaving the hover area. */
+  bridge: { position: "fixed", zIndex: 50 } satisfies CSSProperties,
   panel: {
     width: 400,
     overflowY: "auto",

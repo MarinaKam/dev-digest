@@ -187,6 +187,15 @@ describe("PRRow — findings list", () => {
     ]);
   });
 
+  it("says so when the counts promise findings but none could be loaded", () => {
+    usePrReviews.mockReturnValue({ data: [] });
+    renderRow(pr({ findings_by_severity: COUNTS }));
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("No findings to show");
+    expect(within(dialog).queryAllByRole("listitem")).toHaveLength(0);
+  });
+
   it("opening the list does not open the PR; a finding's title opens its findings tab", () => {
     usePrReviews.mockReturnValue({ data: [review({ findings: [finding("c", "CRITICAL", "SSRF")] })] });
     renderRow(pr({ findings_by_severity: { CRITICAL: 1, WARNING: 0, SUGGESTION: 0 } }));
@@ -194,5 +203,21 @@ describe("PRRow — findings list", () => {
     expect(push).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "SSRF" }));
     expect(push).toHaveBeenCalledWith("/repos/repo-1/pulls/455?tab=findings");
+  });
+});
+
+describe("PRRow — results while a review is running", () => {
+  it("marks the previous score and findings as out of date", () => {
+    renderRow(pr({ active_runs: 1, score: 50, findings_by_severity: { CRITICAL: 1, WARNING: 0, SUGGESTION: 0 } }));
+    expect(screen.getByTestId("pr-findings").style.opacity).toBe("0.4");
+    expect(screen.getByTestId("pr-score").style.opacity).toBe("0.4");
+    expect(screen.getByTestId("pr-findings")).toHaveAttribute("title", "From the previous review — a new one is running");
+  });
+
+  it("shows them at full strength when nothing is running", () => {
+    renderRow(pr({ active_runs: 0, score: 50, findings_by_severity: { CRITICAL: 1, WARNING: 0, SUGGESTION: 0 } }));
+    expect(screen.getByTestId("pr-findings").style.opacity).toBe("");
+    expect(screen.getByTestId("pr-score").style.opacity).toBe("");
+    expect(screen.getByTestId("pr-findings")).not.toHaveAttribute("title");
   });
 });

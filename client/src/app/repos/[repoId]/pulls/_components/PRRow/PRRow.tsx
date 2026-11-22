@@ -26,6 +26,8 @@ const reviewingStyle: React.CSSProperties = {
 // `ddspin` is the global spin keyframe of the UI kit (src/vendor/ui/styles.css),
 // the same one the "Review in progress…" banner on the PR page uses.
 const spinnerStyle: React.CSSProperties = { animation: "ddspin 1s linear infinite" };
+/** Score and findings of the previous review while a new one is running. */
+const outdatedStyle: React.CSSProperties = { opacity: 0.4 };
 
 export function PRRow({
   pr,
@@ -44,6 +46,9 @@ export function PRRow({
   const { size, lines } = sizeOf(pr);
   const reviewed = pr.score != null; // null score ⇒ PR has never been reviewed
   const activeRuns = pr.active_runs ?? 0;
+  // While a review runs, the score and findings shown are the previous
+  // review's: they stay visible but step back until the new ones arrive.
+  const reviewing = activeRuns > 0;
   const found = pr.findings_by_severity ?? null; // null ⇒ never reviewed
   const foundTotal = found ? found.CRITICAL + found.WARNING + found.SUGGESTION : 0;
   // The list endpoint carries counts only; the findings themselves are loaded
@@ -86,14 +91,18 @@ export function PRRow({
           {size} · {lines}
         </Badge>
       </div>
-      <div style={s.scoreCell}>
+      <div data-testid="pr-score" style={reviewing ? { ...s.scoreCell, ...outdatedStyle } : s.scoreCell}>
         {reviewed ? (
           <CircularScore score={pr.score!} size={34} stroke={3} />
         ) : (
           <span style={s.muted}>—</span>
         )}
       </div>
-      <div data-testid="pr-findings">
+      <div
+        data-testid="pr-findings"
+        style={reviewing ? outdatedStyle : undefined}
+        title={reviewing ? t("list.status.outdated") : undefined}
+      >
         {found === null ? (
           <span style={s.muted}>—</span>
         ) : foundTotal === 0 ? (
@@ -113,7 +122,7 @@ export function PRRow({
         )}
       </div>
       <div>
-        {activeRuns > 0 ? (
+        {reviewing ? (
           <span role="status" style={reviewingStyle}>
             <Icon.RefreshCw size={12} style={spinnerStyle} aria-hidden />
             {t("list.status.reviewing", { count: activeRuns })}

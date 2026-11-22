@@ -75,7 +75,8 @@
       "needs_review": "Needs review",
       "reviewed": "Reviewed",
       "stale": "Stale",
-      "reviewing": "{count, plural, one {Reviewing…} other {Reviewing · # agents}}"
+      "reviewing": "{count, plural, one {Reviewing…} other {Reviewing · # agents}}",
+      "outdated": "From the previous review — a new one is running"
     },
     "filter": {
       "all": "All",
@@ -109,6 +110,7 @@
   },
   "popover": {
     "loading": "Loading findings…",
+    "empty": "No findings to show",
     "findingsInPr": "{count, plural, one {# finding} other {# findings}}"
   },
   "timeline": {

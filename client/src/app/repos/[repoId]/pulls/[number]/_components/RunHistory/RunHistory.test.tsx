@@ -202,6 +202,30 @@ describe("RunHistory — findings per severity", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("opens above the tally when there is no room below it", () => {
+    renderHistory({ "run-1": FOUND });
+    const trigger = screen.getByRole("button", { expanded: false });
+    const rect = (top: number, bottom: number) =>
+      ({ top, bottom, left: 100, right: 160, width: 60, height: bottom - top, x: 100, y: top, toJSON: () => ({}) }) as DOMRect;
+    const spy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect");
+
+    // jsdom's viewport is 768px tall: a tally at the very bottom has no room below.
+    spy.mockReturnValue(rect(730, 750));
+    fireEvent.click(trigger);
+    const wrapperAbove = screen.getByRole("dialog").parentElement!;
+    expect(wrapperAbove.style.bottom).toBe(`${window.innerHeight - 730}px`);
+    expect(wrapperAbove.style.top).toBe("");
+    fireEvent.click(trigger);
+
+    // A tally near the top has room below: the list hangs under it.
+    spy.mockReturnValue(rect(100, 120));
+    fireEvent.click(trigger);
+    const wrapperBelow = screen.getByRole("dialog").parentElement!;
+    expect(wrapperBelow.style.top).toBe("120px");
+    expect(wrapperBelow.style.bottom).toBe("");
+    spy.mockRestore();
+  });
+
   it("a finding's file links to GitHub and its title jumps to the run's findings", () => {
     const onGoToReview = vi.fn();
     render(

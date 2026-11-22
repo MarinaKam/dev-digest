@@ -20,16 +20,27 @@ const PANEL_WIDTH = 400;
 const VIEWPORT_MARGIN = 12;
 const MIN_PANEL_HEIGHT = 160;
 const MAX_PANEL_HEIGHT = 420;
+/** Gap between the trigger and the panel; it is padding of the hover area. */
+const TRIGGER_GAP = 6;
 
-/** Where to put the list for a trigger at `rect`: under it, kept inside the
-    viewport horizontally, and no taller than the room left below. */
-function placeBelow(rect: DOMRect): React.CSSProperties {
+/** Where to put the list for a trigger at `rect`: under it when there is room
+    for a useful height, otherwise above it when that side has more room. It is
+    kept inside the viewport horizontally and never taller than the room on the
+    chosen side. */
+function placeAround(rect: DOMRect): { wrapper: React.CSSProperties; maxHeight: number } {
   const maxLeft = window.innerWidth - PANEL_WIDTH - VIEWPORT_MARGIN;
-  const room = window.innerHeight - rect.bottom - VIEWPORT_MARGIN;
+  const left = Math.max(VIEWPORT_MARGIN, Math.min(rect.left, maxLeft));
+  const roomBelow = window.innerHeight - rect.bottom - VIEWPORT_MARGIN - TRIGGER_GAP;
+  const roomAbove = rect.top - VIEWPORT_MARGIN - TRIGGER_GAP;
+  if (roomBelow >= MIN_PANEL_HEIGHT || roomBelow >= roomAbove) {
+    return {
+      wrapper: { top: rect.bottom, left, paddingTop: TRIGGER_GAP },
+      maxHeight: Math.max(0, Math.min(MAX_PANEL_HEIGHT, roomBelow)),
+    };
+  }
   return {
-    top: rect.bottom,
-    left: Math.max(VIEWPORT_MARGIN, Math.min(rect.left, maxLeft)),
-    maxHeight: Math.max(MIN_PANEL_HEIGHT, Math.min(MAX_PANEL_HEIGHT, room)),
+    wrapper: { bottom: window.innerHeight - rect.top, left, paddingBottom: TRIGGER_GAP },
+    maxHeight: Math.max(0, Math.min(MAX_PANEL_HEIGHT, roomAbove)),
   };
 }
 
@@ -78,10 +89,10 @@ export function FindingsPopover({
 
   // The list is placed in viewport coordinates (position: fixed) so that a
   // clipping ancestor — the PR table card — cannot cut it off.
-  const [place, setPlace] = React.useState<React.CSSProperties | null>(null);
+  const [place, setPlace] = React.useState<ReturnType<typeof placeAround> | null>(null);
   React.useLayoutEffect(() => {
     if (!open || !rootRef.current) return;
-    setPlace(placeBelow(rootRef.current.getBoundingClientRect()));
+    setPlace(placeAround(rootRef.current.getBoundingClientRect()));
   }, [open]);
 
   // An open list closes when anything but the list itself is scrolled: it is
@@ -133,7 +144,7 @@ export function FindingsPopover({
         <SeverityTally counts={counts} />
       </button>
       {open && (
-        <div style={{ ...s.bridge, ...place }}>
+        <div style={{ ...s.bridge, ...place?.wrapper }}>
           <div role="dialog" aria-label={heading} style={{ ...s.panel, maxHeight: place?.maxHeight }}>
             <div style={s.heading}>
               <Icon.FileText size={12} aria-hidden />
@@ -141,6 +152,10 @@ export function FindingsPopover({
             </div>
             {findings === undefined ? (
               <div style={s.loading}>{t("popover.loading")}</div>
+            ) : findings.length === 0 ? (
+              // The counts and the findings come from different requests; if
+              // they disagree, say so instead of showing a bare heading.
+              <div style={s.loading}>{t("popover.empty")}</div>
             ) : (
               <ul style={s.list}>
                 {findings.map((f) => {
