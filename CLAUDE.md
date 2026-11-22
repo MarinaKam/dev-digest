@@ -41,5 +41,7 @@ Each of these has its own `CLAUDE.md` with the conventions for that module.
 - Read `TESTING.md` before you add or move a test.
 - Read `<module>/specs/` before you implement or change a feature in that module.
   A feature that spans packages is specified in `server/specs/`.
-- Read `<module>/LEARNINGS.md` before you debug in that module. When you learn
-  something the code does not show, append a dated entry. Never rewrite entries.
+- Read `<module>/INSIGHTS.md` before you start any work in that module. Before
+  the session ends, append what you learned that the code does not show and that
+  the file does not already hold (skill `engineering-insights`). Never rewrite
+  entries.

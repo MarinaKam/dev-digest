@@ -22,6 +22,6 @@ Deterministic browser flows, driven by the `agent-browser` CLI. Not Playwright.
 - Read `README.md` before you write, run or debug a flow.
 - Read `docs/` when you need the reasoning behind the flow conventions.
 - Read `../server/specs/` or `../client/specs/` for the feature a flow covers.
-- Read `LEARNINGS.md` before you debug a failing flow. Append a dated entry when
+- Read `INSIGHTS.md` before you start any work here. Append a dated entry when
   you learn something the code does not show. Never rewrite entries.
 - Read `../TESTING.md` before you add a flow.

@@ -36,6 +36,6 @@ Fastify API over Postgres. Imports repos and PRs, indexes them, runs reviews.
   review context built from it.
 - Read `docs/` when you need the reasoning behind a module's design.
 - Read `specs/` before you implement or change a feature.
-- Read `LEARNINGS.md` before you debug here. Append a dated entry when you learn
+- Read `INSIGHTS.md` before you start any work here. Append a dated entry when you learn
   something the code does not show. Never rewrite entries.
 - Read `../TESTING.md` before you add or move a test.

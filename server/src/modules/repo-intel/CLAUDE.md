@@ -21,5 +21,5 @@ only read the result.
 ## Read when
 - Read `README.md` when you need the pipeline stages or the list of facade methods.
 - Read `../../../specs/` before you implement or change a feature that uses the index.
-- Read `LEARNINGS.md` before you debug indexing or ranking. Append a dated entry
+- Read `INSIGHTS.md` before you start any work here. Append a dated entry
   when you learn something the code does not show. Never rewrite entries.

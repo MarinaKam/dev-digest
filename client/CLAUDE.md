@@ -25,6 +25,6 @@ Next.js web app. Talks to the API on `:3001`; has no backend logic of its own.
 - Read `docs/` when you need the reasoning behind a screen or a UI pattern.
 - Read `specs/` before you implement or change a feature. A feature that also
   changes the API is specified in `../server/specs/`.
-- Read `LEARNINGS.md` before you debug here. Append a dated entry when you learn
+- Read `INSIGHTS.md` before you start any work here. Append a dated entry when you learn
   something the code does not show. Never rewrite entries.
 - Read `../TESTING.md` before you add or move a test.

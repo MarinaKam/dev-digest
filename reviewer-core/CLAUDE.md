@@ -25,6 +25,6 @@ The pure review engine: diff -> prompt -> LLM -> structured findings -> groundin
 - Read `README.md` when you change a pipeline stage or the public API.
 - Read `docs/` when you need the reasoning behind a prompt or grounding decision.
 - Read `specs/` before you implement or change a feature.
-- Read `LEARNINGS.md` before you debug here. Append a dated entry when you learn
+- Read `INSIGHTS.md` before you start any work here. Append a dated entry when you learn
   something the code does not show. Never rewrite entries.
 - Read `../TESTING.md` before you add or move a test.
