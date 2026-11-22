@@ -55,7 +55,6 @@ export function VerdictBanner({
         </div>
         {summary && <p style={s.summary}>{summary}</p>}
         <div style={s.costLine}>
-          <Icon.DollarSign size={11} style={s.costIcon} />
           <RunCostBadge variant="full" costUsd={costUsd} tokensIn={tokensIn} tokensOut={tokensOut} />
         </div>
       </div>
