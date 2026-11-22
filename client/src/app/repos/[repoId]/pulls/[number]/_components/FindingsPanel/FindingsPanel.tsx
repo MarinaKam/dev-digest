@@ -69,7 +69,10 @@ export function FindingsPanel({
     <div>
       <div style={s.toolbar}>
         {findings.length > 0 && (
-          <SeverityCounters counts={counts} active={severity} onSelect={selectSeverity} />
+          <>
+            <SeverityCounters counts={counts} active={severity} onSelect={selectSeverity} />
+            <span style={s.divider} aria-hidden />
+          </>
         )}
         <div style={s.toggleGroup}>
           {t("panel.hideLowConfidence")}

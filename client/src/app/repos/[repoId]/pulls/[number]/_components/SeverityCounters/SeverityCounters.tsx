@@ -6,11 +6,11 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { SEV } from "@devdigest/ui";
+import { Icon, SEV } from "@devdigest/ui";
 import type { Severity } from "@devdigest/shared";
 import { SEVERITY_LEVELS } from "../FindingsPanel/constants";
 import type { SeverityCounts } from "../FindingsPanel/helpers";
-import { pillStyle, s } from "./styles";
+import { activePillStyle, s } from "./styles";
 
 export interface SeverityCountersProps {
   /** Findings of the run per level. A level with 0 is shown muted and disabled. */
@@ -29,8 +29,9 @@ export function SeverityCounters({ counts, active, onSelect }: SeverityCountersP
         const count = counts[level];
         const isActive = active === level;
         const isEmpty = count === 0;
-        // While a filter is on, the levels it hides step back.
-        const isDimmed = active !== null && !isActive;
+        const sev = SEV[level];
+        const LevelIcon = Icon[sev.icon];
+        const style = isEmpty ? s.empty : isActive ? activePillStyle(sev.c, sev.bg) : s.pill;
         return (
           <button
             key={level}
@@ -39,9 +40,10 @@ export function SeverityCounters({ counts, active, onSelect }: SeverityCountersP
             disabled={isEmpty}
             aria-pressed={isActive}
             onClick={() => onSelect(isActive ? null : level)}
-            style={isEmpty ? s.empty : pillStyle(SEV[level].c, isActive, isDimmed)}
+            style={style}
           >
-            {t("panel.severityCount", { count, level: SEV[level].label.toUpperCase() })}
+            <LevelIcon size={12} aria-hidden />
+            {t("panel.severityCount", { count, level: sev.label })}
           </button>
         );
       })}

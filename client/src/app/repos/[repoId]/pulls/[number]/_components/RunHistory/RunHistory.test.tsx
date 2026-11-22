@@ -4,10 +4,10 @@
  * a settled run is colored/labelled by its denormalized blocker/finding counts,
  * and shows the review score ring.
  */
-import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import type { RunSummary } from "@devdigest/shared";
+import type { FindingRecord, RunSummary } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
 import { RunHistory } from "./RunHistory";
 
@@ -102,7 +102,34 @@ describe("RunHistory — run cost", () => {
 });
 
 describe("RunHistory — findings per severity", () => {
-  function renderHistory(findingsByRun?: Record<string, { CRITICAL: number; WARNING: number; SUGGESTION: number }>) {
+  function finding(id: string, severity: FindingRecord["severity"], title: string): FindingRecord {
+    return {
+      id,
+      severity,
+      category: "security",
+      title,
+      file: "src/a.ts",
+      start_line: 19,
+      end_line: 55,
+      rationale: "Because of this.",
+      suggestion: null,
+      confidence: 0.95,
+      kind: "finding",
+      trifecta_components: null,
+      evidence: null,
+      review_id: "r1",
+      accepted_at: null,
+      dismissed_at: null,
+    };
+  }
+
+  const FOUND = [
+    finding("w1", "WARNING", "Date range is inclusive"),
+    finding("c1", "CRITICAL", "Endpoints are unauthenticated"),
+    finding("c2", "CRITICAL", "Secret in config"),
+  ];
+
+  function renderHistory(findingsByRun?: Record<string, FindingRecord[]>) {
     render(
       <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
         <RunHistory
@@ -115,7 +142,7 @@ describe("RunHistory — findings per severity", () => {
   }
 
   it("shows a count per severity for a settled run and keeps the blockers", () => {
-    renderHistory({ "run-1": { CRITICAL: 2, WARNING: 1, SUGGESTION: 0 } });
+    renderHistory({ "run-1": FOUND });
     expect(screen.getByLabelText("2 Critical")).toBeInTheDocument();
     expect(screen.getByLabelText("1 Warning")).toBeInTheDocument();
     expect(screen.queryByLabelText(/Suggestion/)).not.toBeInTheDocument();
@@ -123,11 +150,72 @@ describe("RunHistory — findings per severity", () => {
     expect(screen.queryByText(/3 finding\(s\)/)).not.toBeInTheDocument();
   });
 
+  it("previews the run's findings on hover, most severe first, and hides them on leave", () => {
+    renderHistory({ "run-1": FOUND });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    const trigger = screen.getByRole("button", { expanded: false });
+    fireEvent.mouseEnter(trigger.parentElement!);
+    const dialog = screen.getByRole("dialog", { name: "3 findings in this run" });
+    expect(within(dialog).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      expect.stringContaining("Endpoints are unauthenticated"),
+      expect.stringContaining("Secret in config"),
+      expect.stringContaining("Date range is inclusive"),
+    ]);
+    expect(dialog).toHaveTextContent("src/a.ts:19-55");
+    expect(dialog).toHaveTextContent("95% conf");
+    fireEvent.mouseLeave(trigger.parentElement!);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("a click pins the list open; Escape, a second click or a click outside closes it", () => {
+    renderHistory({ "run-1": FOUND });
+    const trigger = screen.getByRole("button", { expanded: false });
+    fireEvent.click(trigger);
+    fireEvent.mouseLeave(trigger.parentElement!);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.click(trigger);
+    fireEvent.click(trigger);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.click(trigger);
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("a finding's file links to GitHub and its title jumps to the run's findings", () => {
+    const onGoToReview = vi.fn();
+    render(
+      <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
+        <RunHistory
+          runs={[run({ findings_count: 3, blockers: 2 })]}
+          onOpenTrace={() => {}}
+          onGoToReview={onGoToReview}
+          findingsByRun={{ "run-1": FOUND }}
+          repoFullName="acme/app"
+          headSha="abc123"
+        />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
+    const dialog = screen.getByRole("dialog");
+    const link = within(dialog).getAllByRole("link")[0]!;
+    expect(link).toHaveAttribute("href", expect.stringContaining("github.com/acme/app/blob/abc123/src/a.ts"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Secret in config" }));
+    expect(onGoToReview).toHaveBeenCalledWith("run-1");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("falls back to the plain finding count when the run's findings are not loaded", () => {
     renderHistory();
     expect(screen.getByText(/3 finding\(s\)/)).toBeInTheDocument();
     cleanup();
-    renderHistory({ "another-run": { CRITICAL: 1, WARNING: 0, SUGGESTION: 0 } });
+    renderHistory({ "another-run": FOUND });
+    expect(screen.getByText(/3 finding\(s\)/)).toBeInTheDocument();
+    cleanup();
+    renderHistory({ "run-1": [] });
     expect(screen.getByText(/3 finding\(s\)/)).toBeInTheDocument();
   });
 });

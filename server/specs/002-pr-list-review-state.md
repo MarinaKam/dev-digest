@@ -17,7 +17,7 @@ severity there are.
 |---|---|---|
 | PR list | STATUS column | `Reviewing…` with a spinner while a review runs, instead of the review status |
 | PR list | new FINDINGS column, between SCORE and STATUS | an icon and a count per severity, e.g. `⊘ 2  ⚠ 1` |
-| PR detail, Timeline | second line of a settled run | the same icon-and-count tally, then ` · N blockers` |
+| PR detail, Timeline | second line of a settled run | the same icon-and-count tally, then ` · N blockers`; hover or click lists the run's findings |
 
 ## Rules
 
@@ -39,8 +39,16 @@ severity there are.
 8. **The timeline tally is the run's own findings**, counted from the review
    loaded for the page. A run whose review is not loaded (for example, the
    review was deleted) keeps the plain `N finding(s)` text.
-9. **Colours, icons and level names come from `SEV` / `SeverityBadge`.** Each
-   count carries a text label (`2 Critical`) for assistive technology.
+9. **Colours, icons and level names come from `SEV`.** Each count carries a
+   text label (`2 Critical`) for assistive technology.
+10. **The timeline tally opens the run's findings.** Hovering it previews the
+    list ("N findings in this run": severity, title, category, file:line,
+    confidence, the start of the rationale, most severe first) and the pointer
+    can move into the list. A click pins it open; Escape, a second click or a
+    click outside closes it.
+11. **The list is navigable, not actionable.** A finding's file opens on GitHub
+    at the reviewed commit; its title jumps to the run's findings below. Accept
+    and dismiss stay in the run's panel.
 
 ## API changes
 
@@ -54,8 +62,8 @@ No schema change, no migration.
 
 ## Out of scope
 
-The hover popover with finding titles on the list's FINDINGS column and on the
-timeline tally, a progress percentage, a live push channel for the list (it
+The hover list of findings on the PR list's FINDINGS column (the list endpoint
+returns counts, not findings), a progress percentage, a live push channel for the list (it
 polls), a FINDINGS filter or sort on the list.
 
 ## Known limits

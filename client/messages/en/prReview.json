@@ -109,6 +109,7 @@
   },
   "timeline": {
     "goToReview": "Jump to this run’s findings below",
+    "findingsInRun": "{count, plural, one {# finding in this run} other {# findings in this run}}",
     "openTrace": "Open run trace & logs",
     "deleteRun": "Delete run"
   }

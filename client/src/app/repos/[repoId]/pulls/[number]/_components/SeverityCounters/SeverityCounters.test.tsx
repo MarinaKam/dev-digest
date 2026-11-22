@@ -25,15 +25,15 @@ describe("SeverityCounters", () => {
   it("shows a counter for each of the three levels, most severe first", () => {
     renderCounters();
     expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual([
-      "1 CRITICAL",
-      "3 WARNING",
-      "1 SUGGESTION",
+      "1 Critical",
+      "3 Warning",
+      "1 Suggestion",
     ]);
   });
 
   it("a level without findings shows 0 and cannot be clicked", () => {
     const { onSelect } = renderCounters({ counts: { CRITICAL: 0, WARNING: 2, SUGGESTION: 2 } });
-    const critical = screen.getByRole("button", { name: "0 CRITICAL" });
+    const critical = screen.getByRole("button", { name: "0 Critical" });
     expect(critical).toBeDisabled();
     fireEvent.click(critical);
     expect(onSelect).not.toHaveBeenCalled();
@@ -41,41 +41,50 @@ describe("SeverityCounters", () => {
 
   it("clicking a level selects it", () => {
     const { onSelect } = renderCounters();
-    fireEvent.click(screen.getByRole("button", { name: "3 WARNING" }));
+    fireEvent.click(screen.getByRole("button", { name: "3 Warning" }));
     expect(onSelect).toHaveBeenCalledWith("WARNING");
   });
 
   it("clicking the active level clears the filter", () => {
     const { onSelect } = renderCounters({ active: "WARNING" });
-    fireEvent.click(screen.getByRole("button", { name: "3 WARNING" }));
+    fireEvent.click(screen.getByRole("button", { name: "3 Warning" }));
     expect(onSelect).toHaveBeenCalledWith(null);
   });
 
   it("clicking another level moves the selection to it", () => {
     const { onSelect } = renderCounters({ active: "WARNING" });
-    fireEvent.click(screen.getByRole("button", { name: "1 CRITICAL" }));
+    fireEvent.click(screen.getByRole("button", { name: "1 Critical" }));
     expect(onSelect).toHaveBeenCalledWith("CRITICAL");
   });
 
   it("marks only the active level as pressed", () => {
     renderCounters({ active: "WARNING" });
-    expect(screen.getByRole("button", { name: "3 WARNING" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "1 CRITICAL" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: "1 SUGGESTION" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "3 Warning" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "1 Critical" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "1 Suggestion" })).toHaveAttribute(
       "aria-pressed",
       "false",
     );
   });
 
-  it("fades the other levels while a filter is on, and none when it is off", () => {
+  it("colours only the active level; the others stay neutral", () => {
     renderCounters({ active: "WARNING" });
-    expect(screen.getByRole("button", { name: "3 WARNING" })).toHaveStyle({ opacity: "1" });
-    expect(screen.getByRole("button", { name: "1 CRITICAL" })).toHaveStyle({ opacity: "0.45" });
-    expect(screen.getByRole("button", { name: "1 SUGGESTION" })).toHaveStyle({ opacity: "0.45" });
-    cleanup();
+    const warning = screen.getByRole("button", { name: "3 Warning" });
+    expect(warning.style.borderColor).toBe("var(--warn)");
+    expect(warning.style.color).toBe("var(--warn)");
+    expect(warning.style.background).toBe("var(--warn-bg)");
+    for (const name of ["1 Critical", "1 Suggestion"]) {
+      const other = screen.getByRole("button", { name });
+      expect(other.style.borderColor).toBe("var(--border-strong)");
+      expect(other.style.color).toBe("var(--text-secondary)");
+    }
+  });
+
+  it("all levels look the same when the filter is off", () => {
     renderCounters();
     for (const button of screen.getAllByRole("button")) {
-      expect(button).toHaveStyle({ opacity: "1" });
+      expect(button.style.borderColor).toBe("var(--border-strong)");
+      expect(button.style.background).toBe("transparent");
     }
   });
 

@@ -31,6 +31,9 @@ only if it is not obvious from reading the code.
 
 - **2026-11-21** — A hook in `src/lib/hooks/` that needs a rule (for example a polling interval that depends on the data) exports the rule as a pure function next to the hook and tests it there (`core.test.ts`). Do not import helpers from `src/app/...` into `src/lib/`: the dependency points the wrong way. Evidence: `client/src/lib/hooks/core.ts:108`.
 
+- **2026-11-21** — Supersedes the 2026-11-21 entry on white text over a severity fill: the severity counters no longer use a solid fill. The active counter is the severity colour as text and border on the `--*-bg` tint, like `SeverityBadge`; inactive counters are neutral grey. The contrast figures in that entry still hold for any future solid fill. Evidence: `client/src/app/repos/[repoId]/pulls/[number]/_components/SeverityCounters/styles.ts:39`.
+- **2026-11-21** — A hover popover whose panel is offset with `margin` closes while the pointer crosses the gap. Put the gap inside the hover area: an absolutely positioned wrapper flush under the trigger with `paddingTop`, and the panel inside it. Pin on click for content with links. Evidence: `client/src/app/repos/[repoId]/pulls/[number]/_components/RunFindingsPopover/styles.ts:16`.
+
 ## Tool & Library Notes
 <!-- Quirks and gotchas of dependencies and tooling. -->
 

@@ -1,32 +1,31 @@
 import type { CSSProperties } from "react";
 
-/** Text on a pill filled with a severity colour. The page background gives a
-    dark label on the bright dark-theme colours and a light label on the deeper
-    light-theme ones; plain white is below 4.5:1 on all three dark-theme colours. */
-const ON_SEVERITY_COLOR = "var(--bg-primary)";
-
 const pill: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  padding: "4px 12px",
+  gap: 6,
+  padding: "3px 10px",
   borderRadius: 99,
   // Longhand only: `borderColor` changes per pill, and React warns when a
   // longhand is updated next to the `border` shorthand.
   borderWidth: 1,
   borderStyle: "solid",
+  borderColor: "var(--border-strong)",
   background: "transparent",
+  color: "var(--text-secondary)",
   fontSize: 12,
-  fontWeight: 600,
-  letterSpacing: "0.04em",
+  fontWeight: 500,
   whiteSpace: "nowrap",
   cursor: "pointer",
-  transition: "background .12s, color .12s, opacity .12s",
+  transition: "background .12s, color .12s, border-color .12s",
 };
 
 /** Co-located styles for SeverityCounters. */
 export const s = {
   row: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } satisfies CSSProperties,
+  /** A level that is not the active filter: neutral, no severity colour. */
   pill,
+  /** A level without findings: neutral, fainter, not clickable. */
   empty: {
     ...pill,
     borderColor: "var(--border)",
@@ -35,17 +34,7 @@ export const s = {
   } satisfies CSSProperties,
 } as const;
 
-/** Opacity of a level that the active filter hides. */
-const DIMMED_OPACITY = 0.45;
-
-/** Outlined in the severity colour; filled with it when the level is the active
-    filter; faded when another level is the active filter. */
-export function pillStyle(color: string, active: boolean, dimmed: boolean): CSSProperties {
-  return {
-    ...pill,
-    borderColor: color,
-    color: active ? ON_SEVERITY_COLOR : color,
-    background: active ? color : "transparent",
-    opacity: dimmed ? DIMMED_OPACITY : 1,
-  };
+/** The active filter: outlined, tinted and written in its severity colour. */
+export function activePillStyle(color: string, tint: string): CSSProperties {
+  return { ...pill, borderColor: color, background: tint, color, fontWeight: 600 };
 }

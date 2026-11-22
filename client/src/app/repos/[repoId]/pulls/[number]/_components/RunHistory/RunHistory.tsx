@@ -3,9 +3,9 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
-import type { RunSummary, PrCommit, Severity } from "@devdigest/shared";
+import type { FindingRecord, RunSummary, PrCommit } from "@devdigest/shared";
 import { RunCostBadge } from "../../../_components/RunCostBadge";
-import { SeverityTally } from "../../../_components/SeverityTally";
+import { RunFindingsPopover } from "../RunFindingsPopover";
 import { completedRunCost } from "../../../helpers";
 
 /**
@@ -102,10 +102,15 @@ export function RunHistory({
   onGoToReview,
   onDelete,
   findingsByRun,
+  repoFullName,
+  headSha,
 }: {
-  /** Findings per severity by run id, for the runs whose review is loaded. A
-      run that is absent here shows its plain finding count instead. */
-  findingsByRun?: Record<string, Record<Severity, number>>;
+  /** Findings by run id, for the runs whose review is loaded. A run that is
+      absent here (or has none) shows its plain finding count instead. */
+  findingsByRun?: Record<string, FindingRecord[]>;
+  /** owner/repo + head sha — used to link a finding's file:line to GitHub. */
+  repoFullName?: string | null;
+  headSha?: string | null;
   runs: RunSummary[];
   commits?: PrCommit[];
   /** Open the trace + log drawer for a run (the logs icon). */
@@ -164,8 +169,7 @@ export function RunHistory({
         const r = item.run;
         const o = outcomeOf(r);
         const settled = r.status === "done";
-        const tally = findingsByRun?.[r.run_id];
-        const tallyTotal = tally ? tally.CRITICAL + tally.WARNING + tally.SUGGESTION : 0;
+        const runFindings = findingsByRun?.[r.run_id] ?? [];
         return (
           <div key={`run:${r.run_id}`} style={rowStyle}>
             <Badge color={o.color} bg={o.bg} icon={o.icon}>
@@ -207,8 +211,13 @@ export function RunHistory({
               )}
               {settled && (
                 <div style={settledLineStyle}>
-                  {tally && tallyTotal > 0 ? (
-                    <SeverityTally counts={tally} />
+                  {runFindings.length > 0 ? (
+                    <RunFindingsPopover
+                      findings={runFindings}
+                      repoFullName={repoFullName}
+                      headSha={headSha}
+                      onGoToReview={onGoToReview ? () => onGoToReview(r.run_id) : undefined}
+                    />
                   ) : (
                     t("runStatus.findings", { count: r.findings_count ?? 0 })
                   )}

@@ -4,12 +4,27 @@
    an empty tally means there. */
 import React from "react";
 import { useTranslations } from "next-intl";
-import { SEV, SeverityBadge } from "@devdigest/ui";
+import { Icon, SEV } from "@devdigest/ui";
 import type { Severity } from "@devdigest/shared";
 
 const LEVELS = ["CRITICAL", "WARNING", "SUGGESTION"] as const satisfies readonly Severity[];
 
-const rowStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 4 };
+const rowStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 12 };
+
+function itemStyle(color: string): React.CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    paddingBottom: 2,
+    borderBottomWidth: 1,
+    borderBottomStyle: "dotted",
+    borderBottomColor: color,
+    color,
+    fontSize: 12,
+    fontWeight: 600,
+  };
+}
 
 export interface SeverityTallyProps {
   /** Findings per severity level. */
@@ -23,10 +38,13 @@ export function SeverityTally({ counts }: SeverityTallyProps) {
   return (
     <span style={rowStyle}>
       {shown.map((level) => {
-        const label = t("panel.severityTally", { count: counts[level], level: SEV[level].label });
+        const sev = SEV[level];
+        const LevelIcon = Icon[sev.icon];
+        const label = t("panel.severityTally", { count: counts[level], level: sev.label });
         return (
-          <span key={level} role="img" aria-label={label} title={label}>
-            <SeverityBadge severity={level} count={counts[level]} compact />
+          <span key={level} role="img" aria-label={label} className="tnum" style={itemStyle(sev.c)}>
+            <LevelIcon size={12.5} aria-hidden />
+            {counts[level]}
           </span>
         );
       })}
