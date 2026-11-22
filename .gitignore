@@ -23,3 +23,6 @@ test-results/
 
 # emdash worktree config (local)
 .emdash.json
+
+# Machine-local Compose overrides (e.g. a different host port for Postgres)
+docker-compose.override.yml
