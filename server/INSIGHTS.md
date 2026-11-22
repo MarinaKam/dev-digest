@@ -34,6 +34,8 @@ only if it is not obvious from reading the code.
 <!-- Quirks and gotchas of dependencies and tooling. -->
 - **2026-11-21** — Integration tests build their database from the SQL files in `src/db/migrations/`, not from the Drizzle schema. After a change in `src/db/schema/`, `*.it.test.ts` keeps running against the old tables until `pnpm db:generate` has produced the new migration file. Typecheck and unit tests stay green in that state, so run generate before trusting the integration lane. Evidence: `server/test/helpers/pg.ts:42`.
 
+- **2026-11-22** — `pnpm lint` (Biome 2.6.8, config in the repo root `biome.json`) passes with about 180 warnings, 154 of them `noNonNullAssertion` in `test/`. That is the baseline, not a regression; the command fails only on errors. Four starter files with real errors (`noImplicitAnyLet`, `noAssignInExpressions`) are downgraded by path in the `overrides` block; code outside that list gets the full rule set. Evidence: `biome.json:33`.
+
 ## Recurring Errors & Fixes
 <!-- Errors seen more than once, with the fix. -->
 
