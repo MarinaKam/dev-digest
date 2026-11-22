@@ -7,7 +7,7 @@ import messages from "../../../../../../../../messages/en/runs.json"; // apps/we
 // Mock the trace hooks so the drawer renders without a query client / SSE.
 const TRACE: RunTrace = {
   config: { agent: "Security", version: "1", provider: "openai", model: "gpt-4.1", pr: 482, source: "local" },
-  stats: { duration_ms: 8200, tokens_in: 12000, tokens_out: 1500, findings: 2, grounding: "2/2 passed" },
+  stats: { duration_ms: 8200, tokens_in: 12000, tokens_out: 1500, cost_usd: 0.0123, findings: 2, grounding: "2/2 passed" },
   prompt_assembly: { system: "You are a reviewer.", skills: "### skill", memory: null, specs: null, user: "Review PR #482" },
   tool_calls: [{ tool: "review_file", args: "src/config.ts", meta: "single-pass", ms: 1200 }],
   raw_output: '{"verdict":"request_changes"}',
@@ -19,8 +19,10 @@ const TRACE: RunTrace = {
   ],
 };
 
+// Overridable per test: what the trace endpoint returns.
+let traceData: RunTrace = TRACE;
 vi.mock("../../../../../../../lib/hooks/trace", () => ({
-  useRunTrace: () => ({ data: TRACE, isLoading: false }),
+  useRunTrace: () => ({ data: traceData, isLoading: false }),
 }));
 vi.mock("../../../../../../../lib/hooks/reviews", () => ({
   useRunEvents: () => ({ events: [], running: false }),
@@ -28,7 +30,10 @@ vi.mock("../../../../../../../lib/hooks/reviews", () => ({
 
 import RunTraceDrawer from "./RunTraceDrawer";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  traceData = TRACE;
+});
 
 function renderWithIntl(ui: React.ReactElement) {
   return render(
@@ -52,5 +57,28 @@ describe("A5 Run Trace drawer (smoke)", () => {
     fireEvent.click(screen.getByText("log"));
     // LiveLogStream renders its filter input
     expect(screen.getByPlaceholderText("Filter log…")).toBeInTheDocument();
+  });
+});
+
+describe("Run Trace drawer — COST stat", () => {
+  it("shows the COST tile between TOKENS and FINDINGS with the run cost", () => {
+    renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+    const tile = screen.getByText("COST").parentElement!;
+    expect(tile).toHaveTextContent("$0.0123");
+    expect(tile.previousElementSibling).toHaveTextContent("TOKENS");
+    expect(tile.nextElementSibling).toHaveTextContent("FINDINGS");
+  });
+
+  it("shows an em dash when the trace has no cost (failed, running or pre-feature run)", () => {
+    traceData = { ...TRACE, stats: { ...TRACE.stats, cost_usd: null } };
+    renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+    expect(screen.getByText("COST").parentElement).toHaveTextContent("—");
+    expect(screen.queryByText(/\$0/)).not.toBeInTheDocument();
+  });
+
+  it("shows $0.00 for a free run, not an em dash", () => {
+    traceData = { ...TRACE, stats: { ...TRACE.stats, cost_usd: 0 } };
+    renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+    expect(screen.getByText("$0.00")).toBeInTheDocument();
   });
 });

@@ -35,6 +35,15 @@ export const s = {
     color: "var(--text-secondary)",
     marginTop: 8,
   } satisfies CSSProperties,
+  costLine: {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 10,
+    paddingTop: 8,
+    borderTop: "1px solid var(--border)",
+  } satisfies CSSProperties,
+  costIcon: { color: "var(--text-muted)", flexShrink: 0 } satisfies CSSProperties,
   scoreCol: {
     display: "flex",
     flexDirection: "column",

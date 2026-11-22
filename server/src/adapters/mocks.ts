@@ -53,6 +53,11 @@ export interface MockLLMOptions {
   structuredBySchema?: Record<string, unknown>;
   completionText?: string;
   embedding?: number[];
+  /**
+   * Cost reported per call (USD). `0` = a free model, `null` = unknown price.
+   * Defaults to 0.001.
+   */
+  costUsd?: number | null;
 }
 
 export class MockLLMProvider implements LLMProvider {
@@ -64,6 +69,11 @@ export class MockLLMProvider implements LLMProvider {
     private opts: MockLLMOptions = {},
   ) {
     this.id = id;
+  }
+
+  /** `undefined` means "not configured" → default; `null` and `0` are kept as given. */
+  private costPerCall(): number | null {
+    return this.opts.costUsd === undefined ? 0.001 : this.opts.costUsd;
   }
 
   async listModels(): Promise<ModelInfo[]> {
@@ -82,7 +92,7 @@ export class MockLLMProvider implements LLMProvider {
       model: req.model,
       tokensIn: 100,
       tokensOut: 50,
-      costUsd: 0.001,
+      costUsd: this.costPerCall(),
     };
   }
 
@@ -98,7 +108,7 @@ export class MockLLMProvider implements LLMProvider {
       model: req.model,
       tokensIn: 100,
       tokensOut: 50,
-      costUsd: 0.001,
+      costUsd: this.costPerCall(),
       raw: JSON.stringify(fixture),
       attempts: 1,
     };
