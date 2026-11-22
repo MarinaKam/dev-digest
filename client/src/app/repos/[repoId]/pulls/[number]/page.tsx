@@ -78,9 +78,9 @@ export default function PRDetailPage() {
   const setTab = (t: string) => setParam("tab", t);
 
   // Reviews come newest-first; each is its own run (grouped into accordions).
-  const runs = reviews ?? [];
+  const reviewList = reviews ?? [];
   const allFindings: FindingRecord[] = React.useMemo(
-    () => runs.flatMap((r) => r.findings),
+    () => reviewList.flatMap((r) => r.findings),
     [reviews],
   );
   const lethalTrifecta = allFindings.filter((f) => f.kind === "lethal_trifecta");
@@ -152,7 +152,7 @@ export default function PRDetailPage() {
             liveRunIds={liveRunIds}
             reviewRunning={reviewRunning}
             lethalTrifecta={lethalTrifecta}
-            runs={runs}
+            reviews={reviewList}
             prRuns={prRuns}
             prCommits={pr.commits}
             repoFullName={repoFullName}
@@ -185,8 +185,8 @@ export default function PRDetailPage() {
         <RunTraceDrawer
           runId={traceRunId}
           prNumber={pr.number}
-          findings={runs.find((r) => r.run_id === traceRunId)?.findings ?? []}
-          agentName={runs.find((r) => r.run_id === traceRunId)?.agent_name ?? null}
+          findings={reviewList.find((r) => r.run_id === traceRunId)?.findings ?? []}
+          agentName={reviewList.find((r) => r.run_id === traceRunId)?.agent_name ?? null}
           onClose={() => setParam("trace", null)}
         />
       )}

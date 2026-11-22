@@ -37,6 +37,9 @@ only if it is not obvious from reading the code.
 - **2026-11-21** — A popover inside the PR list must be `position: fixed` with coordinates taken from the trigger's `getBoundingClientRect()`: the table card has `overflow: hidden` for its rounded corners and clips anything positioned `absolute` inside a row. A fixed popover must then close on page scroll, or it drifts away from its trigger. Evidence: `client/src/app/repos/[repoId]/pulls/styles.ts:90`.
 - **2026-11-21** — A control placed inside a `PRRow` must stop click propagation on its own root: the whole row has an `onClick` that navigates to the PR. Evidence: `client/src/app/repos/[repoId]/pulls/_components/FindingsPopover/FindingsPopover.tsx:122`.
 
+- **2026-11-21** — Name a prop after the type it carries. `FindingsTab` took the PR's reviews as `runs` next to `prRuns` (run metadata); the General Reviewer read `runs` as `RunSummary[]` and reported a CRITICAL "field `findings` does not exist" on code that type-checks and works. Renamed to `reviews`, with a doc comment on both props. A reviewer model sees only the diff, so a misleading name costs a false blocker. Evidence: `client/src/app/repos/[repoId]/pulls/[number]/_components/FindingsTab/FindingsTab.tsx:18`.
+- **2026-11-21** — Supersedes the 2026-11-21 entry on clearing a stale filter: the reset now lives in a `useEffect` keyed on "the selected level is empty", and the effective filter is still derived during render. Calling `setState` in the render body worked but two reviewer agents flagged it on PR #6. Evidence: `client/src/app/repos/[repoId]/pulls/[number]/_components/FindingsPanel/FindingsPanel.tsx:42`.
+
 ## Tool & Library Notes
 <!-- Quirks and gotchas of dependencies and tooling. -->
 

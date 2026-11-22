@@ -23,6 +23,8 @@ const reviewingStyle: React.CSSProperties = {
   color: "var(--accent-text)",
   whiteSpace: "nowrap",
 };
+// `ddspin` is the global spin keyframe of the UI kit (src/vendor/ui/styles.css),
+// the same one the "Review in progress…" banner on the PR page uses.
 const spinnerStyle: React.CSSProperties = { animation: "ddspin 1s linear infinite" };
 
 export function PRRow({

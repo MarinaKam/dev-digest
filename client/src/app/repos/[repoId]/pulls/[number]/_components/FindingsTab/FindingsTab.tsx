@@ -14,7 +14,9 @@ interface FindingsTabProps {
   liveRunIds: string[];
   reviewRunning: boolean;
   lethalTrifecta: FindingRecord[];
-  runs: ReviewRecord[];
+  /** The PR's reviews, newest first; each carries its own `findings`. */
+  reviews: ReviewRecord[];
+  /** Run metadata (status, cost, tokens) — one per agent run, without findings. */
   prRuns: RunSummary[] | undefined;
   prCommits: PrCommit[];
   cancelMutation: UseMutationResult<any, any, string, any>;
@@ -31,7 +33,7 @@ export function FindingsTab({
   liveRunIds,
   reviewRunning,
   lethalTrifecta,
-  runs,
+  reviews,
   prRuns,
   prCommits,
   cancelMutation,
@@ -76,9 +78,11 @@ export function FindingsTab({
   const findingsByRun = React.useMemo(
     () =>
       Object.fromEntries(
-        runs.flatMap((review) => (review.run_id ? [[review.run_id, review.findings] as const] : [])),
+        reviews.flatMap((review) =>
+          review.run_id ? [[review.run_id, review.findings] as const] : [],
+        ),
       ),
-    [runs],
+    [reviews],
   );
 
   return (
@@ -157,7 +161,7 @@ export function FindingsTab({
       >
         Review runs
       </SectionLabel>
-      {runs.length === 0 ? (
+      {reviews.length === 0 ? (
         reviewRunning || liveRunIds.length > 0 ? null : (
           <EmptyState
             icon="Sparkles"
@@ -167,7 +171,7 @@ export function FindingsTab({
         )
       ) : (
         prId &&
-        runs.map((review, i) => (
+        reviews.map((review, i) => (
           <ReviewRunAccordion
             key={review.id}
             review={review}

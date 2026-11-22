@@ -33,13 +33,16 @@ export function FindingsPanel({
 
   const counts = React.useMemo(() => countBySeverity(findings), [findings]);
   // A level that lost all its findings cannot be un-clicked (its counter is
-  // disabled), so a filter on it is dropped rather than left stuck — and does
-  // not come back by itself if the level gets findings again.
+  // disabled), so a filter on it is ignored at once (derived, no state change)…
   const severity = selected && counts[selected] > 0 ? selected : null;
-  if (selected && !severity) {
+  // …and then dropped for good, so that it does not come back by itself if the
+  // level gets findings again.
+  const selectedIsEmpty = selected !== null && counts[selected] === 0;
+  React.useEffect(() => {
+    if (!selectedIsEmpty) return;
     setSelected(null);
     setFocusIdx(0);
-  }
+  }, [selectedIsEmpty]);
   const shown = React.useMemo(
     () => visibleFindings(findings, hideLow, severity),
     [findings, hideLow, severity],
