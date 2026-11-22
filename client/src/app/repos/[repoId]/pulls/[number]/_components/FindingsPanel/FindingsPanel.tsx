@@ -1,15 +1,16 @@
-/* FindingsPanel — hide-low-confidence + j/k navigation + FindingCard list,
-   wiring the accept/dismiss action hook (A2). */
+/* FindingsPanel — severity counters + hide-low-confidence + j/k navigation +
+   FindingCard list, wiring the accept/dismiss action hook (A2). */
 "use client";
 
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Toggle, EmptyState } from "@devdigest/ui";
-import type { FindingRecord } from "@devdigest/shared";
+import type { FindingRecord, Severity } from "@devdigest/shared";
 import { FindingCard } from "../FindingCard";
+import { SeverityCounters } from "../SeverityCounters";
 import { useFindingAction } from "../../../../../../../lib/hooks/reviews";
 import { KEY_TO_ACTION } from "./constants";
-import { visibleFindings } from "./helpers";
+import { countBySeverity, visibleFindings } from "./helpers";
 import { s } from "./styles";
 
 export function FindingsPanel({
@@ -28,7 +29,26 @@ export function FindingsPanel({
   const [hideLow, setHideLow] = React.useState(false);
   const [focusIdx, setFocusIdx] = React.useState(0);
 
-  const shown = React.useMemo(() => visibleFindings(findings, hideLow), [findings, hideLow]);
+  const [selected, setSelected] = React.useState<Severity | null>(null);
+
+  const counts = React.useMemo(() => countBySeverity(findings), [findings]);
+  // A level that lost all its findings cannot be un-clicked (its counter is
+  // disabled), so a filter on it is dropped rather than left stuck — and does
+  // not come back by itself if the level gets findings again.
+  const severity = selected && counts[selected] > 0 ? selected : null;
+  if (selected && !severity) {
+    setSelected(null);
+    setFocusIdx(0);
+  }
+  const shown = React.useMemo(
+    () => visibleFindings(findings, hideLow, severity),
+    [findings, hideLow, severity],
+  );
+
+  const selectSeverity = (next: Severity | null) => {
+    setSelected(next);
+    setFocusIdx(0);
+  };
 
   // j/k navigation + a/d shortcuts on the focused finding (keyboard).
   React.useEffect(() => {
@@ -48,6 +68,9 @@ export function FindingsPanel({
   return (
     <div>
       <div style={s.toolbar}>
+        {findings.length > 0 && (
+          <SeverityCounters counts={counts} active={severity} onSelect={selectSeverity} />
+        )}
         <div style={s.toggleGroup}>
           {t("panel.hideLowConfidence")}
           <Toggle on={hideLow} onChange={setHideLow} size={16} />
