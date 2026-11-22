@@ -3,8 +3,9 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
-import type { RunSummary, PrCommit } from "@devdigest/shared";
+import type { RunSummary, PrCommit, Severity } from "@devdigest/shared";
 import { RunCostBadge } from "../../../_components/RunCostBadge";
+import { SeverityTally } from "../../../_components/SeverityTally";
 import { completedRunCost } from "../../../helpers";
 
 /**
@@ -47,6 +48,14 @@ const rowStyle: React.CSSProperties = {
   border: "1px solid var(--border)",
   background: "var(--bg-elevated)",
   textAlign: "left",
+};
+
+const settledLineStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 4,
+  fontSize: 12,
+  color: "var(--text-muted)",
 };
 
 const iconBtnStyle: React.CSSProperties = {
@@ -92,7 +101,11 @@ export function RunHistory({
   onOpenTrace,
   onGoToReview,
   onDelete,
+  findingsByRun,
 }: {
+  /** Findings per severity by run id, for the runs whose review is loaded. A
+      run that is absent here shows its plain finding count instead. */
+  findingsByRun?: Record<string, Record<Severity, number>>;
   runs: RunSummary[];
   commits?: PrCommit[];
   /** Open the trace + log drawer for a run (the logs icon). */
@@ -151,6 +164,8 @@ export function RunHistory({
         const r = item.run;
         const o = outcomeOf(r);
         const settled = r.status === "done";
+        const tally = findingsByRun?.[r.run_id];
+        const tallyTotal = tally ? tally.CRITICAL + tally.WARNING + tally.SUGGESTION : 0;
         return (
           <div key={`run:${r.run_id}`} style={rowStyle}>
             <Badge color={o.color} bg={o.bg} icon={o.icon}>
@@ -191,8 +206,12 @@ export function RunHistory({
                 </div>
               )}
               {settled && (
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {t("runStatus.findings", { count: r.findings_count ?? 0 })}
+                <div style={settledLineStyle}>
+                  {tally && tallyTotal > 0 ? (
+                    <SeverityTally counts={tally} />
+                  ) : (
+                    t("runStatus.findings", { count: r.findings_count ?? 0 })
+                  )}
                   {(r.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: r.blockers ?? 0 }) : ""}
                 </div>
               )}

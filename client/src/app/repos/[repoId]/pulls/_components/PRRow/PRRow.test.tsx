@@ -63,3 +63,50 @@ describe("PRRow — COST column", () => {
     expect(cell).not.toHaveTextContent("—");
   });
 });
+
+describe("PRRow — FINDINGS column", () => {
+  function findingsCell(meta: PrMeta) {
+    renderRow(meta);
+    return screen.getByTestId("pr-findings");
+  }
+
+  it("shows a count per severity that has findings, most severe first", () => {
+    const cell = findingsCell(pr({ findings_by_severity: { CRITICAL: 2, WARNING: 1, SUGGESTION: 0 } }));
+    expect(screen.getByLabelText("2 Critical")).toBeInTheDocument();
+    expect(screen.getByLabelText("1 Warning")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Suggestion/)).not.toBeInTheDocument();
+    expect(cell).toHaveTextContent("21");
+  });
+
+  it("shows a dash for a PR that was never reviewed", () => {
+    expect(findingsCell(pr({ findings_by_severity: null }))).toHaveTextContent("—");
+    cleanup();
+    expect(findingsCell(pr({}))).toHaveTextContent("—");
+  });
+
+  it("shows 0 for a reviewed PR without findings — not a dash", () => {
+    const zeros = { CRITICAL: 0, WARNING: 0, SUGGESTION: 0 };
+    expect(findingsCell(pr({ findings_by_severity: zeros }))).toHaveTextContent("0");
+  });
+});
+
+describe("PRRow — review in progress", () => {
+  it("shows that a review is running instead of the review status", () => {
+    renderRow(pr({ status: "needs_review", active_runs: 1 }));
+    expect(screen.getByText("Reviewing…")).toBeInTheDocument();
+    expect(screen.queryByText("Needs review")).not.toBeInTheDocument();
+  });
+
+  it("says how many agents are running when there are several", () => {
+    renderRow(pr({ active_runs: 3 }));
+    expect(screen.getByText("Reviewing · 3 agents")).toBeInTheDocument();
+  });
+
+  it("shows the review status when nothing is running", () => {
+    renderRow(pr({ status: "needs_review", active_runs: 0 }));
+    expect(screen.getByText("Needs review")).toBeInTheDocument();
+    cleanup();
+    renderRow(pr({ status: "needs_review" }));
+    expect(screen.getByText("Needs review")).toBeInTheDocument();
+  });
+});

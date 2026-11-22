@@ -27,6 +27,9 @@ only if it is not obvious from reading the code.
 <!-- Conventions and architecture decisions specific to this module. -->
 - **2026-11-21** — In `agent_runs.cost_usd`, NULL and 0 mean different things and must never be merged: NULL = no cost data (failed/cancelled run, unknown model price, run made before migration 0010), 0 = a free model. Write with `?? null`, never `||`. The PR list sums only `status='done'` rows with a non-null cost, and a PR with no such row returns `cost_usd: null`, not 0. Evidence: `server/src/modules/pulls/routes.ts:144`.
 
+- **2026-11-21** — Anything the PR list shows per PR is computed in the list route with one grouped query over all listed PR ids and joined in JS (score, cost, active runs, findings per severity). Do not add a per-PR query or a per-row client request: the demo PR `demo/repo-activity-summary` is exactly that N+1 and the Performance Reviewer flags it. Evidence: `server/src/modules/pulls/routes.ts:114`.
+- **2026-11-21** — "The PR's findings" on the list means the latest review of each agent, added up. "The latest review of the PR" is wrong once several agents run: `run all` writes one review per agent and the last one to finish would hide the others' findings. SCORE still uses the single latest review, so the two columns can disagree. Evidence: `server/src/modules/pulls/routes.ts:144`.
+
 ## Tool & Library Notes
 <!-- Quirks and gotchas of dependencies and tooling. -->
 - **2026-11-21** — Integration tests build their database from the SQL files in `src/db/migrations/`, not from the Drizzle schema. After a change in `src/db/schema/`, `*.it.test.ts` keeps running against the old tables until `pnpm db:generate` has produced the new migration file. Typecheck and unit tests stay green in that state, so run generate before trusting the integration lane. Evidence: `server/test/helpers/pg.ts:42`.

@@ -261,6 +261,17 @@ describe('run cost contracts', () => {
     expect(() => RunSummary.parse(summary)).toThrow();
   });
 
+  it('PrMeta carries in-flight runs and per-severity findings on the list endpoint', () => {
+    const counts = { CRITICAL: 1, WARNING: 2, SUGGESTION: 0 };
+    const parsed = PrMeta.parse({ ...pr, active_runs: 2, findings_by_severity: counts });
+    expect(parsed.active_runs).toBe(2);
+    expect(parsed.findings_by_severity).toEqual(counts);
+    expect(PrMeta.parse({ ...pr, findings_by_severity: null }).findings_by_severity).toBeNull();
+    // Both are optional: a PR from the detail endpoint has neither.
+    expect(PrMeta.parse(pr).active_runs ?? 0).toBe(0);
+    expect(() => PrMeta.parse({ ...pr, findings_by_severity: { CRITICAL: 1 } })).toThrow();
+  });
+
   it('PrMeta carries the PR cost on the list endpoint', () => {
     expect(PrMeta.parse({ ...pr, cost_usd: 0.022 }).cost_usd).toBe(0.022);
     expect(PrMeta.parse({ ...pr, cost_usd: 0 }).cost_usd).toBe(0);

@@ -10,6 +10,18 @@ import { SIZE_COLOR, STATUS_META } from "../../constants";
 import { relativeTime, sizeOf } from "../../helpers";
 import { s } from "../../styles";
 import { RunCostBadge } from "../RunCostBadge";
+import { SeverityTally } from "../SeverityTally";
+
+const reviewingStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  fontSize: 12,
+  fontWeight: 500,
+  color: "var(--accent-text)",
+  whiteSpace: "nowrap",
+};
+const spinnerStyle: React.CSSProperties = { animation: "ddspin 1s linear infinite" };
 
 export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
   const t = useTranslations("prReview");
@@ -18,6 +30,9 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
   const st = STATUS_META[pr.status] ?? STATUS_META.needs_review!;
   const { size, lines } = sizeOf(pr);
   const reviewed = pr.score != null; // null score ⇒ PR has never been reviewed
+  const activeRuns = pr.active_runs ?? 0;
+  const found = pr.findings_by_severity ?? null; // null ⇒ never reviewed
+  const foundTotal = found ? found.CRITICAL + found.WARNING + found.SUGGESTION : 0;
   return (
     <div
       onMouseEnter={() => setH(true)}
@@ -54,10 +69,28 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
           <span style={s.muted}>—</span>
         )}
       </div>
+      <div data-testid="pr-findings">
+        {found === null ? (
+          <span style={s.muted}>—</span>
+        ) : foundTotal === 0 ? (
+          <span className="tnum" style={s.muted}>
+            0
+          </span>
+        ) : (
+          <SeverityTally counts={found} />
+        )}
+      </div>
       <div>
-        <Badge dot color={st.c} bg="transparent">
-          {t(`list.status.${st.labelKey}`)}
-        </Badge>
+        {activeRuns > 0 ? (
+          <span role="status" style={reviewingStyle}>
+            <Icon.RefreshCw size={12} style={spinnerStyle} aria-hidden />
+            {t("list.status.reviewing", { count: activeRuns })}
+          </span>
+        ) : (
+          <Badge dot color={st.c} bg="transparent">
+            {t(`list.status.${st.labelKey}`)}
+          </Badge>
+        )}
       </div>
       <div data-testid="pr-cost">
         <RunCostBadge costUsd={pr.cost_usd} />

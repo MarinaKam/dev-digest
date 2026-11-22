@@ -100,3 +100,34 @@ describe("RunHistory — run cost", () => {
     expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
   });
 });
+
+describe("RunHistory — findings per severity", () => {
+  function renderHistory(findingsByRun?: Record<string, { CRITICAL: number; WARNING: number; SUGGESTION: number }>) {
+    render(
+      <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
+        <RunHistory
+          runs={[run({ findings_count: 3, blockers: 2 })]}
+          onOpenTrace={() => {}}
+          findingsByRun={findingsByRun}
+        />
+      </NextIntlClientProvider>,
+    );
+  }
+
+  it("shows a count per severity for a settled run and keeps the blockers", () => {
+    renderHistory({ "run-1": { CRITICAL: 2, WARNING: 1, SUGGESTION: 0 } });
+    expect(screen.getByLabelText("2 Critical")).toBeInTheDocument();
+    expect(screen.getByLabelText("1 Warning")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Suggestion/)).not.toBeInTheDocument();
+    expect(screen.getByText(/2 blockers/)).toBeInTheDocument();
+    expect(screen.queryByText(/3 finding\(s\)/)).not.toBeInTheDocument();
+  });
+
+  it("falls back to the plain finding count when the run's findings are not loaded", () => {
+    renderHistory();
+    expect(screen.getByText(/3 finding\(s\)/)).toBeInTheDocument();
+    cleanup();
+    renderHistory({ "another-run": { CRITICAL: 1, WARNING: 0, SUGGESTION: 0 } });
+    expect(screen.getByText(/3 finding\(s\)/)).toBeInTheDocument();
+  });
+});

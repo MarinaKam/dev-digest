@@ -29,6 +29,8 @@ only if it is not obvious from reading the code.
 - **2026-11-21** — Do not put white text on a surface filled with a severity colour. Against `#fff` the dark-theme tokens give 2.15:1 (`--warn`), 3.76:1 (`--crit`) and 3.68:1 (`--sugg`), all below WCAG AA 4.5:1. Use `var(--bg-primary)` for the text: it is near-black in the dark theme and white in the light one, where `--crit` and `--sugg` pass. Light-theme `--warn` stays at 3.19:1 with either colour; that is a token problem. Evidence: `client/src/app/repos/[repoId]/pulls/[number]/_components/SeverityCounters/styles.ts:6`.
 - **2026-11-21** — A filter kept in `useState` whose control can become disabled must be cleared when that happens, not only ignored. Deriving "effective filter = selected, if its count > 0" hides the stuck filter, but the stale `selected` comes back by itself when a refetch gives the level findings again. Evidence: `client/src/app/repos/[repoId]/pulls/[number]/_components/FindingsPanel/FindingsPanel.tsx:40`.
 
+- **2026-11-21** — A hook in `src/lib/hooks/` that needs a rule (for example a polling interval that depends on the data) exports the rule as a pure function next to the hook and tests it there (`core.test.ts`). Do not import helpers from `src/app/...` into `src/lib/`: the dependency points the wrong way. Evidence: `client/src/lib/hooks/core.ts:108`.
+
 ## Tool & Library Notes
 <!-- Quirks and gotchas of dependencies and tooling. -->
 
@@ -42,6 +44,7 @@ only if it is not obvious from reading the code.
 - Decided that all three levels are always shown and a level without findings is a disabled `0` counter. The task's reference screenshot hides the empty level; its acceptance criteria ask for three levels and for `0`, and the criteria won.
 - Decided that counts cover the whole run and ignore "Hide low confidence", so they add up to "N findings" in the run header.
 - A browser tab opened before the change kept showing the old panel until a reload; `next dev` did not hot-swap it. Reload before judging that a UI change "is not there".
+- Added, outside the homework scope and on Marie's request, the FINDINGS column and the "Reviewing…" state on the PR list and the severity tally on the run timeline (`server/specs/002-pr-list-review-state.md`). The course mockups show these as existing; the starter fork did not have them.
 
 ## Open Questions
 <!-- What was left unresolved or needs more investigation. -->
