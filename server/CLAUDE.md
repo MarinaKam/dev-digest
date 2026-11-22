@@ -7,6 +7,26 @@ Fastify API over Postgres. Imports repos and PRs, indexes them, runs reviews.
 - Unit (no Docker): `pnpm exec vitest run --exclude '**/*.it.test.ts'`
 - Integration (needs Docker): `pnpm exec vitest run .it.test`
 
+## Verify a change
+- `pnpm typecheck` after every change.
+- Unit tests after every change:
+  `pnpm exec vitest run --exclude '**/*.it.test.ts'`.
+- Integration tests when you touch a route, a query or the schema:
+  `pnpm exec vitest run .it.test` (needs Docker; each file starts its own
+  disposable Postgres and never touches the development database).
+- A change to `src/vendor/shared` is mirrored into `../client/src/vendor/shared`;
+  run `pnpm typecheck` in `../client/` too.
+
+## Naming
+- A module is `src/modules/<kebab-name>/` with `routes.ts`, `service.ts`,
+  `repository.ts`.
+- Tests are `test/<name>.test.ts`; a test that needs the database is
+  `test/<name>.it.test.ts`.
+- Database columns are `snake_case`; Drizzle fields are `camelCase`
+  (`cost_usd` ↔ `costUsd`). API JSON is `snake_case`.
+- Migrations are generated; never name or write one by hand.
+- A spec is `specs/NNN-short-name.md`.
+
 ## Conventions
 - Layers are `routes.ts` -> service -> repository. Routes declare Zod `params`
   and `body` schemas; handlers do not call `Schema.parse` by hand.
@@ -28,6 +48,7 @@ Fastify API over Postgres. Imports repos and PRs, indexes them, runs reviews.
 ## Do not touch
 - Existing files in `src/db/migrations/`. Change the schema, then `pnpm db:generate`.
 - `clones/` is runtime data.
+- `pnpm-lock.yaml`. It changes only through an install the user runs.
 
 ## Read when
 - Read `README.md` when you add or change a route, an env variable, or what the

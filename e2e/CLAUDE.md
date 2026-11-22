@@ -8,6 +8,19 @@ Deterministic browser flows, driven by the `agent-browser` CLI. Not Playwright.
 - `npm run e2e:hermetic` boots its own stack on other ports. Read `README.md`
   before you run it and confirm those ports are free.
 
+## Verify a change
+- `npm run typecheck` after a change to the runner.
+- A new or changed flow is run with `npm run e2e:hermetic`. It needs ports
+  `:5433`, `:3101` and `:3100` free; a machine that already publishes Postgres
+  on `:5433` collides with it.
+- Do not judge a flow by `npm test` against a development database that holds
+  other repos: the flows assume the seeded repo is the only one.
+
+## Naming
+- A flow is `specs/NN-name.flow.json`, with the next free two-digit number.
+- `name` says what the user sees; `description` says why the flow exists and
+  what data it assumes. Each step has a `label`.
+
 ## Conventions
 - `specs/` here holds test flows (`NN-name.flow.json`), not feature
   specifications. A flow is a JSON list of `agent-browser` commands.
@@ -17,6 +30,9 @@ Deterministic browser flows, driven by the `agent-browser` CLI. Not Playwright.
 
 ## Gotchas
 - Flows assume a freshly seeded database where the demo repo is the only repo.
+
+## Do not touch
+- `package-lock.json`. It changes only through an install the user runs.
 
 ## Read when
 - Read `README.md` before you write, run or debug a flow.

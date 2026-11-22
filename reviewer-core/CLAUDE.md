@@ -7,6 +7,19 @@ The pure review engine: diff -> prompt -> LLM -> structured findings -> groundin
 - After a change, also run `pnpm typecheck` in `../server/`. The server imports
   this source directly.
 
+## Verify a change
+- `npm run typecheck` and `npm test` here, after every change.
+- Then `pnpm typecheck` and the unit tests in `../server/`: the server imports
+  this source directly, so a change here can break it without failing here.
+
+## Naming
+- One pipeline stage per file in `src/` (`prompt.ts`, `grounding.ts`); the
+  orchestration is `src/review/`, providers are `src/llm/`.
+- Tests are `<name>.test.ts`. A spec is `specs/NNN-short-name.md`.
+- Severity and verdict values are the exact strings of the shared contract
+  (`CRITICAL`, `WARNING`, `SUGGESTION`; `request_changes`, `comment`,
+  `approve`). Do not add a level.
+
 ## Conventions
 - No I/O. No database, GitHub, filesystem or environment access. The only
   outside call is the `LLMProvider` passed in by the caller.
@@ -20,6 +33,9 @@ The pure review engine: diff -> prompt -> LLM -> structured findings -> groundin
   `src/prompt.ts`. Do not add keyword filtering of untrusted text.
 - A finding that cites a line outside the diff is dropped, and the score is
   recomputed from the findings that remain. The model's own score is ignored.
+
+## Do not touch
+- `package-lock.json`. It changes only through an install the user runs.
 
 ## Read when
 - Read `README.md` when you change a pipeline stage or the public API.
