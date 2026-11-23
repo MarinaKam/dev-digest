@@ -28,6 +28,9 @@
   },
   "panel": {
     "hideLowConfidence": "Hide low confidence",
+    "severityFilterLabel": "Filter findings by severity",
+    "severityCount": "{count} {level}",
+    "severityTally": "{count} {level}",
     "noMatchTitle": "No findings match",
     "noMatchBody": "Adjust the filters above, or run a review to generate findings."
   },
@@ -71,7 +74,9 @@
       "merged": "Merged",
       "needs_review": "Needs review",
       "reviewed": "Reviewed",
-      "stale": "Stale"
+      "stale": "Stale",
+      "reviewing": "{count, plural, one {Reviewing…} other {Reviewing · # agents}}",
+      "outdated": "From the previous review — a new one is running"
     },
     "filter": {
       "all": "All",
@@ -91,6 +96,7 @@
       "author": "Author",
       "size": "Size",
       "score": "Score",
+      "findings": "Findings",
       "status": "Status",
       "cost": "Cost",
       "updated": "Updated"
@@ -102,8 +108,14 @@
     "emptyAllBody": "No open PRs found for this repo yet. Refresh to sync from GitHub.",
     "emptyStatusBody": "No PRs with status “{status}”."
   },
+  "popover": {
+    "loading": "Loading findings…",
+    "empty": "No findings to show",
+    "findingsInPr": "{count, plural, one {# finding} other {# findings}}"
+  },
   "timeline": {
     "goToReview": "Jump to this run’s findings below",
+    "findingsInRun": "{count, plural, one {# finding in this run} other {# findings in this run}}",
     "openTrace": "Open run trace & logs",
     "deleteRun": "Delete run"
   }

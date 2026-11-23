@@ -13,11 +13,13 @@ on:
       - 'reviewer-core/**'
       - 'server/src/vendor/shared/**'
       - '.github/workflows/reviewer-core.yml'
+      - 'biome.json'
   pull_request:
     paths:
       - 'reviewer-core/**'
       - 'server/src/vendor/shared/**'
       - '.github/workflows/reviewer-core.yml'
+      - 'biome.json'
 
 permissions:
   contents: read
@@ -45,5 +47,7 @@ jobs:
       - run: npm ci
 
       - run: npm run typecheck
+
+      - run: npm run lint
 
       - run: npm test

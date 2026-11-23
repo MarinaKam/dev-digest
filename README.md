@@ -128,9 +128,10 @@ cd ../client && pnpm install && pnpm dev               # web on :3000
 
 ## Useful scripts
 
-`server/`: `dev` · `build` · `db:migrate` · `db:seed` · `db:generate` · `test` · `typecheck`
+`server/`: `dev` · `build` · `db:migrate` · `db:seed` · `db:generate` · `test` · `typecheck` · `lint`
 (unit/integration split: `pnpm exec vitest run --exclude '**/*.it.test.ts'` / `pnpm exec vitest run .it.test`)
-`client/`: `dev` · `build` · `start` · `test` · `typecheck`
+`client/`: `dev` · `build` · `start` · `test` · `typecheck` · `lint`
+`reviewer-core/`, `e2e/` (npm): `test` · `typecheck` · `lint`
 
 ## Testing & CI
 
@@ -144,6 +145,12 @@ path filter — full strategy in **[`TESTING.md`](TESTING.md)**.
 | server integration (real Postgres) | `server-integration.yml` | yes |
 | reviewer-core (engine) | `reviewer-core.yml` | no |
 | web e2e (agent-browser, real stack) | `e2e-web.yml` | yes |
+
+Linting is [Biome](https://biomejs.dev), configured once in `biome.json` at the
+repo root and run per package with the `lint` script. The `client`,
+`server-unit` and `reviewer-core` workflows run it next to the type check. It
+fails on errors; the warnings it prints are the known baseline of the starter
+code.
 
 Server tests split by filename: `*.it.test.ts` are DB-backed (testcontainers
 Postgres); everything else is hermetic. The browser e2e flows live in

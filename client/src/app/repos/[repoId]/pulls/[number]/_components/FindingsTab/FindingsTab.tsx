@@ -14,7 +14,9 @@ interface FindingsTabProps {
   liveRunIds: string[];
   reviewRunning: boolean;
   lethalTrifecta: FindingRecord[];
-  runs: ReviewRecord[];
+  /** The PR's reviews, newest first; each carries its own `findings`. */
+  reviews: ReviewRecord[];
+  /** Run metadata (status, cost, tokens) — one per agent run, without findings. */
   prRuns: RunSummary[] | undefined;
   prCommits: PrCommit[];
   cancelMutation: UseMutationResult<any, any, string, any>;
@@ -31,7 +33,7 @@ export function FindingsTab({
   liveRunIds,
   reviewRunning,
   lethalTrifecta,
-  runs,
+  reviews,
   prRuns,
   prCommits,
   cancelMutation,
@@ -42,7 +44,7 @@ export function FindingsTab({
   onRunDone,
 }: FindingsTabProps) {
   const handleCancelAll = useCallback(() => {
-    liveRunIds.forEach((id) => cancelMutation.mutate(id));
+    for (const id of liveRunIds) cancelMutation.mutate(id);
   }, [liveRunIds, cancelMutation]);
 
   const handleOpenFirstTrace = useCallback(() => {
@@ -70,6 +72,18 @@ export function FindingsTab({
   const handleGoToReview = useCallback((runId: string) => {
     setTarget((p) => ({ runId, n: (p?.n ?? 0) + 1 }));
   }, []);
+
+  // Findings of each run whose review is loaded — the Timeline shows their
+  // per-severity tally (and the list on hover) next to the run.
+  const findingsByRun = React.useMemo(
+    () =>
+      Object.fromEntries(
+        reviews.flatMap((review) =>
+          review.run_id ? [[review.run_id, review.findings] as const] : [],
+        ),
+      ),
+    [reviews],
+  );
 
   return (
     <section>
@@ -134,6 +148,9 @@ export function FindingsTab({
             onOpenTrace={handleOpenTrace}
             onGoToReview={handleGoToReview}
             onDelete={handleDelete}
+            findingsByRun={findingsByRun}
+            repoFullName={repoFullName}
+            headSha={headSha}
           />
         </div>
       )}
@@ -144,7 +161,7 @@ export function FindingsTab({
       >
         Review runs
       </SectionLabel>
-      {runs.length === 0 ? (
+      {reviews.length === 0 ? (
         reviewRunning || liveRunIds.length > 0 ? null : (
           <EmptyState
             icon="Sparkles"
@@ -154,7 +171,7 @@ export function FindingsTab({
         )
       ) : (
         prId &&
-        runs.map((review, i) => (
+        reviews.map((review, i) => (
           <ReviewRunAccordion
             key={review.id}
             review={review}

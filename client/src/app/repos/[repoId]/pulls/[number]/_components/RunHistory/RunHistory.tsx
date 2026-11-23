@@ -1,10 +1,12 @@
 "use client";
 
-import React from "react";
+import type React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
-import type { RunSummary, PrCommit } from "@devdigest/shared";
+import type { FindingRecord, RunSummary, PrCommit } from "@devdigest/shared";
 import { RunCostBadge } from "../../../_components/RunCostBadge";
+import { FindingsPopover } from "../../../_components/FindingsPopover";
+import { countBySeverity, visibleFindings } from "../FindingsPanel/helpers";
 import { completedRunCost } from "../../../helpers";
 
 /**
@@ -47,6 +49,14 @@ const rowStyle: React.CSSProperties = {
   border: "1px solid var(--border)",
   background: "var(--bg-elevated)",
   textAlign: "left",
+};
+
+const settledLineStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 4,
+  fontSize: 12,
+  color: "var(--text-muted)",
 };
 
 const iconBtnStyle: React.CSSProperties = {
@@ -92,7 +102,16 @@ export function RunHistory({
   onOpenTrace,
   onGoToReview,
   onDelete,
+  findingsByRun,
+  repoFullName,
+  headSha,
 }: {
+  /** Findings by run id, for the runs whose review is loaded. A run that is
+      absent here (or has none) shows its plain finding count instead. */
+  findingsByRun?: Record<string, FindingRecord[]>;
+  /** owner/repo + head sha — used to link a finding's file:line to GitHub. */
+  repoFullName?: string | null;
+  headSha?: string | null;
   runs: RunSummary[];
   commits?: PrCommit[];
   /** Open the trace + log drawer for a run (the logs icon). */
@@ -151,6 +170,7 @@ export function RunHistory({
         const r = item.run;
         const o = outcomeOf(r);
         const settled = r.status === "done";
+        const runFindings = findingsByRun?.[r.run_id] ?? [];
         return (
           <div key={`run:${r.run_id}`} style={rowStyle}>
             <Badge color={o.color} bg={o.bg} icon={o.icon}>
@@ -191,8 +211,19 @@ export function RunHistory({
                 </div>
               )}
               {settled && (
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {t("runStatus.findings", { count: r.findings_count ?? 0 })}
+                <div style={settledLineStyle}>
+                  {runFindings.length > 0 ? (
+                    <FindingsPopover
+                      counts={countBySeverity(runFindings)}
+                      findings={visibleFindings(runFindings, false)}
+                      heading={t("timeline.findingsInRun", { count: runFindings.length })}
+                      repoFullName={repoFullName}
+                      headSha={headSha}
+                      onSelect={onGoToReview ? () => onGoToReview(r.run_id) : undefined}
+                    />
+                  ) : (
+                    t("runStatus.findings", { count: r.findings_count ?? 0 })
+                  )}
                   {(r.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: r.blockers ?? 0 }) : ""}
                 </div>
               )}
@@ -216,15 +247,15 @@ export function RunHistory({
               <Icon.FileText size={13} />
             </button>
             {onDelete && r.status !== "running" && (
-              <span
-                role="button"
+              <button
+                type="button"
                 aria-label={t("timeline.deleteRun")}
                 title={t("timeline.deleteRun")}
                 onClick={() => onDelete(r.run_id)}
-                style={{ display: "inline-flex", padding: 3, borderRadius: 5, color: "var(--text-muted)", flexShrink: 0, cursor: "pointer" }}
+                style={{ display: "inline-flex", padding: 3, border: "none", background: "none", borderRadius: 5, color: "var(--text-muted)", flexShrink: 0, cursor: "pointer" }}
               >
                 <Icon.Trash size={13} />
-              </span>
+              </button>
             )}
           </div>
         );

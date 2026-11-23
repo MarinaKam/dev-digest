@@ -60,7 +60,7 @@ No `chat`, no model key.
 
 ```sh
 # per package
-cd client        && pnpm test           # + pnpm typecheck
+cd client        && pnpm test           # + pnpm typecheck, pnpm lint
 cd reviewer-core && npm test
 
 # server — the unit/integration split (see note below)
@@ -73,6 +73,26 @@ cd server && pnpm test                                          # both
 npm i -g agent-browser && agent-browser install
 cd e2e && npm install && npm test
 ```
+
+## Linting
+
+`biome.json` at the repo root configures [Biome](https://biomejs.dev) for all
+four packages: the linter only (formatting is not Biome's job here), the
+recommended rule preset plus the React and Next rule domains. Each package has
+a `lint` script (`pnpm lint` in `client/` and `server/`, `npm run lint` in
+`reviewer-core/` and `e2e/`), and the `client`, `server-unit` and
+`reviewer-core` workflows run it after the type check.
+
+- `lint` fails on errors only. The starter code does not pass about a hundred
+  recommended rules, most of them accessibility rules in the vendored UI kit;
+  those rules are downgraded to warnings for a fixed list of starter paths in
+  the `overrides` block. Every file outside that list is checked at full
+  strength.
+- The list is a baseline: it should shrink, never grow. New code that trips a
+  rule is fixed, or one line is suppressed with
+  `// biome-ignore lint/<group>/<rule>: <reason>`.
+- Do not run `biome lint --write` across a package. It would rewrite hundreds
+  of starter files in one change.
 
 ## Conventions
 

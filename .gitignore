@@ -26,3 +26,6 @@ test-results/
 
 # Machine-local Compose overrides (e.g. a different host port for Postgres)
 docker-compose.override.yml
+
+# Browser-check artefacts of the Playwright MCP tool (screenshots, snapshots, logs)
+.playwright-mcp/

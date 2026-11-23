@@ -43,7 +43,6 @@ export const s = {
     paddingTop: 8,
     borderTop: "1px solid var(--border)",
   } satisfies CSSProperties,
-  costIcon: { color: "var(--text-muted)", flexShrink: 0 } satisfies CSSProperties,
   scoreCol: {
     display: "flex",
     flexDirection: "column",

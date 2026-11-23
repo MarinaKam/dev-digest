@@ -56,6 +56,17 @@ export default function PRDetailPage() {
   const invalidateRunHistory = () => {
     if (prId) qc.invalidateQueries({ queryKey: ["pr-runs", prId] });
   };
+  // With several agents the runs finish one by one. Refresh the run history
+  // and the reviews every time the set of in-flight runs changes (a run
+  // started or one of them settled), not only when the last one is done —
+  // otherwise a finished agent stays invisible until the slowest one ends.
+  const liveRunKey = liveRunIds.join(",");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: liveRunKey is the trigger — the effect must re-run when the set of in-flight runs changes
+  React.useEffect(() => {
+    if (!prId) return;
+    qc.invalidateQueries({ queryKey: ["pr-runs", prId] });
+    qc.invalidateQueries({ queryKey: ["reviews", prId] });
+  }, [liveRunKey, prId, qc]);
 
   const tab = search.get("tab") ?? "overview";
   const traceRunId = search.get("trace");
@@ -68,10 +79,10 @@ export default function PRDetailPage() {
   const setTab = (t: string) => setParam("tab", t);
 
   // Reviews come newest-first; each is its own run (grouped into accordions).
-  const runs = reviews ?? [];
+  const reviewList = React.useMemo(() => reviews ?? [], [reviews]);
   const allFindings: FindingRecord[] = React.useMemo(
-    () => runs.flatMap((r) => r.findings),
-    [reviews],
+    () => reviewList.flatMap((r) => r.findings),
+    [reviewList],
   );
   const lethalTrifecta = allFindings.filter((f) => f.kind === "lethal_trifecta");
   const findingsCount = allFindings.length;
@@ -142,7 +153,7 @@ export default function PRDetailPage() {
             liveRunIds={liveRunIds}
             reviewRunning={reviewRunning}
             lethalTrifecta={lethalTrifecta}
-            runs={runs}
+            reviews={reviewList}
             prRuns={prRuns}
             prCommits={pr.commits}
             repoFullName={repoFullName}
@@ -175,8 +186,8 @@ export default function PRDetailPage() {
         <RunTraceDrawer
           runId={traceRunId}
           prNumber={pr.number}
-          findings={runs.find((r) => r.run_id === traceRunId)?.findings ?? []}
-          agentName={runs.find((r) => r.run_id === traceRunId)?.agent_name ?? null}
+          findings={reviewList.find((r) => r.run_id === traceRunId)?.findings ?? []}
+          agentName={reviewList.find((r) => r.run_id === traceRunId)?.agent_name ?? null}
           onClose={() => setParam("trace", null)}
         />
       )}

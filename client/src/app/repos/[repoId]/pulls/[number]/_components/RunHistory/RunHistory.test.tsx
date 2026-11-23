@@ -4,10 +4,10 @@
  * a settled run is colored/labelled by its denormalized blocker/finding counts,
  * and shows the review score ring.
  */
-import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import type { RunSummary } from "@devdigest/shared";
+import type { FindingRecord, RunSummary } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
 import { RunHistory } from "./RunHistory";
 
@@ -98,5 +98,165 @@ describe("RunHistory — run cost", () => {
     renderRuns([run({ status, cost_usd: 0.5, error: status === "failed" ? "boom" : null })]);
     expect(screen.getByText("—")).toBeInTheDocument();
     expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
+  });
+});
+
+describe("RunHistory — findings per severity", () => {
+  function finding(id: string, severity: FindingRecord["severity"], title: string): FindingRecord {
+    return {
+      id,
+      severity,
+      category: "security",
+      title,
+      file: "src/a.ts",
+      start_line: 19,
+      end_line: 55,
+      rationale: "Because of this.",
+      suggestion: null,
+      confidence: 0.95,
+      kind: "finding",
+      trifecta_components: null,
+      evidence: null,
+      review_id: "r1",
+      accepted_at: null,
+      dismissed_at: null,
+    };
+  }
+
+  const FOUND = [
+    finding("w1", "WARNING", "Date range is inclusive"),
+    finding("c1", "CRITICAL", "Endpoints are unauthenticated"),
+    finding("c2", "CRITICAL", "Secret in config"),
+  ];
+
+  function renderHistory(findingsByRun?: Record<string, FindingRecord[]>) {
+    render(
+      <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
+        <RunHistory
+          runs={[run({ findings_count: 3, blockers: 2 })]}
+          onOpenTrace={() => {}}
+          findingsByRun={findingsByRun}
+        />
+      </NextIntlClientProvider>,
+    );
+  }
+
+  it("shows a count per severity for a settled run and keeps the blockers", () => {
+    renderHistory({ "run-1": FOUND });
+    expect(screen.getByLabelText("2 Critical")).toBeInTheDocument();
+    expect(screen.getByLabelText("1 Warning")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Suggestion/)).not.toBeInTheDocument();
+    expect(screen.getByText(/2 blockers/)).toBeInTheDocument();
+    expect(screen.queryByText(/3 finding\(s\)/)).not.toBeInTheDocument();
+  });
+
+  it("previews the run's findings on hover, most severe first, and hides them on leave", () => {
+    renderHistory({ "run-1": FOUND });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    const trigger = screen.getByRole("button", { expanded: false });
+    fireEvent.mouseEnter(trigger.parentElement!);
+    const dialog = screen.getByRole("dialog", { name: "3 findings in this run" });
+    expect(within(dialog).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      expect.stringContaining("Endpoints are unauthenticated"),
+      expect.stringContaining("Secret in config"),
+      expect.stringContaining("Date range is inclusive"),
+    ]);
+    expect(dialog).toHaveTextContent("src/a.ts:19-55");
+    expect(dialog).toHaveTextContent("95% conf");
+    fireEvent.mouseLeave(trigger.parentElement!);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("a click pins the list open; Escape, a second click or a click outside closes it", () => {
+    renderHistory({ "run-1": FOUND });
+    const trigger = screen.getByRole("button", { expanded: false });
+    fireEvent.click(trigger);
+    fireEvent.mouseLeave(trigger.parentElement!);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.click(trigger);
+    fireEvent.click(trigger);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.click(trigger);
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("scrolling the page closes a pinned list; scrolling inside the list does not", () => {
+    renderHistory({ "run-1": FOUND });
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
+    fireEvent.scroll(screen.getByRole("dialog"));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.scroll(document);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("scrolling the page also closes a list that is only hovered", () => {
+    renderHistory({ "run-1": FOUND });
+    fireEvent.mouseEnter(screen.getByRole("button", { expanded: false }).parentElement!);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.scroll(document);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("opens above the tally when there is no room below it", () => {
+    renderHistory({ "run-1": FOUND });
+    const trigger = screen.getByRole("button", { expanded: false });
+    const rect = (top: number, bottom: number) =>
+      ({ top, bottom, left: 100, right: 160, width: 60, height: bottom - top, x: 100, y: top, toJSON: () => ({}) }) as DOMRect;
+    const spy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect");
+
+    // jsdom's viewport is 768px tall: a tally at the very bottom has no room below.
+    spy.mockReturnValue(rect(730, 750));
+    fireEvent.click(trigger);
+    const wrapperAbove = screen.getByRole("dialog").parentElement!;
+    expect(wrapperAbove.style.bottom).toBe(`${window.innerHeight - 730}px`);
+    expect(wrapperAbove.style.top).toBe("");
+    fireEvent.click(trigger);
+
+    // A tally near the top has room below: the list hangs under it.
+    spy.mockReturnValue(rect(100, 120));
+    fireEvent.click(trigger);
+    const wrapperBelow = screen.getByRole("dialog").parentElement!;
+    expect(wrapperBelow.style.top).toBe("120px");
+    expect(wrapperBelow.style.bottom).toBe("");
+    spy.mockRestore();
+  });
+
+  it("a finding's file links to GitHub and its title jumps to the run's findings", () => {
+    const onGoToReview = vi.fn();
+    render(
+      <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
+        <RunHistory
+          runs={[run({ findings_count: 3, blockers: 2 })]}
+          onOpenTrace={() => {}}
+          onGoToReview={onGoToReview}
+          findingsByRun={{ "run-1": FOUND }}
+          repoFullName="acme/app"
+          headSha="abc123"
+        />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
+    const dialog = screen.getByRole("dialog");
+    const link = within(dialog).getAllByRole("link")[0]!;
+    expect(link).toHaveAttribute("href", expect.stringContaining("github.com/acme/app/blob/abc123/src/a.ts"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Secret in config" }));
+    expect(onGoToReview).toHaveBeenCalledWith("run-1");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the plain finding count when the run's findings are not loaded", () => {
+    renderHistory();
+    expect(screen.getByText(/3 finding\(s\)/)).toBeInTheDocument();
+    cleanup();
+    renderHistory({ "another-run": FOUND });
+    expect(screen.getByText(/3 finding\(s\)/)).toBeInTheDocument();
+    cleanup();
+    renderHistory({ "run-1": [] });
+    expect(screen.getByText(/3 finding\(s\)/)).toBeInTheDocument();
   });
 });

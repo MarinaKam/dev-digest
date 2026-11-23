@@ -99,14 +99,28 @@ export function useDeleteRepo() {
 }
 
 // ---- Pull requests (F1: GET /repos/:id/pulls, GET /pulls/:id) ----
+/** PR list polling while a review is running on any listed PR, and otherwise. */
+const PULLS_POLL_ACTIVE_MS = 4_000;
+const PULLS_POLL_IDLE_MS = 60_000;
+
+/** How often to re-read the PR list: fast while any PR has a review running,
+    so its row leaves "Reviewing…" by itself; slow otherwise. */
+export function pullsRefetchInterval(
+  pulls: readonly { active_runs?: number | null }[] | undefined,
+): number {
+  const reviewing = (pulls ?? []).some((pr) => (pr.active_runs ?? 0) > 0);
+  return reviewing ? PULLS_POLL_ACTIVE_MS : PULLS_POLL_IDLE_MS;
+}
+
 export function usePulls(repoId: string | null | undefined) {
   return useQuery({
     queryKey: ["pulls", repoId],
     queryFn: () => api.get<PrMeta[]>(`/repos/${repoId}/pulls`),
     enabled: !!repoId,
     // Auto-refresh PR statuses: re-sync from GitHub every 60s while the page is
-    // open, and whenever the window regains focus.
-    refetchInterval: 60_000,
+    // open (every 4s while a review is running), and whenever the window
+    // regains focus.
+    refetchInterval: (query) => pullsRefetchInterval(query.state.data),
     refetchOnWindowFocus: true,
   });
 }

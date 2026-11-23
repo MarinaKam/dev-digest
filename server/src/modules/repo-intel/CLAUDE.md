@@ -3,6 +3,14 @@
 Indexes a cloned repo once (symbols, import graph, file rank, repo map). Reviews
 only read the result.
 
+## Verify a change
+- Run from `server/`: `pnpm typecheck`, then
+  `pnpm exec vitest run --exclude '**/*.it.test.ts' repo-intel indexer` for the
+  unit tests of this module, and
+  `pnpm exec vitest run repo-intel-symbol-clamp.it.test` (needs Docker).
+- Test files are `server/test/repo-intel-*.test.ts` and
+  `server/test/indexer-*.test.ts`.
+
 ## Conventions
 - Other modules use the facade only: `container.repoIntel.*` (`service.ts`,
   interface in `types.ts`). Do not import from `pipeline/` or `repository.ts`

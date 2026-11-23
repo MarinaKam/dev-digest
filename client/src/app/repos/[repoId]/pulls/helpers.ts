@@ -1,4 +1,6 @@
 import { SIZE_MEDIUM_MAX, SIZE_SMALL_MAX, type PrMeta, type SizeInfo } from "./constants";
+import type { FindingRecord, ReviewRecord } from "@devdigest/shared";
+import { SEVERITY_ORDER } from "./[number]/_components/FindingsPanel/constants";
 
 /** Bucket a PR into S/M/L by total changed lines. */
 export function sizeOf(pr: PrMeta): SizeInfo {
@@ -67,4 +69,25 @@ export function relativeTime(iso: string | null | undefined): string {
   const h = Math.round(m / 60);
   if (h < 24) return `${h}h`;
   return `${Math.round(h / 24)}d`;
+}
+
+/**
+ * The PR's current findings: those of each agent's latest review, most severe
+ * first. An older review by the same agent is superseded. Mirrors what the
+ * list endpoint counts into `findings_by_severity`.
+ */
+export function currentFindings(reviews: readonly ReviewRecord[]): FindingRecord[] {
+  const newestFirst = [...reviews]
+    .filter((review) => review.kind === "review")
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+  const seenAgents = new Set<string>();
+  const latestPerAgent = newestFirst.filter((review) => {
+    const agent = review.agent_id ?? "";
+    if (seenAgents.has(agent)) return false;
+    seenAgents.add(agent);
+    return true;
+  });
+  return latestPerAgent
+    .flatMap((review) => review.findings)
+    .sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9));
 }

@@ -173,6 +173,17 @@ export const PrMeta = z.object({
   // Sum of cost_usd over the PR's completed runs (list endpoint only).
   // null/absent = no completed run with cost data; 0 = only free runs.
   cost_usd: z.number().nullish(),
+  // Review runs still running for the PR (list endpoint only). 0/absent = none.
+  active_runs: z.number().int().nullish(),
+  // Findings of the PR's latest review per severity (list endpoint only).
+  // null/absent = never reviewed; all zeros = reviewed, nothing found.
+  findings_by_severity: z
+    .object({
+      CRITICAL: z.number().int(),
+      WARNING: z.number().int(),
+      SUGGESTION: z.number().int(),
+    })
+    .nullish(),
 });
 export type PrMeta = z.infer<typeof PrMeta>;
 

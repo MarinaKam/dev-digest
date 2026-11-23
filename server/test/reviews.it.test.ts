@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { startPg, dockerAvailable, type PgFixture } from './helpers/pg.js';
 import { waitForPrRuns } from './helpers/runs.js';
@@ -429,6 +430,123 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
       { ...base, status: 'failed', costUsd: 0.5 },
     ]);
     expect((await listedPr(app, repo.id, pr.id)).cost_usd).toBeNull();
+    await app.close();
+  });
+
+  it('review in progress: the PR list counts runs that are still running, and only those', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    expect((await listedPr(app, repo.id, pr.id)).active_runs).toBe(0);
+    const base = { workspaceId, prId: pr.id, provider: 'openai', model: 'gpt-4.1' };
+    await pg.handle.db.insert(t.agentRuns).values([
+      { ...base, status: 'running' },
+      { ...base, status: 'running' },
+      { ...base, status: 'done' },
+      { ...base, status: 'failed' },
+      { ...base, status: 'cancelled' },
+    ]);
+    expect((await listedPr(app, repo.id, pr.id)).active_runs).toBe(2);
+    await app.close();
+  });
+
+  it('findings on the PR list: counts per severity come from the latest review of an agent; null until reviewed', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    expect((await listedPr(app, repo.id, pr.id)).findings_by_severity).toBeNull();
+
+    const finding = (reviewId: string, severity: string) => ({
+      reviewId,
+      file: 'src/a.ts',
+      startLine: 1,
+      endLine: 1,
+      severity,
+      category: 'bug',
+      title: `${severity} finding`,
+      rationale: 'because',
+      confidence: 0.9,
+    });
+    const review = { workspaceId, prId: pr.id, kind: 'review' as const, verdict: 'comment' };
+    const [older] = await pg.handle.db
+      .insert(t.reviews)
+      .values({ ...review, createdAt: new Date('2026-01-01T00:00:00Z') })
+      .returning();
+    await pg.handle.db
+      .insert(t.findings)
+      .values([finding(older!.id, 'CRITICAL'), finding(older!.id, 'CRITICAL'), finding(older!.id, 'CRITICAL')]);
+    const [latest] = await pg.handle.db
+      .insert(t.reviews)
+      .values({ ...review, createdAt: new Date('2026-02-01T00:00:00Z') })
+      .returning();
+    await pg.handle.db
+      .insert(t.findings)
+      .values([finding(latest!.id, 'CRITICAL'), finding(latest!.id, 'WARNING'), finding(latest!.id, 'WARNING')]);
+
+    expect((await listedPr(app, repo.id, pr.id)).findings_by_severity).toEqual({
+      CRITICAL: 1,
+      WARNING: 2,
+      SUGGESTION: 0,
+    });
+    await app.close();
+  });
+
+  it('findings on the PR list: the latest reviews of different agents are added up', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    // reviews.agent_id carries no foreign key, so two ids stand in for two agents.
+    const general = { id: randomUUID() };
+    const security = { id: randomUUID() };
+    const finding = (reviewId: string, severity: string) => ({
+      reviewId,
+      file: 'src/a.ts',
+      startLine: 1,
+      endLine: 1,
+      severity,
+      category: 'bug',
+      title: `${severity} finding`,
+      rationale: 'because',
+      confidence: 0.9,
+    });
+    const review = (agentId: string, createdAt: string) => ({
+      workspaceId,
+      prId: pr.id,
+      agentId,
+      kind: 'review' as const,
+      verdict: 'comment',
+      createdAt: new Date(createdAt),
+    });
+    const [superseded, generalLatest, securityLatest] = await pg.handle.db
+      .insert(t.reviews)
+      .values([
+        review(general.id, '2026-01-01T00:00:00Z'),
+        review(general.id, '2026-02-01T00:00:00Z'),
+        review(security.id, '2026-01-15T00:00:00Z'),
+      ])
+      .returning();
+    await pg.handle.db.insert(t.findings).values([
+      finding(superseded!.id, 'SUGGESTION'),
+      finding(generalLatest!.id, 'WARNING'),
+      finding(securityLatest!.id, 'CRITICAL'),
+      finding(securityLatest!.id, 'WARNING'),
+    ]);
+    expect((await listedPr(app, repo.id, pr.id)).findings_by_severity).toEqual({
+      CRITICAL: 1,
+      WARNING: 2,
+      SUGGESTION: 0,
+    });
+    await app.close();
+  });
+
+  it('findings on the PR list: a review without findings lists zeros, not null', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    await pg.handle.db
+      .insert(t.reviews)
+      .values({ workspaceId, prId: pr.id, kind: 'review', verdict: 'approve' });
+    expect((await listedPr(app, repo.id, pr.id)).findings_by_severity).toEqual({
+      CRITICAL: 0,
+      WARNING: 0,
+      SUGGESTION: 0,
+    });
     await app.close();
   });
 
