@@ -6,7 +6,7 @@
 - [ ] New feature
 - [ ] Bug fix
 - [ ] Refactoring (no behaviour change)
-- [ ] Documentation or agent setup (CLAUDE.md, skills, hooks)
+- [ ] Documentation or agent setup (AGENTS.md, CLAUDE.md, skills, hooks)
 
 ## How Has This Been Tested?
 - [ ] Unit tests
