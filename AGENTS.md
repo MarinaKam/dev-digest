@@ -19,8 +19,8 @@ Node >=22 · TypeScript 5.7 · Zod 3 · Vitest 2
 Each of these has its own `AGENTS.md` with the conventions for that module.
 
 `AGENTS.md` is the source of the agent instructions, for every coding agent.
-The `CLAUDE.md` next to it only imports it (`@AGENTS.md`) and adds what applies
-to Claude Code alone. Change the instructions in `AGENTS.md`.
+The `CLAUDE.md` next to it is a symlink to it, so Claude Code reads the same
+text. Change the instructions in `AGENTS.md`.
 
 ## Commands
 - Whole stack: `./scripts/dev.sh` (`--db-only` for Postgres + migrate + seed)
@@ -94,7 +94,8 @@ not done until they pass; quote the output, do not summarise it.
   A feature that spans packages is specified in `server/specs/`.
 - Read `<module>/INSIGHTS.md` before you start any work in that module. Before
   the session ends, append what you learned that the code does not show and that
-  the file does not already hold. Never rewrite entries.
+  the file does not already hold (skill `engineering-insights`). Never rewrite
+  entries.
 
 ## Homework pull requests
 - Homework is submitted as a pull request in my fork: `gh pr create --repo MarinaKam/dev-digest --base main`.
