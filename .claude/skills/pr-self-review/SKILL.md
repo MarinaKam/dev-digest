@@ -2,7 +2,7 @@
 name: pr-self-review
 description: "Use when changes are about to leave the machine: before git push, before opening or merging a pull request, when the user asks to self-review, pre-review or check the open changes or the branch before a PR, when asked 'can I open the PR' or 'is this ready to push', or when a push or pull-request command was blocked by the pr-self-review gate. Not for reviewing someone else's pull request, and not for writing the pull-request description."
 metadata:
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # PR Self-Review
@@ -107,9 +107,11 @@ the command to do it. Fix the critical findings, or hand them to the user, then
 run the skill again from step 1: a verdict belongs to one exact content and a
 fix changes it.
 
-The gate has an override for the user, described in [gate.md](gate.md). Never
-add it on your own, and do not offer it as the next step. Mention it only when
-the user asks how to get past the gate.
+The gate has an override for the user, described in [gate.md](gate.md). It is
+not read from the command, so there is nothing for you to add. Do not reach
+the blocked result another way (a script, an alias, another tool that
+publishes), and do not offer the override as the next step. Mention it only
+when the user asks how to get past the gate.
 
 ## Red flags
 

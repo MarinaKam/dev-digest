@@ -64,7 +64,9 @@ not done until they pass; quote the output, do not summarise it.
 - Which folder goes to which reviewer, which files are skipped, and which
   folders must stay identical copies is in `.claude/pr-self-review.config.json`.
   Change that file when a package is added; do not work around the gate.
-- Never add the gate's override to a command yourself. It is the user's.
+- When the gate blocks, tell the user. Do not reach the same result another way
+  (a script, an alias, another tool). The override is the user's and is not
+  read from the command.
 
 ## Naming
 - Branches: `<type>/<slug>` (`feat/severity-counters`). Commits:

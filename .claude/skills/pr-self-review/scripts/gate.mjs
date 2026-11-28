@@ -9,14 +9,22 @@
 //
 // The verdict is stored inside the git directory, so it is never committed.
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs';
 import { join, resolve } from 'node:path';
+import { findGuarded, mentionsGuardedWords } from './command.mjs';
 import {
   classifyFile,
   computeVerdict,
   evaluateGate,
   fingerprintOf,
-  guardedAction,
   isDocsOnly,
   mirrorCounterpart,
   overrideReason,
@@ -249,8 +257,46 @@ function denyMessage(action, reason) {
   return [
     `pr-self-review gate: \`${action}\` is blocked. ${reason}`,
     'Run the pr-self-review skill, fix every critical finding, record the verdict, then retry.',
-    'Only the user may override the gate. Do not add an override yourself; tell the user it is blocked.',
+    'Only the user can override the gate, outside this command. Tell the user it is blocked; do not look for a way around it.',
   ].join('\n');
+}
+
+/** The repository a folder belongs to, as its shared git directory. Worktrees share one. */
+function repositoryOf(directory) {
+  if (!directory || !existsSync(directory)) return null;
+  const common = tryGit(directory, ['rev-parse', '--git-common-dir']);
+  return common ? realpathSync(resolve(directory, common)) : null;
+}
+
+function logOverride(root, action, reason) {
+  const entry = { at: new Date().toISOString(), action, head: tryGit(root, ['rev-parse', 'HEAD']), reason };
+  appendFileSync(stateFile(root, 'overrides.log'), `${JSON.stringify(entry)}\n`);
+}
+
+/**
+ * Decides one guarded action. Once an action is recognised, every doubt denies: an unknown
+ * folder, a folder that is not a repository, a change that cannot be read.
+ */
+function decideGuarded(guarded, sessionDirectory) {
+  if (guarded.directory === null) {
+    return { allow: false, reason: 'The gate cannot tell which folder this command runs in. Run it from the repository, without variables in the path.' };
+  }
+  const target = repositoryOf(guarded.directory);
+  if (!target) return { allow: false, reason: `${guarded.directory} is not a git repository.` };
+  const project = repositoryOf(process.env.CLAUDE_PROJECT_DIR || sessionDirectory);
+  if (project && project !== target) return { allow: true, reason: 'another repository' };
+  const root = git(guarded.directory, ['rev-parse', '--show-toplevel']).trim();
+  const reason = overrideReason(process.env);
+  if (reason) {
+    logOverride(root, guarded.action, reason);
+    return { allow: true, reason: 'overridden by the user' };
+  }
+  return gateState(root);
+}
+
+function deny(action, reason) {
+  process.stderr.write(`${denyMessage(action, reason)}\n`);
+  return EXIT_DENY_HOOK;
 }
 
 function runHook(stdin) {
@@ -258,27 +304,20 @@ function runHook(stdin) {
   try {
     call = JSON.parse(stdin);
   } catch {
-    return 0;
+    if (!mentionsGuardedWords(stdin)) return 0;
+    return deny('a push or pull request command', 'The gate could not read the tool call.');
   }
-  const command = call?.tool_input?.command ?? '';
-  const action = guardedAction(command);
-  if (!action) return 0;
-  const root = tryGit(call.cwd || process.cwd(), ['rev-parse', '--show-toplevel']);
-  if (!root) return 0;
+  const command = call?.tool_input?.command;
+  if (typeof command !== 'string') return 0;
+  const sessionDirectory = call.cwd || process.cwd();
+  const guarded = findGuarded(command, sessionDirectory);
+  if (!guarded) return 0;
   try {
-    const reason = overrideReason(command, process.env);
-    if (reason) {
-      const entry = { at: new Date().toISOString(), action, head: tryGit(root, ['rev-parse', 'HEAD']), reason };
-      appendFileSync(stateFile(root, 'overrides.log'), `${JSON.stringify(entry)}\n`);
-      return 0;
-    }
-    const state = gateState(root);
-    if (state.allow) return 0;
-    process.stderr.write(`${denyMessage(action, state.reason)}\n`);
+    const decision = decideGuarded(guarded, sessionDirectory);
+    return decision.allow ? 0 : deny(guarded.action, decision.reason);
   } catch (error) {
-    process.stderr.write(`${denyMessage(action, `The gate could not read the change: ${error.message}`)}\n`);
+    return deny(guarded.action, `The gate could not read the change: ${error.message}`);
   }
-  return EXIT_DENY_HOOK;
 }
 
 function main() {

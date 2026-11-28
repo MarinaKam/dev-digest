@@ -9,74 +9,14 @@ export const CHECK_STATUSES = ['pass', 'fail', 'not_run'];
 const DOC_FILE = /\.mdx?$/i;
 const TEST_FILE = /(\.|\/)(test|spec)\.[cm]?[jt]sx?$|(^|\/)(__tests__|e2e)\//;
 const FRONTEND_FILE = /\.(tsx|jsx|css|scss)$/i;
-const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
-const GIT_OPTIONS_WITH_VALUE = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace']);
-const SEPARATORS = ['&&', '||', ';', '|', '\n'];
 
-function separatorAt(command, index) {
-  return SEPARATORS.find((separator) => command.startsWith(separator, index)) ?? null;
-}
-
-/** Splits a shell line into simple commands. Separators inside quotes do not split. */
-export function splitCommands(command) {
-  const parts = [];
-  let current = '';
-  let quote = null;
-  for (let index = 0; index < command.length; index += 1) {
-    const char = command[index];
-    const separator = quote ? null : separatorAt(command, index);
-    if (separator) {
-      parts.push(current);
-      current = '';
-      index += separator.length - 1;
-    } else {
-      if (quote && char === quote) quote = null;
-      else if (!quote && (char === '"' || char === "'")) quote = char;
-      current += char;
-    }
-  }
-  return [...parts, current].map((part) => part.trim()).filter(Boolean);
-}
-
-function tokenize(simpleCommand) {
-  const tokens = simpleCommand.match(/"[^"]*"|'[^']*'|[^\s"']+(?:"[^"]*"|'[^']*')?/g) ?? [];
-  const firstWord = tokens.findIndex((token) => !ASSIGNMENT.test(token));
-  return firstWord === -1 ? [] : tokens.slice(firstWord);
-}
-
-function gitSubcommand(tokens) {
-  let index = 1;
-  while (index < tokens.length && tokens[index].startsWith('-')) {
-    index += GIT_OPTIONS_WITH_VALUE.has(tokens[index]) ? 2 : 1;
-  }
-  return tokens[index] ?? null;
-}
-
-function actionOf(simpleCommand) {
-  const tokens = tokenize(simpleCommand);
-  if (tokens[0] === 'git' && gitSubcommand(tokens) === 'push') return 'git push';
-  if (tokens[0] === 'gh' && tokens[1] === 'pr' && (tokens[2] === 'create' || tokens[2] === 'merge')) {
-    return `gh pr ${tokens[2]}`;
-  }
-  return null;
-}
-
-/** The first guarded action a shell line would run, or null. */
-export function guardedAction(command) {
-  for (const simpleCommand of splitCommands(command ?? '')) {
-    const action = actionOf(simpleCommand);
-    if (action) return action;
-  }
-  return null;
-}
-
-/** The override reason given in the command line or the environment, or null. */
-export function overrideReason(command, env) {
-  const pattern = new RegExp(`(?:^|\\s)${OVERRIDE_VARIABLE}=(?:"([^"]*)"|'([^']*)'|(\\S*))`);
-  const match = pattern.exec(command ?? '');
-  const fromCommand = match ? (match[1] ?? match[2] ?? match[3] ?? '') : '';
-  const reason = (fromCommand || env?.[OVERRIDE_VARIABLE] || '').trim();
-  return reason || null;
+/**
+ * The override reason, or null. It is read only from the environment of the hook process,
+ * which the user sets when starting the session. The text of the command is never a source:
+ * the agent writes that text, so it cannot carry the user's authority.
+ */
+export function overrideReason(env) {
+  return (env?.[OVERRIDE_VARIABLE] ?? '').trim() || null;
 }
 
 /** Minimal glob: `**` crosses folders, `*` stays inside one path segment. */

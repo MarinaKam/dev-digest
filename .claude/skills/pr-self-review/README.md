@@ -7,12 +7,13 @@ its shape. The agent does not load this file; the procedure is in
 
 ## Version
 
-**1.0.0** (2026-11-27). The version is recorded in the `metadata.version`
+**1.0.1** (2026-11-27). The version is recorded in the `metadata.version`
 field of `SKILL.md` and in the changelog below.
 
 | Version | Date | Change |
 |---|---|---|
 | 1.0.0 | 2026-11-27 | First version: scope, cheap checks, review by bucket, refutation of criticals, recorded verdict, `PreToolUse` gate |
+| 1.0.1 | 2026-11-27 | Gate hardening after a security review: positional command detection instead of a first-word match, override read only from the hook's environment, the gate closes when the folder, the repository or the tool call cannot be read |
 
 ## Need
 
@@ -140,8 +141,9 @@ Changes made after these runs, **not re-run**:
 
 ### The gate script
 
-`scripts/lib.mjs` (pure logic) and `scripts/gate.mjs` (git and file access)
-are covered by `scripts/*.test.mjs`: 30 tests, the integration ones each in a
+`scripts/command.mjs` (finding a guarded command in a shell line),
+`scripts/lib.mjs` (verdict logic) and `scripts/gate.mjs` (git and file access)
+are covered by `scripts/*.test.mjs`: 45 tests, the integration ones each in a
 throwaway git repository.
 
 ```bash
@@ -155,9 +157,17 @@ Checked in a live session: with the hook registered and no verdict recorded,
 
 - The review itself was never run end to end on a real working tree with
   subagents; the fixture runs were single-agent.
-- Command detection reads the command text. `git push` and `gh pr ...` are
-  recognised after `cd x &&`, after environment assignments and with git's
-  global options; a push inside a script or an alias is not.
+- Command detection reads the command text. A probe of 41 further forms, not
+  taken from the tests, left 11 unrecognised, all indirect: an alias, a
+  variable holding the whole command, text piped into a shell, an
+  interpreter's `-e`/`-c`, a script, a `make` target, `gh api`, `hub`,
+  `git send-pack`. `gate.md` lists them as bypasses and names the git
+  `pre-push` hook as the layer that closes them for pushes; that hook is not
+  installed by the skill.
+- The override is read from the environment of the hook process only. An agent
+  that edits the project's settings or writes the verdict file by hand is
+  outside what a local hook can stop; both changes are visible, one in the
+  diff and one as a verdict with no matching review.
 - The verdict is per git directory, not per branch: reviewing one branch and
   switching to another leaves a verdict whose fingerprint does not match, so
   the gate closes, which is the safe side.

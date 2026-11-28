@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const GATE = join(dirname(fileURLToPath(import.meta.url)), 'gate.mjs');
-const { PR_SELF_REVIEW_OVERRIDE: _ignored, ...inherited } = process.env;
+const { PR_SELF_REVIEW_OVERRIDE: _override, CLAUDE_PROJECT_DIR: _project, ...inherited } = process.env;
 const ENV = {
   ...inherited,
   GIT_CONFIG_GLOBAL: '/dev/null',
@@ -63,9 +63,16 @@ function scope(repo, target = 'head') {
   return JSON.parse(result.stdout);
 }
 
-function hook(repo, command, env = ENV) {
-  const input = JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd: repo });
-  return gate(repo, ['hook'], input, env);
+/** Runs the hook as the harness would: the session started in `repo`, the call carries `cwd`. */
+function hook(repo, command, extraEnv = {}, cwd = repo) {
+  const input = JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd });
+  return gate(repo, ['hook'], input, { ...ENV, CLAUDE_PROJECT_DIR: repo, ...extraEnv });
+}
+
+function emptyFolder(t) {
+  const folder = mkdtempSync(join(tmpdir(), 'pr-self-review-test-'));
+  t.after(() => rmSync(folder, { recursive: true, force: true }));
+  return folder;
 }
 
 function record(repo, review) {
@@ -106,10 +113,58 @@ test('the hook blocks a push when no self-review is recorded', (t) => {
   assert.match(result.stderr, /No self-review is recorded/);
 });
 
-test('the hook lets unguarded commands through and ignores unreadable input', (t) => {
+test('the hook lets unguarded commands through', (t) => {
   const repo = makeRepo(t);
   assert.equal(hook(repo, 'git status').status, 0);
+  assert.equal(hook(repo, 'git stash push -m wip').status, 0);
+  assert.equal(gate(repo, ['hook'], JSON.stringify({ tool_name: 'Bash', tool_input: {} })).status, 0);
+});
+
+test('unreadable input is refused only when it could be a guarded command', (t) => {
+  const repo = makeRepo(t);
   assert.equal(gate(repo, ['hook'], 'not json').status, 0);
+  const result = gate(repo, ['hook'], '{"tool_input": {"command": "git push"');
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /could not read the tool call/);
+});
+
+test('the hook blocks a push hidden behind a wrapper, a subshell or a nested shell', (t) => {
+  const repo = makeRepo(t);
+  for (const command of ['env git push', '(git push)', 'sh -c "git push"', 'echo ok & git push', '/usr/bin/git push']) {
+    assert.equal(hook(repo, command).status, 2, command);
+  }
+});
+
+test('the hook refuses a guarded command whose folder it cannot determine', (t) => {
+  const repo = makeRepo(t);
+  const notARepo = emptyFolder(t);
+  assert.match(hook(repo, 'cd "$SOMEWHERE" && git push').stderr, /cannot tell which folder/);
+  assert.match(hook(repo, `cd ${join(notARepo, 'missing')} && git push`).stderr, /not a git repository/);
+  assert.match(hook(repo, 'git push', {}, notARepo).stderr, /not a git repository/);
+  assert.equal(hook(repo, 'git --git-dir=.git push').status, 2);
+});
+
+test('the hook evaluates the repository the command targets', (t) => {
+  const repo = makeRepo(t);
+  const other = makeRepo(t);
+  assert.equal(hook(repo, `git -C ${other} push`).status, 0, 'another repository is not this gate');
+  assert.equal(hook(repo, `cd ${other} && git push`).status, 0);
+  assert.equal(hook(repo, 'git -C api push').status, 2, 'a subfolder of the project is the project');
+  assert.equal(hook(repo, 'cd api/src && gh pr create').status, 2);
+});
+
+test('a broken verdict file or a broken config keeps the gate closed', (t) => {
+  const repo = makeRepo(t);
+  assert.equal(record(repo, passingReview(repo)).status, 0);
+  writeFileSync(join(repo, '.git', 'pr-self-review', 'verdict.json'), '{ not json');
+  assert.equal(hook(repo, 'git push').status, 2);
+
+  const second = makeRepo(t);
+  assert.equal(record(second, passingReview(second)).status, 0);
+  writeFileSync(join(second, '.claude', 'pr-self-review.config.json'), '{ not json');
+  const result = hook(second, 'git push');
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /could not read the change/);
 });
 
 test('a recorded pass opens the gate until the committed change is different', (t) => {
@@ -161,13 +216,25 @@ test('record refuses a critical finding without evidence', (t) => {
   assert.match(result.stderr, /quoted evidence/);
 });
 
-test('an override with a reason opens the gate and is logged', (t) => {
+test('an override written into the command by the agent does not open the gate', (t) => {
   const repo = makeRepo(t);
-  assert.equal(hook(repo, 'PR_SELF_REVIEW_OVERRIDE="hotfix" git push').status, 0);
+  for (const command of [
+    'PR_SELF_REVIEW_OVERRIDE="hotfix" git push',
+    'export PR_SELF_REVIEW_OVERRIDE=hotfix; git push',
+    'env PR_SELF_REVIEW_OVERRIDE=hotfix git push',
+    'PR_SELF_REVIEW_OVERRIDE=hotfix gh pr create',
+  ]) {
+    assert.equal(hook(repo, command).status, 2, command);
+  }
+});
+
+test('an override in the environment of the hook opens the gate and is logged', (t) => {
+  const repo = makeRepo(t);
+  assert.equal(hook(repo, 'git push', { PR_SELF_REVIEW_OVERRIDE: 'hotfix' }).status, 0);
   const log = readFileSync(join(repo, '.git', 'pr-self-review', 'overrides.log'), 'utf8');
   assert.match(log, /hotfix/);
   assert.match(log, /git push/);
-  assert.equal(hook(repo, 'PR_SELF_REVIEW_OVERRIDE= git push').status, 2);
+  assert.equal(hook(repo, 'git push', { PR_SELF_REVIEW_OVERRIDE: '  ' }).status, 2);
 });
 
 test('a documentation-only branch passes without a review', (t) => {

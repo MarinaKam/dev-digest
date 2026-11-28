@@ -167,29 +167,68 @@ The project registers the script as a `PreToolUse` hook on the shell tool:
 }
 ```
 
-It reads the command about to run. For `git push`, `gh pr create` and
-`gh pr merge` it compares the committed change with the recorded verdict and
-blocks unless that exact content passed. Every other command goes through
-untouched. A documentation-only change and an empty change pass without a
-review. If the gate cannot read the change, it blocks.
+It reads the command about to run. When the command would publish the change
+(a push, opening a pull request, merging one), it compares the committed
+change with the recorded verdict and blocks unless that exact content passed.
+Every other command goes through untouched. A documentation-only change and an
+empty change pass without a review.
 
-`node scripts/gate.mjs check` prints the same decision without running
-anything.
+The command is recognised wherever it stands in the line: after `cd x &&`,
+after assignments, behind `env`, `sudo`, `timeout` or any other prefix, inside
+`( )`, `$( )`, backticks, `sh -c "..."` and `eval`, with a path in front of the
+program, and with quotes around its words. The body of a here-document is
+data, not a command.
+
+Once such a command is recognised, every doubt closes the gate:
+
+- the folder it would run in cannot be worked out (a variable in `cd` or in
+  `-C`, `--git-dir`, `--work-tree`);
+- that folder is not a git repository;
+- the change, the config or the verdict cannot be read;
+- the tool call itself cannot be parsed and its text mentions a push or a
+  pull-request command.
+
+A command that targets a different repository than the project is let through:
+the gate guards this project. A worktree of the project is the project.
+
+`node scripts/gate.mjs check` prints the same decision for the current folder
+without running anything.
 
 ### What the hook does not do
 
 - It does not review. It only reads the verdict; the review is this skill.
-- It stops the agent, not a person typing in their own terminal, and not a
-  push hidden inside a script. It is a local check, not branch protection.
+- It reads the text of the command. It cannot follow what the text does not
+  show: an alias, a variable that holds the whole command, a script or a
+  `make` target that pushes, a command handed to another program as data
+  (`echo "..." | sh`, an interpreter's `-e` or `-c`), or another tool that
+  publishes (`gh api`). Using one of these to get past a closed gate is a
+  bypass, not a workaround.
+- It stops the agent, not a person typing in their own terminal. It is a local
+  check, not branch protection.
+
+A git `pre-push` hook that runs `node <skill>/scripts/gate.mjs check` closes
+the indirect ways for pushes, because git itself runs it. It lives in the
+local git directory, so the user installs it; the skill never does.
 
 ### Override
 
-The user, and only the user, can let one command through with a reason:
+Only the user can open a closed gate, and not through the command: the agent
+writes the command, so nothing in its text counts as the user's word. The two
+ways are:
 
-```bash
-PR_SELF_REVIEW_OVERRIDE="hotfix, review follows in the PR" git push
-```
+- The user runs the command in their own terminal, where the hook does not
+  apply.
+- The user starts the session with a reason in the environment:
 
-Each use is appended to `overrides.log` next to the verdict. A gate with no
-way out gets deleted after its first wrong block; a logged override keeps it
-in place.
+  ```bash
+  PR_SELF_REVIEW_OVERRIDE="hotfix, review follows in the PR" claude
+  ```
+
+  The hook reads the variable from its own process. Every guarded command it
+  then lets through is appended to `overrides.log` next to the verdict.
+
+`PR_SELF_REVIEW_OVERRIDE=... git push` typed into a command does nothing: that
+assignment reaches git, not the hook.
+
+A gate with no way out gets deleted after its first wrong block; a logged
+override, in the user's hands, keeps it in place.
