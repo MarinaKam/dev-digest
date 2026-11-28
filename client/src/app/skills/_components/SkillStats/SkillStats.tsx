@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Card, Icon } from "@devdigest/ui";
+import { Card, EmptyState, Icon } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
 import { s } from "./styles";
 
@@ -13,6 +13,9 @@ interface SkillStatsProps {
 /** Stats tab: how many agents use the skill, and which. */
 export function SkillStats({ skill }: SkillStatsProps) {
   const t = useTranslations("skills");
+  if (skill.used_by.length === 0) {
+    return <EmptyState icon="BarChart" title={t("stats.noUsageTitle")} body={t("stats.noUsageBody")} />;
+  }
   return (
     <div style={s.wrap}>
       <Card style={s.tile}>
@@ -24,7 +27,6 @@ export function SkillStats({ skill }: SkillStatsProps) {
 
       <Card pad={false}>
         <h2 style={s.cardTitle}>{t("stats.listTitle")}</h2>
-        {skill.used_by.length === 0 && <div style={s.empty}>{t("stats.empty")}</div>}
         {skill.used_by.map((agent) => (
           <div key={agent.id} style={s.row}>
             <Icon.Cpu size={14} style={s.rowIcon} />

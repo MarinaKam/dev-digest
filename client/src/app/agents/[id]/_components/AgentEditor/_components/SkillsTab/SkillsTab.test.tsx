@@ -56,6 +56,14 @@ describe("SkillsTab", () => {
     expect(screen.getByText("2 of 6 enabled")).toBeInTheDocument();
   });
 
+  it("tints each type badge with its type colour, as in the design", () => {
+    hooks.skills = [{ ...skill("a"), type: "security" }, skill("c")];
+    hooks.links = [link("a", 0)];
+    renderTab();
+    expect(screen.getByText("security")).toHaveStyle({ color: "var(--crit)" });
+    expect(screen.getByText("rubric")).toHaveStyle({ color: "var(--accent)" });
+  });
+
   it("checking an unlinked skill appends it to the full ordered list", () => {
     renderTab();
     fireEvent.click(screen.getByRole("checkbox", { name: /skill-d/ }));

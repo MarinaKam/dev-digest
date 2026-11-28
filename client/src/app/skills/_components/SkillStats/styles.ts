@@ -6,7 +6,6 @@ export const s = {
   tileLabel: { fontSize: 12, color: "var(--text-muted)", marginBottom: 6 } satisfies CSSProperties,
   tileValue: { fontSize: 22, fontWeight: 700 } satisfies CSSProperties,
   cardTitle: { fontSize: 14, fontWeight: 600, padding: "14px 16px", borderBottom: "1px solid var(--border)" } satisfies CSSProperties,
-  empty: { padding: 16, fontSize: 14, color: "var(--text-muted)" } satisfies CSSProperties,
   row: {
     display: "flex",
     alignItems: "center",

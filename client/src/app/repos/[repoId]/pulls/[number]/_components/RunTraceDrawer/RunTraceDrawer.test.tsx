@@ -108,6 +108,31 @@ describe("Run Trace drawer — skills block", () => {
   it("shows no skills block when the trace has no skills", () => {
     traceData = { ...TRACE, prompt_assembly: { ...TRACE.prompt_assembly, skills: null } };
     open();
-    expect(screen.queryByText(/^Skills/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Skills", { exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Skills ·/)).not.toBeInTheDocument();
+  });
+
+  it("lists the loaded skills in Configuration, as in the design", () => {
+    traceData = {
+      ...TRACE,
+      prompt_assembly: {
+        ...TRACE.prompt_assembly,
+        skills_used: [
+          { name: "api-contract", version: 1 },
+          { name: "edge-case-coverage", version: 3 },
+        ],
+      },
+    };
+    renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+    expect(screen.getByText("Skills loaded")).toBeInTheDocument();
+    expect(screen.getByText("api-contract@v1")).toBeInTheDocument();
+    expect(screen.getByText("edge-case-coverage@v3")).toBeInTheDocument();
+  });
+
+  it("says none in Configuration when no skill was loaded", () => {
+    traceData = { ...TRACE, prompt_assembly: { ...TRACE.prompt_assembly, skills: null, skills_used: null } };
+    renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+    const row = screen.getByText("Skills loaded").parentElement;
+    expect(row?.textContent).toContain("none");
   });
 });

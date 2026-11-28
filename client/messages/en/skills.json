@@ -91,8 +91,9 @@
     "usedBy": "Used by",
     "usedByValue": "{count, plural, one {# agent} other {# agents}}",
     "listTitle": "Agents using this skill",
-    "empty": "No agent uses this skill yet.",
-    "open": "Open"
+    "open": "Open",
+    "noUsageTitle": "No usage yet",
+    "noUsageBody": "This skill isn't linked to any agent. Link it on an agent's Skills tab to start using it."
   },
   "versions": {
     "title": "Version history",

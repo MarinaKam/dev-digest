@@ -7,6 +7,7 @@ import React from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Badge, EmptyState, ErrorState, Icon, Skeleton, TextInput } from "@devdigest/ui";
+import { SkillTypeBadge } from "@/components/skill-type";
 import { useAgentSkillLinks, useSetAgentSkills, useSkills } from "@/lib/hooks/skills";
 import { countEnabledLinked, matchesQuery, moveLinked, orderedRows } from "./helpers";
 import { s } from "./styles";
@@ -159,7 +160,7 @@ export function SkillsTab({ agentId }: SkillsTabProps) {
                 {skill.name}
               </span>
               {off && <span style={s.off}>{t("skills.offGlobally")}</span>}
-              <Badge>{skill.type}</Badge>
+              <SkillTypeBadge type={skill.type} />
             </div>
           );
         })}

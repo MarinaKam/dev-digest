@@ -4,8 +4,8 @@ import {
   SKILL_DESCRIPTION_MAX,
   SKILL_NAME_MAX,
   SKILL_NAME_PATTERN,
-  TYPE_COLORS,
 } from "./constants";
+import { SKILL_TYPE_COLORS } from "@/components/skill-type";
 
 /** The editable fields of a skill, as a form holds them. */
 export interface SkillFormValues {
@@ -53,7 +53,7 @@ export function countLines(text: string): number {
 }
 
 export function typeColor(type: SkillType): string {
-  return TYPE_COLORS[type];
+  return SKILL_TYPE_COLORS[type];
 }
 
 /** Case-insensitive filter over a skill's name. */

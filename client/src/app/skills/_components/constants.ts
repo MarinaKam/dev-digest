@@ -22,13 +22,6 @@ export const TABS: readonly SkillTab[] = [
 
 export const SKILL_TYPES: readonly SkillType[] = ["rubric", "convention", "security", "custom"];
 
-/** Tint of a skill's icon and type badge. */
-export const TYPE_COLORS: Record<SkillType, string> = {
-  rubric: "var(--accent)",
-  convention: "var(--ok)",
-  security: "var(--crit)",
-  custom: "var(--text-secondary)",
-};
 
 /** Height of the app shell's top bar; the screen fills the rest of the viewport. */
 export const TOP_BAR_HEIGHT = 52;

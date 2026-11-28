@@ -48,6 +48,19 @@ export function TraceBody({ trace, findings }: TraceBodyProps) {
               {trace.config.provider ?? "—"}
             </span>
           </Row>
+          <Row label={t("trace.config.skillsLoaded")}>
+            <div style={s.specsWrap}>
+              {(trace.prompt_assembly.skills_used ?? []).length === 0 ? (
+                <span style={s.specsNone}>{t("trace.config.none")}</span>
+              ) : (
+                (trace.prompt_assembly.skills_used ?? []).map((sk) => (
+                  <span key={sk.name} className="mono" style={s.spec}>
+                    {`${sk.name}@v${sk.version}`}
+                  </span>
+                ))
+              )}
+            </div>
+          </Row>
           <Row label={t("trace.config.memoryPulled")}>
             <span>{t("trace.config.items", { count: trace.memory_pulled.length })}</span>
           </Row>
