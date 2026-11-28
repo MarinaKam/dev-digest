@@ -24,6 +24,25 @@ Next.js web app. Talks to the API on `:3001`; has no backend logic of its own.
 - A prop is named after what it carries (`reviews`, `prRuns`), not after where
   it is shown.
 
+## Architecture
+- Next.js is the router and shell of a client-rendered app. The only Server
+  Component is `src/app/layout.tsx` (locale, messages, providers); views are
+  Client Components.
+- All data comes from the Fastify API, in the browser. Do not add server-side
+  data fetching, Server Actions or route handlers (`route.ts`); a new endpoint
+  belongs in `../server/`.
+- A new `page.tsx` is a thin route entry: it renders one view from
+  `_components/<Name>View` and holds no state, effects or data hooks. Do not
+  copy the older pages that still hold logic.
+- Imports point one way: `app/` -> `components/` -> `lib/` and `vendor/`.
+  Nothing outside `src/app` imports from it, and a route does not import
+  another route's `_components/`. A component used by two routes moves to
+  their nearest shared `_components/` or to `src/components/`.
+- State that must survive a reload or be linkable (active tab, filter) lives
+  in the URL query. Server state lives only in the TanStack Query cache.
+- Where the `next-best-practices` skill recommends a server-first pattern,
+  this section wins.
+
 ## Conventions
 - All API calls go through `src/lib/api.ts`, wrapped in TanStack Query hooks in
   `src/lib/hooks/`. Components do not call `fetch` directly.
