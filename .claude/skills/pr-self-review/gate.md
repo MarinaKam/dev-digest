@@ -24,7 +24,9 @@ each rule; the rule itself is in the owner, not here.
 - A rule written in the project's instruction file for that package, broken by
   a changed line, when the rule is about one of these: which tenant, workspace
   or user may see or change data; authentication or authorization; where
-  secrets are read; the direction of imports between layers or folders. A
+  secrets are read; the direction of imports between layers or folders; a
+  package the file declares pure doing I/O (database, network, file system,
+  environment). A
   deviation the file records as accepted is not a finding.
 - A file the instruction file says not to edit, edited by hand.
 

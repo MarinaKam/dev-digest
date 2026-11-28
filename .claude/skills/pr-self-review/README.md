@@ -7,7 +7,7 @@ its shape. The agent does not load this file; the procedure is in
 
 ## Version
 
-**1.1.0** (2026-11-27). The version is recorded in the `metadata.version`
+**1.1.1** (2026-11-27). The version is recorded in the `metadata.version`
 field of `SKILL.md` and in the changelog below.
 
 | Version | Date | Change |
@@ -17,6 +17,7 @@ field of `SKILL.md` and in the changelog below.
 | 1.0.2 | 2026-11-27 | Second hardening pass: a folder change is trusted only as a top-level `cd <literal> &&`, repository-moving variables and options make the folder unknown, `gh --repo` is judged as the project, here-documents and comments are read as the shell reads them, on-the-spot aliases count as a push |
 | 1.0.3 | 2026-11-27 | One lexer for the shell line replaces three text passes that could disagree: quotes with escapes, `$'...'`, arithmetic, comments and here-documents are read once, and a line that does not close what it opens is refused when it mentions a guarded command |
 | 1.1.0 | 2026-11-27 | Every skill of a bucket runs when the bucket has changed files; an empty bucket loads nothing. Expansions inside `${ }`, arithmetic and unquoted here-documents are read for commands, and a word the text does not settle counts as a possible guarded subcommand |
+| 1.1.1 | 2026-11-27 | I/O inside a package the project declares pure is critical |
 
 ## Need
 
@@ -169,7 +170,13 @@ Checked in a live session: with the hook registered and no verdict recorded,
   interpreter's `-e`/`-c`, a script, a `make` target, `gh api`, `hub`. A
   second probe of 29 forms that try to make the gate believe the command runs
   in another repository found none that does.
-- The gate was hardened three times after an automated security review, each time
+- A later automated review reported three more forms that are **not fixed**: a
+  command substitution inside `${ }` or inside an unquoted here-document body
+  when the surrounding quoting is unusual, and a here-document delimiter built
+  from several quoted pieces. They take deliberate obfuscation to hit. The hook
+  is a convenience that stops an ordinary push without a review, not a
+  security boundary; the git `pre-push` hook is.
+- The gate was hardened several times after an automated security review, each time
   by a wider rule and not by the reported example. Text analysis of a shell
   line has no proof of completeness; the two probes are evidence, not a
   guarantee. `gate.md` lists them as bypasses and names the git
