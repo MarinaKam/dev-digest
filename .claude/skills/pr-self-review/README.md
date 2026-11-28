@@ -7,7 +7,7 @@ its shape. The agent does not load this file; the procedure is in
 
 ## Version
 
-**1.0.2** (2026-11-27). The version is recorded in the `metadata.version`
+**1.0.3** (2026-11-27). The version is recorded in the `metadata.version`
 field of `SKILL.md` and in the changelog below.
 
 | Version | Date | Change |
@@ -15,6 +15,7 @@ field of `SKILL.md` and in the changelog below.
 | 1.0.0 | 2026-11-27 | First version: scope, cheap checks, review by bucket, refutation of criticals, recorded verdict, `PreToolUse` gate |
 | 1.0.1 | 2026-11-27 | Gate hardening after a security review: positional command detection instead of a first-word match, override read only from the hook's environment, the gate closes when the folder, the repository or the tool call cannot be read |
 | 1.0.2 | 2026-11-27 | Second hardening pass: a folder change is trusted only as a top-level `cd <literal> &&`, repository-moving variables and options make the folder unknown, `gh --repo` is judged as the project, here-documents and comments are read as the shell reads them, on-the-spot aliases count as a push |
+| 1.0.3 | 2026-11-27 | One lexer for the shell line replaces three text passes that could disagree: quotes with escapes, `$'...'`, arithmetic, comments and here-documents are read once, and a line that does not close what it opens is refused when it mentions a guarded command |
 
 ## Need
 
@@ -145,7 +146,7 @@ Changes made after these runs, **not re-run**:
 `scripts/shell-text.mjs` (reading a shell line as text), `scripts/command.mjs`
 (finding a guarded command and its folder), `scripts/lib.mjs` (verdict logic)
 and `scripts/gate.mjs` (git and file access) are covered by
-`scripts/*.test.mjs`: 53 tests, the integration ones each in a
+`scripts/*.test.mjs`: 55 tests, the integration ones each in a
 throwaway git repository.
 
 ```bash
@@ -165,7 +166,7 @@ Checked in a live session: with the hook registered and no verdict recorded,
   interpreter's `-e`/`-c`, a script, a `make` target, `gh api`, `hub`. A
   second probe of 29 forms that try to make the gate believe the command runs
   in another repository found none that does.
-- The gate was hardened twice after an automated security review, each time
+- The gate was hardened three times after an automated security review, each time
   by a wider rule and not by the reported example. Text analysis of a shell
   line has no proof of completeness; the two probes are evidence, not a
   guarantee. `gate.md` lists them as bypasses and names the git

@@ -2,7 +2,7 @@
 name: pr-self-review
 description: "Use when changes are about to leave the machine: before git push, before opening or merging a pull request, when the user asks to self-review, pre-review or check the open changes or the branch before a PR, when asked 'can I open the PR' or 'is this ready to push', or when a push or pull-request command was blocked by the pr-self-review gate. Not for reviewing someone else's pull request, and not for writing the pull-request description."
 metadata:
-  version: "1.0.2"
+  version: "1.0.3"
 ---
 
 # PR Self-Review

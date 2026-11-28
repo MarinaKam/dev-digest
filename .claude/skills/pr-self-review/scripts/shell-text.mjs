@@ -1,131 +1,264 @@
-// Reads a shell line as text: removes what is data (comments, here-document bodies) and
-// splits what is left into simple commands. Pure; tested through command.test.mjs.
+// One lexer for a shell line. Everything the gate knows about a command comes from here,
+// so there is a single reading of quotes, escapes, comments, substitutions, arithmetic and
+// here-documents, not several passes that can disagree.
 //
-// This is not a shell parser. It tracks just enough structure (quotes, `$( )`, groups) to
-// tell a command from text that only looks like one, and it errs towards "this is a command".
+// It is not a full shell parser. Where it cannot be sure, it keeps text as commands rather
+// than dropping it as data, and it reports `balanced: false` when the line does not close
+// what it opens, so the caller can refuse.
+//
+// lex(text) -> { lists, balanced }
+//   lists[0]   the simple commands of the line itself
+//   lists[1..] the simple commands of each `$( )`, backtick or ambiguous `(( ))` inside it
+//   a simple command is { words, before, after, depth }; a word is
+//   { value, quoted, dynamic, escaped }: the text the shell would pass on, whether any part
+//   was quoted, whether it holds an expansion or a pattern, whether it holds an escape.
 
-const SEPARATORS = ['&&', '||', ';', '|', '&', '\n', '(', ')', '{', '}'];
-const OPENERS = new Set(['(', '{']);
-const CLOSERS = new Set([')', '}']);
-const HEREDOC_OPERATOR = /<<-?\s*(["']?)([A-Za-z_][A-Za-z0-9_]*)\1/y;
+const TWO_CHAR_SEPARATORS = ['&&', '||', ';;'];
+const ONE_CHAR_SEPARATORS = new Set([';', '|', '\n']);
+const PATTERN_CHARACTERS = new Set(['~', '*', '?']);
+const HEREDOC_DELIMITER = /-?[ \t]*(?:"([^"\n]*)"|'([^'\n]*)'|((?:\\.|[^\s;&|()<>])+))/y;
+const GUARDED_WORDS = /\bpush\b|\bpr\s+(create|merge)\b/;
 
-/** The index just after the bodies of the given here-documents, which start at `start`. */
-function afterBodies(text, start, delimiters) {
-  let index = start;
-  for (const delimiter of delimiters) {
-    while (index < text.length) {
-      const end = text.indexOf('\n', index);
-      const line = text.slice(index, end === -1 ? text.length : end);
-      index = end === -1 ? text.length : end + 1;
-      if (line.trim() === delimiter) break;
+function newWord() {
+  return { value: '', quoted: false, dynamic: false, escaped: false };
+}
+
+/** Moves past the bodies of the pending here-documents. Stops, unbalanced, if one never ends. */
+function skipHeredocBodies(state) {
+  let cursor = state.index + 1;
+  for (const delimiter of state.pending) {
+    let found = false;
+    let line = cursor;
+    while (line < state.text.length && !found) {
+      const end = state.text.indexOf('\n', line);
+      const stop = end === -1 ? state.text.length : end;
+      found = state.text.slice(line, stop).trim() === delimiter;
+      line = end === -1 ? state.text.length : end + 1;
+    }
+    if (!found) {
+      state.balanced = false;
+      break;
+    }
+    cursor = line;
+  }
+  state.pending = [];
+  state.index = cursor;
+}
+
+/** The index after the `)` that closes the parenthesis opened before `start`, or -1. */
+function closingParenthesis(text, start) {
+  let depth = 1;
+  for (let index = start; index < text.length; index += 1) {
+    if (text[index] === '(') depth += 1;
+    if (text[index] === ')') depth -= 1;
+    if (depth === 0) return index + 1;
+  }
+  return -1;
+}
+
+function nest(state, text) {
+  const inner = lex(text);
+  state.lists.push(...inner.lists);
+}
+
+/** `$(( ))` or `(( ))`: copied as one opaque piece. Read as commands too if it could be some. */
+function readArithmetic(state, word, opener) {
+  const start = state.index + opener.length;
+  const end = closingParenthesis(state.text, start - 1);
+  const stop = end === -1 ? state.text.length : end;
+  const body = state.text.slice(start - 1, stop);
+  if (end === -1) state.balanced = false;
+  if (GUARDED_WORDS.test(body)) nest(state, body.replace(/^\(+|\)+$/g, ' '));
+  word.value += state.text.slice(state.index, stop);
+  word.dynamic = true;
+  state.index = stop;
+}
+
+function readBackticks(state, word) {
+  let index = state.index + 1;
+  let inner = '';
+  while (index < state.text.length && state.text[index] !== '`') {
+    if (state.text[index] === '\\') index += 1;
+    inner += state.text[index] ?? '';
+    index += 1;
+  }
+  if (index >= state.text.length) state.balanced = false;
+  nest(state, inner);
+  word.value += '``';
+  word.dynamic = true;
+  state.index = index + 1;
+}
+
+/** Reads `$...` at the cursor: arithmetic, a command substitution, `${ }` or a plain variable. */
+function readDollar(state, word) {
+  const { text, index } = state;
+  word.dynamic = true;
+  if (text.startsWith('$((', index)) return readArithmetic(state, word, '$((');
+  if (text.startsWith('$(', index)) {
+    state.index = index + 2;
+    state.lists.push(readList(state, true));
+    word.value += '$()';
+    return undefined;
+  }
+  if (text.startsWith('${', index)) {
+    const end = text.indexOf('}', index);
+    if (end === -1) state.balanced = false;
+    const stop = end === -1 ? text.length : end + 1;
+    word.value += text.slice(index, stop);
+    state.index = stop;
+    return undefined;
+  }
+  word.value += '$';
+  state.index = index + 1;
+  return undefined;
+}
+
+/** Reads up to the closing quote. In `"` and `$'`, a backslash escapes the next character. */
+function readQuoted(state, word, quote, opener) {
+  const literal = quote === "'" && opener === "'";
+  word.quoted = true;
+  state.index += opener.length;
+  while (state.index < state.text.length) {
+    const char = state.text[state.index];
+    if (char === quote) {
+      state.index += 1;
+      return;
+    }
+    if (char === '\n' && state.pending.length > 0) {
+      word.value += '\n';
+      skipHeredocBodies(state);
+    } else if (!literal && char === '\\') {
+      word.value += state.text[state.index + 1] ?? '';
+      state.index += 2;
+    } else if (quote === '"' && char === '$') {
+      readDollar(state, word);
+    } else if (quote === '"' && char === '`') {
+      readBackticks(state, word);
+    } else {
+      word.value += char;
+      state.index += 1;
     }
   }
-  return index;
+  state.balanced = false;
 }
 
-function heredocAt(text, index) {
-  if (!text.startsWith('<<', index) || text.startsWith('<<<', index)) return null;
-  HEREDOC_OPERATOR.lastIndex = index;
-  return HEREDOC_OPERATOR.exec(text);
+/** `<<WORD` or `<<-WORD` outside quotes: remembers the delimiter. False if it is not one. */
+function readHeredocOperator(state) {
+  HEREDOC_DELIMITER.lastIndex = state.index + 2;
+  const match = HEREDOC_DELIMITER.exec(state.text);
+  if (!match) return false;
+  state.pending.push((match[1] ?? match[2] ?? match[3]).replace(/\\/g, ''));
+  state.index = HEREDOC_DELIMITER.lastIndex;
+  return true;
 }
 
-function startsComment(text, index) {
-  return text[index] === '#' && (index === 0 || /\s/.test(text[index - 1]));
+function isRedirectionAmpersand(text, index) {
+  return text[index - 1] === '>' || text[index - 1] === '<' || text[index + 1] === '>';
 }
 
-/**
- * One step of the scan in a place where the shell reads commands (the top level or inside
- * `$( )`). Returns how many characters to copy, how many to drop, and what to remember.
- */
-function commandStep(text, index, context) {
+/** The separator at the cursor, or null. `{` and `}` separate only as words of their own. */
+function separatorAt(state, wordOpen) {
+  const { text, index } = state;
+  const two = TWO_CHAR_SEPARATORS.find((candidate) => text.startsWith(candidate, index));
+  if (two) return two;
   const char = text[index];
-  if (char === '"' || char === "'") return { copy: 1, push: char };
-  if (text.startsWith('$(', index)) return { copy: 2, push: '(' };
-  if (char === '(') return { copy: 1, push: '(' };
-  if (char === ')' && context === '(') return { copy: 1, pop: true };
-  if (startsComment(text, index)) {
-    const end = text.indexOf('\n', index);
-    return { drop: (end === -1 ? text.length : end) - index };
-  }
-  if (text.startsWith('<<<', index)) return { copy: 3 };
-  const heredoc = heredocAt(text, index);
-  if (heredoc) return { copy: heredoc[0].length, heredoc: heredoc[2] };
-  return { copy: 1 };
+  if (ONE_CHAR_SEPARATORS.has(char) || char === '(' || char === ')') return char;
+  if (char === '&') return isRedirectionAmpersand(text, index) ? null : '&';
+  if (char === '{' && !wordOpen && /\s/.test(text[index + 1] ?? ' ')) return '{';
+  if (char === '}' && !wordOpen) return '}';
+  return null;
 }
 
-function quotedStep(text, index, context) {
+/** Reads one piece of a word at the cursor. Returns false when the cursor is not on one. */
+function readWordPiece(state, word) {
+  const { text, index } = state;
   const char = text[index];
-  if (context === "'") return { copy: 1, pop: char === "'" };
-  if (char === '"') return { copy: 1, pop: true };
-  if (text.startsWith('$(', index)) return { copy: 2, push: '(' };
-  return { copy: char === '\\' ? 2 : 1 };
-}
-
-/**
- * Removes comments and here-document bodies. A `<<WORD` counts only where the shell would
- * read it as an operator: not inside quotes, not in a comment, not as part of `<<<`.
- */
-export function withoutData(text) {
-  let output = '';
-  let contexts = [];
-  let pending = [];
-  let index = 0;
-  while (index < text.length) {
-    if (text[index] === '\n' && pending.length > 0) {
-      output += '\n';
-      index = afterBodies(text, index + 1, pending);
-      pending = [];
-      continue;
+  if (char === '\\') {
+    if (text[index + 1] !== '\n') {
+      word.value += text[index + 1] ?? '';
+      word.escaped = true;
     }
-    const context = contexts.at(-1);
-    const quoted = context === '"' || context === "'";
-    const escaped = !quoted && text[index] === '\\';
-    const step = escaped ? { copy: 2 } : (quoted ? quotedStep : commandStep)(text, index, context);
-    output += text.slice(index, index + (step.copy ?? 0));
-    index += (step.copy ?? 0) + (step.drop ?? 0);
-    if (step.pop) contexts = contexts.slice(0, -1);
-    if (step.push) contexts = [...contexts, step.push];
-    if (step.heredoc) pending = [...pending, step.heredoc];
+    state.index = index + 2;
+  } else if (char === "'") readQuoted(state, word, "'", "'");
+  else if (char === '"') readQuoted(state, word, '"', '"');
+  else if (text.startsWith("$'", index)) readQuoted(state, word, "'", "$'");
+  else if (text.startsWith('$"', index)) readQuoted(state, word, '"', '$"');
+  else if (char === '$') readDollar(state, word);
+  else if (char === '`') readBackticks(state, word);
+  else if (text.startsWith('<<<', index)) {
+    word.value += '<<<';
+    state.index = index + 3;
+  } else {
+    if (PATTERN_CHARACTERS.has(char)) word.dynamic = true;
+    word.value += char;
+    state.index = index + 1;
   }
-  return output;
-}
-
-function separatorAt(text, index) {
-  const separator = SEPARATORS.find((candidate) => text.startsWith(candidate, index));
-  if (separator === '{' && text[index - 1] === '$') return null;
-  return separator ?? null;
 }
 
 /**
- * The simple commands of a shell line, each with the separator before and after it and its
- * nesting depth inside `( )` and `{ }`. Separators inside quotes do not split.
+ * Reads simple commands until the end of the text or, inside `$( )`, until its closing `)`.
+ * `depth` counts the `( )` and `{ }` groups a command sits in.
  */
-export function segmentsOf(command) {
+function readList(state, insideSubstitution) {
   const segments = [];
-  let current = { text: '', before: null, depth: 0 };
+  let words = [];
+  let word = null;
+  let before = null;
   let depth = 0;
-  let quote = null;
-  for (let index = 0; index < command.length; index += 1) {
-    const char = command[index];
-    const separator = quote ? null : separatorAt(command, index);
-    if (!separator) {
-      if (quote && char === quote) quote = null;
-      else if (!quote && (char === '"' || char === "'")) quote = char;
-      current = { ...current, text: current.text + char };
-      continue;
+  let startDepth = 0;
+  const closeWord = () => {
+    if (word) words.push(word);
+    word = null;
+  };
+  const closeSegment = (after) => {
+    closeWord();
+    if (words.length > 0) segments.push({ words, before, after, depth: startDepth });
+    words = [];
+    before = after;
+  };
+  while (state.index < state.text.length) {
+    const { text, index } = state;
+    const char = text[index];
+    if (char === '\n' && state.pending.length > 0) {
+      closeSegment('\n');
+      skipHeredocBodies(state);
+    } else if (char === ' ' || char === '\t') {
+      closeWord();
+      state.index += 1;
+    } else if (char === '#' && !word) {
+      const end = text.indexOf('\n', index);
+      state.index = end === -1 ? text.length : end;
+    } else if (!word && words.length === 0 && text.startsWith('((', index)) {
+      word = newWord();
+      readArithmetic(state, word, '((');
+    } else if (text.startsWith('<<', index) && !text.startsWith('<<<', index) && readHeredocOperator(state)) {
+      closeWord();
+    } else if (insideSubstitution && char === ')' && depth === 0) {
+      closeSegment(')');
+      state.index += 1;
+      return segments;
+    } else {
+      const separator = separatorAt(state, word !== null);
+      if (separator) {
+        closeSegment(separator);
+        if (separator === '(' || separator === '{') depth += 1;
+        if (separator === ')' || separator === '}') depth = Math.max(0, depth - 1);
+        startDepth = depth;
+        state.index += separator.length;
+      } else {
+        word = word ?? newWord();
+        readWordPiece(state, word);
+      }
     }
-    segments.push({ ...current, after: separator });
-    if (OPENERS.has(separator)) depth += 1;
-    if (CLOSERS.has(separator)) depth = Math.max(0, depth - 1);
-    current = { text: '', before: separator, depth };
-    index += separator.length - 1;
   }
-  return [...segments, { ...current, after: null }]
-    .map((segment) => ({ ...segment, text: segment.text.trim() }))
-    .filter((segment) => segment.text !== '');
+  closeSegment(null);
+  if (insideSubstitution) state.balanced = false;
+  return segments;
 }
 
-/** Splits a shell line into simple commands. */
-export function splitCommands(command) {
-  return segmentsOf(command).map((segment) => segment.text);
+/** Reads a shell line. See the top of this file for the shape of the result. */
+export function lex(text) {
+  const state = { text: text ?? '', index: 0, pending: [], lists: [], balanced: true };
+  const top = readList(state, false);
+  return { lists: [top, ...state.lists], balanced: state.balanced };
 }

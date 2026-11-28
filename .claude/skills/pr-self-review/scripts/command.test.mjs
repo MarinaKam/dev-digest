@@ -1,14 +1,58 @@
 // Run: node --test ".claude/skills/pr-self-review/scripts/*.test.mjs"
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { findGuarded, guardedAction, mentionsGuardedWords, splitCommands } from './command.mjs';
+import { findGuarded, guardedAction, mentionsGuardedWords } from './command.mjs';
+import { lex } from './shell-text.mjs';
 
-test('splitCommands splits on separators and keeps quoted separators together', () => {
-  assert.deepEqual(splitCommands('cd api && git push; echo done'), ['cd api', 'git push', 'echo done']);
-  assert.deepEqual(splitCommands('git commit -m "fix; git push later"'), [
-    'git commit -m "fix; git push later"',
-  ]);
-  assert.deepEqual(splitCommands('a & b | c'), ['a', 'b', 'c']);
+function valuesOf(command) {
+  return lex(command).lists[0].map((segment) => segment.words.map((word) => word.value));
+}
+
+test('lex splits on separators and keeps quoted separators together', () => {
+  assert.deepEqual(valuesOf('cd api && git push; echo done'), [['cd', 'api'], ['git', 'push'], ['echo', 'done']]);
+  assert.deepEqual(valuesOf('git commit -m "fix; git push later"'), [['git', 'commit', '-m', 'fix; git push later']]);
+  assert.deepEqual(valuesOf('a & b | c'), [['a'], ['b'], ['c']]);
+  assert.deepEqual(valuesOf('git push 2>&1'), [['git', 'push', '2>&1']]);
+  assert.deepEqual(valuesOf('echo a{b,c} ${X:-y}'), [['echo', 'a{b,c}', '${X:-y}']]);
+});
+
+test('lex reads quoting and escaping the way the shell does', () => {
+  assert.deepEqual(valuesOf('echo "\\"" ; ls'), [['echo', '"'], ['ls']]);
+  assert.deepEqual(valuesOf('echo "a\\"b; ls"'), [['echo', 'a"b; ls']]);
+  assert.deepEqual(valuesOf("echo $'it\\'s' ; ls"), [['echo', "it's"], ['ls']]);
+  assert.deepEqual(valuesOf('g"i"t pu\'\'sh'), [['git', 'push']]);
+  assert.deepEqual(valuesOf('git \\\npush'), [['git', 'push']]);
+  assert.deepEqual(valuesOf('echo a\\ #b; ls'), [['echo', 'a #b'], ['ls']]);
+  assert.equal(lex('echo "unterminated').balanced, false);
+  assert.equal(lex('echo $(ls').balanced, false);
+  assert.equal(lex('cat <<EOF\nbody').balanced, false);
+  assert.equal(lex('echo ok').balanced, true);
+});
+
+const SHELL_READS_AS_A_PUSH = [
+  'echo a\\ #; git push',
+  'echo $((1<<EOF))\ngit push\nEOF',
+  '((x = 1 << EOF))\ngit push\nEOF',
+  'cat <<EOF\ngit push',
+  "echo $'it\\'s' ; git push ; echo 'x'",
+  'echo "\\"" ; git push',
+  'echo "\\\\" ; git push ; echo "\\\\"',
+  'echo $((git push) )',
+  'git \\\npush',
+  'g"i"t push',
+  "git pu''sh",
+  'case x in a) git push;; esac',
+  'echo a{b,c} && git push',
+  'echo "$(echo ")" )" ; git push',
+  'echo `echo \\`` ; git push',
+];
+
+test('guardedAction agrees with the shell on quoting, comments, arithmetic and here-documents', () => {
+  for (const command of SHELL_READS_AS_A_PUSH) {
+    assert.equal(guardedAction(command), 'git push', JSON.stringify(command));
+  }
+  assert.equal(guardedAction('echo "a\\"b; git push"'), null);
+  assert.equal(guardedAction("echo $'a\\'; git push'"), null);
 });
 
 test('guardedAction finds a push, a pull request creation and a merge', () => {
