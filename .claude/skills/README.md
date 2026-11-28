@@ -1,6 +1,6 @@
 # Skills
 
-Reusable AI skills that provide specialized knowledge and workflows. Canonical location is `.claude/skills/` with a symlink at `.cursor/skills/ → ../.claude/skills` for Cursor compatibility. Shared with the team via version control.
+Reusable AI skills that provide specialized knowledge and workflows. Canonical location is `.claude/skills/` with a symlink at `.cursor/skills/ → ../.claude/skills` for Cursor compatibility. `.agents/skills` is a symlink to the same folder, which is where OpenAI Codex looks for skills. Shared with the team via version control.
 
 ## Catalog
 
@@ -17,6 +17,7 @@ Reusable AI skills that provide specialized knowledge and workflows. Canonical l
 | [security](security/SKILL.md) | Full-stack | OWASP Top 10:2025, auth, injection, uploads, secrets |
 | [mermaid-diagram](mermaid-diagram/SKILL.md) | Shared | Mermaid diagrams in markdown (flowcharts, sequence, ERD, …) |
 | [engineering-insights](engineering-insights/SKILL.md) | Shared | Appends non-obvious lessons to the module's `INSIGHTS.md` during a session |
+| [demo-video](demo-video/SKILL.md) | Shared | Records a demo video of the web app from a scenario in `docs/demos/` (needs `agent-browser` and `ffmpeg`) |
 
 ## What Are Skills?
 
