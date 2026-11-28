@@ -78,14 +78,6 @@ const CATEGORIES = ['Tech', 'Startup', 'Lifestyle'];
 <CategoryFilter categories={CATEGORIES} />
 ```
 
-```jsx
-// BAD: Inline style object on every render
-<div style={{ padding: '16px', background: '#fff' }}>
-
-// GOOD: Use Tailwind utility classes
-<div className="p-4 bg-white">
-```
-
 ---
 
 ## Container / Presenter Split
@@ -328,28 +320,6 @@ const App = () => (
     </Routes>
   </Suspense>
 );
-```
-
----
-
-## Axios Request Cancellation
-
-```jsx
-// BAD: No cleanup — stale responses update unmounted component
-useEffect(() => {
-  axios.get('/api/blogs').then(res => setBlogs(res.data));
-}, []);
-
-// GOOD: Cancel on cleanup with AbortController
-useEffect(() => {
-  const controller = new AbortController();
-  axios.get('/api/blogs', { signal: controller.signal })
-    .then(res => setBlogs(res.data.blogs))
-    .catch(err => {
-      if (!axios.isCancel(err)) setError(err.message);
-    });
-  return () => controller.abort();
-}, []);
 ```
 
 ---

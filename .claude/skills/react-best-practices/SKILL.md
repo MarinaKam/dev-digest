@@ -1,6 +1,6 @@
 ---
 name: react-best-practices
-description: "Modern React best practices and anti-pattern catalog (2025-26). Use when writing, reviewing, or refactoring React components, hooks, and state management. Covers component design, state patterns, hooks misuse, performance, data fetching, and code organization."
+description: "Modern React best practices and anti-pattern catalog (2025-26). Use when writing, reviewing, or refactoring React components, hooks, and state management. Covers component design, state patterns, hooks misuse, performance and data fetching. For where code lives (folders, files, constants, helpers, hooks placement) use the frontend-architecture skill."
 ---
 
 # React Best Practices & Anti-Patterns
@@ -108,16 +108,13 @@ New arrays, objects, and functions created inline in JSX props break `React.memo
 ## Data Fetching (HIGH)
 
 - ALL data fetching in custom hooks, never in component bodies
-- Use the project's `useApiQuery`/`useApiMutation` core hooks
 - Handle loading, error, and empty states in the container component
 - Use try-catch in async functions within hooks
 
 ## Tailwind CSS (MEDIUM)
 
-- Use utility classes for all styling — no inline `style={}` objects
 - Use responsive prefixes (`sm:`, `md:`, `lg:`) for responsive design
 - Extract repeated class combinations into reusable components (Button, Card, Badge)
-- Prefer the project's `components/ui/` over recreating common elements
 
 ## Error Boundaries (HIGH)
 
@@ -150,26 +147,15 @@ New arrays, objects, and functions created inline in JSX props break `React.memo
 ## Performance Beyond Memoization (MEDIUM)
 
 - Use `React.lazy()` + `<Suspense>` for route-level code splitting
-- Use Vite `manualChunks` to split vendor bundles for better caching
 - Use top-level static paths in `lazy(() => import('./X'))` — dynamic paths break build analysis
-
-## Axios + React Patterns (HIGH)
-
-- Cancel in-flight requests in `useEffect` cleanup using `AbortController`
-- Use centralized Axios instance with `baseURL`, default headers, and interceptors
-- Use request interceptors for auth tokens, response interceptors for 401/403 handling
 
 ## React 19 Patterns (MEDIUM)
 
 - Accept `ref` as a regular prop instead of using `forwardRef` (React 19+)
 - With React Compiler enabled, avoid adding `memo`/`useMemo`/`useCallback` unless measured
 
-## Code Organization (MEDIUM)
+## Code Organization
 
-### Feature-Based Structure
-- Colocate component + hook + helpers + tests per feature
-- Shared utilities go in `utils/` or `components/ui/`
-
-### File Quality
-- Order: imports, constants, helpers, component, exports
-- Reuse existing types and constants over creating new ones
+Where code lives (folders, component folder anatomy, constants, helpers, hooks
+placement, import boundaries) is owned by the `frontend-architecture` skill.
+This skill does not repeat those rules.
