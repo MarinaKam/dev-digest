@@ -121,6 +121,14 @@ export interface RunReviewInput {
   all?: boolean;
 }
 
+/** Every cached query that shows whether a PR has a review running. Starting a
+    run invalidates all of them, so the PR page and the PR list (its row's
+    "Reviewing…" state) react at once instead of at their next poll. ["pulls"]
+    is a prefix: it matches the list of every repo. */
+export function runStateQueryKeys(prId: string): readonly (readonly string[])[] {
+  return [["reviews", prId], ["pr-active-runs", prId], ["pr-runs", prId], ["pulls"]];
+}
+
 export function useRunReview() {
   const qc = useQueryClient();
   return useMutation({
@@ -130,7 +138,7 @@ export function useRunReview() {
         ...(all ? { all } : {}),
       }),
     onSuccess: (_d, { prId }) => {
-      qc.invalidateQueries({ queryKey: ["reviews", prId] });
+      for (const queryKey of runStateQueryKeys(prId)) qc.invalidateQueries({ queryKey });
     },
   });
 }

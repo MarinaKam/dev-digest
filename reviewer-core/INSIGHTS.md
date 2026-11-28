@@ -25,6 +25,7 @@ only if it is not obvious from reading the code.
 
 ## Tool & Library Notes
 <!-- Quirks and gotchas of dependencies and tooling. -->
+- **2026-11-27** — A model chooses the language of its findings itself unless the prompt fixes it: `openrouter/deepseek/deepseek-v4-flash` returned a whole review of an English diff in Chinese (PR #8 in the fork, 3 findings), after earlier runs of the same agent on the same PR came back in English. The agent's own system prompt is not the place for the rule, because every agent needs it; it is the trusted `OUTPUT_LANGUAGE` block that `assemblePrompt` appends after the injection guard. Evidence: `reviewer-core/src/prompt.ts:32`.
 
 ## Recurring Errors & Fixes
 <!-- Errors seen more than once, with the fix. -->

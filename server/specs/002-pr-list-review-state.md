@@ -80,4 +80,5 @@ polls), a FINDINGS filter or sort on the list.
   disagree (score 100 next to critical findings from another agent).
 - A run left `running` by a crashed server shows "Reviewing…" until the server
   starts again; orphaned runs are reaped on boot.
-- The list notices a review started elsewhere only at its next poll (up to 60 s).
+- A review started in this browser tab shows in the list at once. One started in
+  another tab or on another device shows at the list's next poll (up to 60 s).
