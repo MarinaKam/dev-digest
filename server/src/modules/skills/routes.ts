@@ -11,7 +11,7 @@ import { SkillsService } from './service.js';
  *   GET    /skills                  → all skills of the workspace, with used_by
  *   GET    /skills/:id              → one skill
  *   POST   /skills                  → create (version 1)
- *   PATCH  /skills/:id              → update; a body change makes a new version
+ *   PUT    /skills/:id              → update; a body change makes a new version
  *   DELETE /skills/:id              → delete (unlinks it from every agent)
  *   GET    /skills/:id/versions     → body snapshots, newest first
  *   POST   /skills/import/preview   → parse an upload into a draft; writes nothing
@@ -35,7 +35,7 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
     return service.create(workspaceId, req.body);
   });
 
-  app.patch('/skills/:id', { schema: { params: IdParams, body: UpdateSkill } }, async (req) => {
+  app.put('/skills/:id', { schema: { params: IdParams, body: UpdateSkill } }, async (req) => {
     const { workspaceId } = await getContext(app.container, req);
     return service.update(workspaceId, req.params.id, req.body);
   });

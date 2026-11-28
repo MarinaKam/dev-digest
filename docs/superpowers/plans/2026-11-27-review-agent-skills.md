@@ -138,7 +138,7 @@
 - [ ] **Step 1: Integration tests** (pattern of `agents-versions.it.test.ts`: `startPg`, `seed`, `buildApp`, `app.inject`):
   - `creates a skill at v1 with one version row`
   - `409 on a duplicate name` (create and rename)
-  - `bumps the version only when the body changes` — PATCH description → still v1; PATCH body twice → v3, `GET /versions` returns `[3,2,1]`
+  - `bumps the version only when the body changes` — PUT description → still v1; PUT body twice → v3, `GET /versions` returns `[3,2,1]`
   - `delete cascades links` — link to two agents via `POST /agents/:id/skills`, delete, both `GET /agents/:id/skills` empty, both agents still `GET` 200
   - `404 for another workspace's skill` (insert a second workspace + skill directly)
   - `GET /skills` returns `used_by` with agent names
@@ -163,7 +163,7 @@
 - [ ] **Step 1: Tests** (pattern of `reviews.it.test.ts` with `MockLLMProvider`; read the prompt from `llm.calls` where `method === 'complete'`):
   - `sends only enabled linked skills, in link order` — link `b`, `a` in that order → user message has `name="b"` before `name="a"`
   - `skips a disabled linked skill` — `enabled=false` on `a` → absent from prompt, `skills_used`, and log
-  - `trace keeps the version sent` — PATCH body twice (v3), run, then PATCH again → stored trace still `skills_used: [{name, version: 3}]`
+  - `trace keeps the version sent` — PUT body twice (v3), run, then PUT again → stored trace still `skills_used: [{name, version: 3}]`
   - `records skills_tokens and a run-log line` — trace `skills_tokens > 0`; trace `log` has a line matching `/^skills: 1 attached \(edge-case-coverage@v3\), \d+ tokens$/`
   - `an agent without skills sends today's prompt` — `system` has no `<skill>` rule, `skills` null
 - [ ] **Step 2:** Run → FAIL.

@@ -179,7 +179,7 @@ All under the workspace from `getContext()`; bodies validated by Zod.
 | GET | `/skills` | all skills, each with `used_by` (agents linking it) |
 | GET | `/skills/:id` | one skill |
 | POST | `/skills` | create (rules 1–5) |
-| PATCH | `/skills/:id` | update fields and/or `enabled` |
+| PUT | `/skills/:id` | update any subset of fields and/or `enabled` (same verb as `PUT /agents/:id`) |
 | DELETE | `/skills/:id` | delete (rule 6) |
 | GET | `/skills/:id/versions` | snapshots, newest first |
 | POST | `/skills/import/preview` | parse an upload, return draft + report, write nothing |

@@ -67,9 +67,9 @@ d('skills routes', () => {
     const dup = await app.inject({ method: 'POST', url: '/skills', payload: body({ name: a.name }) });
     expect(dup.statusCode).toBe(409);
     const b = await create();
-    const rename = await app.inject({ method: 'PATCH', url: `/skills/${b.id}`, payload: { name: a.name } });
+    const rename = await app.inject({ method: 'PUT', url: `/skills/${b.id}`, payload: { name: a.name } });
     expect(rename.statusCode).toBe(409);
-    const same = await app.inject({ method: 'PATCH', url: `/skills/${b.id}`, payload: { name: b.name } });
+    const same = await app.inject({ method: 'PUT', url: `/skills/${b.id}`, payload: { name: b.name } });
     expect(same.statusCode).toBe(200);
   });
 
@@ -82,15 +82,15 @@ d('skills routes', () => {
   it('bumps the version only when the body changes', async () => {
     const s = await create();
     const meta = await app.inject({
-      method: 'PATCH',
+      method: 'PUT',
       url: `/skills/${s.id}`,
       payload: { description: 'Another directive.', enabled: false },
     });
     expect(meta.json()).toMatchObject({ version: 1, enabled: false });
-    await app.inject({ method: 'PATCH', url: `/skills/${s.id}`, payload: { body: 'v2 body' } });
-    const third = await app.inject({ method: 'PATCH', url: `/skills/${s.id}`, payload: { body: 'v3 body' } });
+    await app.inject({ method: 'PUT', url: `/skills/${s.id}`, payload: { body: 'v2 body' } });
+    const third = await app.inject({ method: 'PUT', url: `/skills/${s.id}`, payload: { body: 'v3 body' } });
     expect(third.json()).toMatchObject({ version: 3, body: 'v3 body' });
-    const same = await app.inject({ method: 'PATCH', url: `/skills/${s.id}`, payload: { body: 'v3 body' } });
+    const same = await app.inject({ method: 'PUT', url: `/skills/${s.id}`, payload: { body: 'v3 body' } });
     expect(same.json()).toMatchObject({ version: 3 });
     const versions = await app.inject({ method: 'GET', url: `/skills/${s.id}/versions` });
     const list = versions.json() as { version: number; body: string }[];
@@ -139,7 +139,7 @@ d('skills routes', () => {
     if (!foreign) throw new Error('no skill');
     for (const [method, payload] of [
       ['GET', undefined],
-      ['PATCH', { enabled: false }],
+      ['PUT', { enabled: false }],
       ['DELETE', undefined],
     ] as const) {
       const res = await app.inject({ method, url: `/skills/${foreign.id}`, payload });
