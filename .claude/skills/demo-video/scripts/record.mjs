@@ -18,12 +18,14 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writ
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  DEFAULT_TIMEOUT_MS,
   holdAfter,
   hoverArgs,
   probeArgs,
   resolveArgs,
   retriesUntilDeadline,
   sheetLayout,
+  stepTimeout,
   validateFlow,
 } from './lib.mjs';
 
@@ -35,7 +37,6 @@ const DEFAULT_VIEWPORT = [1440, 900];
 // 2 would record twice the pixels, but agent-browser 0.45.0 halves the mouse coordinates
 // while it records at an emulated scale, so every click misses. Keep 1 until that is fixed.
 const DEFAULT_SCALE = 1;
-const DEFAULT_TIMEOUT_MS = 15_000;
 const APP_CHECK_TIMEOUT_MS = 10_000;
 const DEFAULT_PACE = { afterAction: 500, beforeClick: 300, caption: 1800 };
 const DRY_RUN_PAUSE_MS = 100;
@@ -168,7 +169,7 @@ function createRecorder(browser, output) {
 
 async function playStep(step, context) {
   const { browser, flow, baseUrl, pace } = context;
-  const timeout = step.timeout ?? flow.timeout ?? DEFAULT_TIMEOUT_MS;
+  const timeout = stepTimeout(step, flow.timeout ?? DEFAULT_TIMEOUT_MS, DRY);
   if (step.caption !== undefined) {
     browser.script(`window.__demoVideo && window.__demoVideo.caption(${JSON.stringify(step.caption)})`);
     await pause(holdAfter(step, pace));

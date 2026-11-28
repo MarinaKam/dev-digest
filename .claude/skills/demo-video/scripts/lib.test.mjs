@@ -12,6 +12,7 @@ import {
   setStatus,
   sheetLayout,
   statusLine,
+  stepTimeout,
   validateFlow,
 } from './lib.mjs';
 
@@ -187,4 +188,14 @@ test('retriesUntilDeadline repeats a wait only when the step allows more than th
   for (const name of ['open', 'record', 'back', 'forward', 'reload', 'close']) {
     assert.equal(retriesUntilDeadline([name, 'x'], 240_000, 20_000), false);
   }
+});
+
+test('stepTimeout: the step\'s own timeout when recording, never more than the flow\'s in a dry run', () => {
+  assert.equal(stepTimeout({ timeout: 240_000 }, 20_000, false), 240_000);
+  assert.equal(stepTimeout({}, 20_000, false), 20_000);
+  // A dry run performs no change, so a wait for a model run could only fail: fail fast.
+  assert.equal(stepTimeout({ timeout: 240_000 }, 20_000, true), 20_000);
+  assert.equal(stepTimeout({ timeout: 5_000 }, 20_000, true), 5_000);
+  // With the cap, a dry-run wait is never retried past one attempt.
+  assert.equal(retriesUntilDeadline(['wait', '--fn', 'x'], stepTimeout({ timeout: 240_000 }, 20_000, true), 20_000), false);
 });

@@ -63,7 +63,9 @@ A `cmd` step can also carry:
 - `"label"`: the name of the step in the runner's log.
 - `"hold"`: ms to wait after this step instead of `pace.afterAction`.
 - `"timeout"`: ms this step may take. A `wait` gives up at the flow's `timeout`; when the
-  step's own `timeout` is longer (a model run), the wait is repeated until that deadline.
+  step's own `timeout` is longer (a model run), the wait is repeated until that deadline. A
+  dry run caps every step at the flow's `timeout`: it starts no run, so such a wait fails
+  fast and is reported as not verified.
 - `"changesData": true`: the step saves, imports, deletes, toggles or starts a run. A dry
   run only checks that its target exists. Steps after it that fail in a dry run are reported
   as `?` (not verified), because they may need the change.

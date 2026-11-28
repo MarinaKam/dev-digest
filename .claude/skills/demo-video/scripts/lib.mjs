@@ -1,5 +1,8 @@
 // Pure helpers of the demo-video skill: no I/O, so they are unit-tested (lib.test.mjs).
 
+/** agent-browser's wait timeout when a flow sets none; also a step's when it sets none. */
+export const DEFAULT_TIMEOUT_MS = 15_000;
+
 /** Commands that must run exactly once: never repeated after a failure. */
 const RUN_ONCE = ['open', 'record', 'back', 'forward', 'reload', 'close'];
 const MAX_CAPTION = 90;
@@ -72,6 +75,16 @@ export function holdAfter(step, pace) {
   if (step.hold !== undefined) return step.hold;
   if (step.caption !== undefined) return pace.caption;
   return step.cmd?.[0] === 'wait' ? 0 : pace.afterAction;
+}
+
+/**
+ * How long a step may take. A dry run starts no model run and performs no data
+ * change, so a long wait for one could only fail: it is capped at the flow's
+ * timeout, and the step is reported as not verified as fast as before.
+ */
+export function stepTimeout(step, flowTimeout, dry) {
+  const own = step.timeout ?? flowTimeout;
+  return dry ? Math.min(own, flowTimeout) : own;
 }
 
 /**
