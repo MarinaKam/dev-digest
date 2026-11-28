@@ -15,7 +15,7 @@ sidebar is a cloned repo (`MarinaKam/dev-digest`). Spec:
 
 ## Video 1 — Conventions → skill → review with the skill
 
-**Status:** ⏳ not recorded
+**Status:** ❌ failed 2026-11-28 — step 7: agent-browser wait used the flow timeout (20 s) instead of the step timeout; flow timeout raised to 240 s
 
 **Preconditions:** no scan of the active repo yet (the empty state shows);
 the model of the `conventions` feature is the default

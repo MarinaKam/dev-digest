@@ -1,5 +1,7 @@
 // Pure helpers of the demo-video skill: no I/O, so they are unit-tested (lib.test.mjs).
 
+/** Commands that must run exactly once: never repeated after a failure. */
+const RUN_ONCE = ['open', 'record', 'back', 'forward', 'reload', 'close'];
 const MAX_CAPTION = 90;
 const HEADING = /^## (Video (\d+)\b.*)$/;
 const STATUS = /^\*\*Status:\*\*\s*/;
@@ -70,6 +72,20 @@ export function holdAfter(step, pace) {
   if (step.hold !== undefined) return step.hold;
   if (step.caption !== undefined) return pace.caption;
   return step.cmd?.[0] === 'wait' ? 0 : pace.afterAction;
+}
+
+/**
+ * Whether a failed attempt of `cmd` is tried again until the step's deadline.
+ * Commands that run exactly once never are. A `wait` gives up at agent-browser's
+ * default timeout, which is the flow's `timeout`; it is repeated only when the
+ * step allows more than that (a model run), so a normal wait fails as fast as
+ * before.
+ */
+export function retriesUntilDeadline(cmd, stepTimeout, flowTimeout) {
+  const name = cmd[0];
+  if (RUN_ONCE.includes(name)) return false;
+  if (name === 'wait') return stepTimeout > flowTimeout;
+  return true;
 }
 
 /**

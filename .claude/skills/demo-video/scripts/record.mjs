@@ -17,7 +17,15 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { holdAfter, hoverArgs, probeArgs, resolveArgs, sheetLayout, validateFlow } from './lib.mjs';
+import {
+  holdAfter,
+  hoverArgs,
+  probeArgs,
+  resolveArgs,
+  retriesUntilDeadline,
+  sheetLayout,
+  validateFlow,
+} from './lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BIN = process.env.AGENT_BROWSER_BIN ?? 'agent-browser';
@@ -36,8 +44,6 @@ const SHEET_EVERY_SECONDS = 3;
 const SHEET_FRAME_WIDTH = 720;
 const SHEET_COLUMNS = 3;
 const SIZE_WARNING_MB = 10;
-/** Commands that already wait on their own, or must run exactly once. */
-const NO_RETRY = ['open', 'wait', 'record', 'back', 'forward', 'reload', 'close'];
 const FLAGS = ['--dry-run', '--headed', '--keep-open'];
 
 const args = process.argv.slice(2);
@@ -103,13 +109,15 @@ function createBrowser(flow) {
   };
   const ab = (commandArgs, timeout) => run(BIN, commandArgs, { env, timeout });
   /** `find` and the direct actions do not wait for their target, so retry until the timeout. */
+  const flowTimeout = flow.timeout ?? DEFAULT_TIMEOUT_MS;
   const abRetry = async (commandArgs, timeout) => {
     const deadline = Date.now() + timeout;
+    const retry = retriesUntilDeadline(commandArgs, timeout, flowTimeout);
     for (;;) {
       try {
         return ab(commandArgs, timeout + 5000);
       } catch (error) {
-        if (NO_RETRY.includes(commandArgs[0]) || Date.now() > deadline) throw error;
+        if (!retry || Date.now() > deadline) throw error;
         await sleep(RETRY_EVERY_MS);
       }
     }

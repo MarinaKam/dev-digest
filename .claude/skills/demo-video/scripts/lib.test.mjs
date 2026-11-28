@@ -7,6 +7,7 @@ import {
   listStatuses,
   probeArgs,
   resolveArgs,
+  retriesUntilDeadline,
   scenarioSlug,
   setStatus,
   sheetLayout,
@@ -172,4 +173,18 @@ test('hoverArgs points at the target of a click, and at nothing else', () => {
   assert.equal(hoverArgs(['find', 'label', 'Name', 'fill', 'x']), null);
   assert.equal(hoverArgs(['find', 'text', 'Row', 'hover']), null);
   assert.equal(hoverArgs(['wait', '--text', 'click']), null);
+});
+
+test('retriesUntilDeadline repeats a wait only when the step allows more than the flow', () => {
+  // A model run: the step waits up to 4 minutes, one agent-browser wait gives up at 20 s.
+  assert.equal(retriesUntilDeadline(['wait', '--fn', 'x'], 240_000, 20_000), true);
+  // A normal wait fails as fast as before.
+  assert.equal(retriesUntilDeadline(['wait', '--text', 'x'], 20_000, 20_000), false);
+  assert.equal(retriesUntilDeadline(['wait', '#save'], 15_000, 20_000), false);
+  // find does not wait on its own: always retried.
+  assert.equal(retriesUntilDeadline(['find', 'text', 'Save', 'click'], 20_000, 20_000), true);
+  // Commands that run exactly once are never repeated.
+  for (const name of ['open', 'record', 'back', 'forward', 'reload', 'close']) {
+    assert.equal(retriesUntilDeadline([name, 'x'], 240_000, 20_000), false);
+  }
 });
