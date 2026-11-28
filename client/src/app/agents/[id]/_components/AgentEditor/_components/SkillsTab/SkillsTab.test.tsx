@@ -6,6 +6,7 @@ import messages from "../../../../../../../../messages/en/agents.json";
 
 const hooks = vi.hoisted(() => ({
   mutate: vi.fn(),
+  pending: false,
   skills: [] as Skill[],
   links: [] as AgentSkillLink[],
 }));
@@ -13,7 +14,7 @@ const hooks = vi.hoisted(() => ({
 vi.mock("@/lib/hooks/skills", () => ({
   useSkills: () => ({ data: hooks.skills, isLoading: false, isError: false, refetch: vi.fn() }),
   useAgentSkillLinks: () => ({ data: hooks.links, isLoading: false, isError: false, refetch: vi.fn() }),
-  useSetAgentSkills: () => ({ mutate: hooks.mutate }),
+  useSetAgentSkills: () => ({ mutate: hooks.mutate, isPending: hooks.pending }),
 }));
 
 import { SkillsTab } from "./SkillsTab";
@@ -36,6 +37,7 @@ const link = (skill_id: string, order: number): AgentSkillLink => ({ agent_id: "
 
 beforeEach(() => {
   hooks.mutate.mockReset();
+  hooks.pending = false;
   // 6 skills; a, b, c linked; b disabled globally.
   hooks.skills = [skill("a"), skill("b", false), skill("c"), skill("d"), skill("e"), skill("f")];
   hooks.links = [link("a", 0), link("b", 1), link("c", 2)];
@@ -62,6 +64,14 @@ describe("SkillsTab", () => {
     renderTab();
     expect(screen.getByText("security")).toHaveStyle({ color: "var(--crit)" });
     expect(screen.getByText("rubric")).toHaveStyle({ color: "var(--accent)" });
+  });
+
+  it("takes no new change while the last one is being saved", () => {
+    hooks.pending = true;
+    renderTab();
+    fireEvent.keyDown(screen.getByTestId("skill-row-skill-a"), { key: "ArrowDown", altKey: true });
+    expect(hooks.mutate).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Use skill-d in this agent")).toBeDisabled();
   });
 
   it("checking an unlinked skill appends it to the full ordered list", () => {

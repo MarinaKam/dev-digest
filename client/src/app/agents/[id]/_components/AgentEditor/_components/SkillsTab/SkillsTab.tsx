@@ -30,7 +30,13 @@ export function SkillsTab({ agentId }: SkillsTabProps) {
   const rows = orderedRows(skills, linkedIds);
   const visible = rows.filter((r) => matchesQuery(r.skill, query));
 
-  const save = (skillIds: string[]) => setSkills.mutate({ agentId, skillIds });
+  // One change at a time: each builds the full ordered list from the links it
+  // sees, so a second change sent before the first is saved would undo it.
+  const busy = setSkills.isPending;
+  const save = (skillIds: string[]) => {
+    if (busy) return;
+    setSkills.mutate({ agentId, skillIds });
+  };
   const toggle = (id: string, on: boolean) =>
     save(on ? [...linkedIds, id] : linkedIds.filter((x) => x !== id));
   const move = (from: number, to: number) => {
@@ -153,6 +159,7 @@ export function SkillsTab({ agentId }: SkillsTabProps) {
                 type="checkbox"
                 checked={linked}
                 onChange={(e) => toggle(skill.id, e.target.checked)}
+                disabled={busy}
                 aria-label={t("skills.toggleSkill", { name: skill.name })}
                 style={s.checkbox}
               />
