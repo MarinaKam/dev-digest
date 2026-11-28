@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { boxFor } from "./styles";
 
 let seq = 0;
 
@@ -19,7 +20,11 @@ function looksLikeMermaid(src: string): boolean {
  * rendering — mermaid otherwise injects a "Syntax error" bomb graphic into the
  * DOM on bad input instead of throwing. Junk/unparseable input renders nothing.
  */
-export function MermaidDiagram({ chart }: { chart: string }) {
+interface MermaidDiagramProps {
+  chart: string;
+}
+
+export function MermaidDiagram({ chart }: MermaidDiagramProps) {
   const ref = React.useRef<HTMLDivElement>(null);
   const [state, setState] = React.useState<"pending" | "ok" | "invalid">("pending");
 
@@ -58,20 +63,5 @@ export function MermaidDiagram({ chart }: { chart: string }) {
   // Not a (valid) diagram → render nothing rather than a broken box.
   if (state === "invalid") return null;
 
-  return (
-    <div
-      ref={ref}
-      style={{
-        display: state === "ok" ? "flex" : "none",
-        justifyContent: "center",
-        background: "var(--bg-elevated)",
-        border: "1px solid var(--border)",
-        borderRadius: 8,
-        padding: 12,
-        overflowX: "auto",
-      }}
-    />
-  );
+  return <div ref={ref} style={boxFor(state === "ok")} />;
 }
-
-export default MermaidDiagram;

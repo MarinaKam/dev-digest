@@ -1,4 +1,4 @@
-import type { PrMeta } from "../../../../lib/types";
+import type { PrMeta } from "@devdigest/shared";
 
 /** Constants for the PR list page (/repos/:repoId/pulls). */
 

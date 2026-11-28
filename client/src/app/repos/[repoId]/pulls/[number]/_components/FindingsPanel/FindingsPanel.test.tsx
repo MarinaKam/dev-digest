@@ -6,7 +6,7 @@ import messages from "../../../../../../../../messages/en/prReview.json";
 
 const mutate = vi.hoisted(() => vi.fn());
 
-vi.mock("../../../../../../../lib/hooks/reviews", () => ({
+vi.mock("@/lib/hooks/reviews", () => ({
   useFindingAction: () => ({ mutate, isPending: false }),
 }));
 

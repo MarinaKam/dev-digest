@@ -5,9 +5,16 @@
 
 import React from "react";
 import { AppFrame, CommandPalette, ShortcutsHelp, type Crumb } from "@devdigest/ui";
-import { useGlobalShortcuts, useShellCommands, useShellContext } from "./hooks";
+import { useGlobalShortcuts } from "./hooks/useGlobalShortcuts";
+import { useShellCommands } from "./hooks/useShellCommands";
+import { useShellContext } from "./hooks/useShellContext";
 
-export function AppShell({ children, crumb }: { children: React.ReactNode; crumb?: Crumb[] }) {
+interface AppShellProps {
+  children: React.ReactNode;
+  crumb?: Crumb[];
+}
+
+export function AppShell({ children, crumb }: AppShellProps) {
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [helpOpen, setHelpOpen] = React.useState(false);
   const openPalette = React.useCallback(() => setPaletteOpen(true), []);

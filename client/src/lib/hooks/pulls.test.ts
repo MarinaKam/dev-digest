@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pullsRefetchInterval } from "./core";
+import { pullsRefetchInterval } from "./pulls";
 
 describe("pullsRefetchInterval", () => {
   const row = (active_runs?: number | null) => ({ active_runs });

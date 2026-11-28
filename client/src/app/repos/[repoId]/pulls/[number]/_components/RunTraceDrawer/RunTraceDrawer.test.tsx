@@ -21,10 +21,10 @@ const TRACE: RunTrace = {
 
 // Overridable per test: what the trace endpoint returns.
 let traceData: RunTrace = TRACE;
-vi.mock("../../../../../../../lib/hooks/trace", () => ({
+vi.mock("@/lib/hooks/trace", () => ({
   useRunTrace: () => ({ data: traceData, isLoading: false }),
 }));
-vi.mock("../../../../../../../lib/hooks/reviews", () => ({
+vi.mock("@/lib/hooks/reviews", () => ({
   useRunEvents: () => ({ events: [], running: false }),
 }));
 
