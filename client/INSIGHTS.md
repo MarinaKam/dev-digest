@@ -39,6 +39,8 @@ only if it is not obvious from reading the code.
 
 - **2026-11-21** — Name a prop after the type it carries. `FindingsTab` took the PR's reviews as `runs` next to `prRuns` (run metadata); the General Reviewer read `runs` as `RunSummary[]` and reported a CRITICAL "field `findings` does not exist" on code that type-checks and works. Renamed to `reviews`, with a doc comment on both props. A reviewer model sees only the diff, so a misleading name costs a false blocker. Evidence: `client/src/app/repos/[repoId]/pulls/[number]/_components/FindingsTab/FindingsTab.tsx:18`.
 - **2026-11-21** — Supersedes the 2026-11-21 entry on clearing a stale filter: the reset now lives in a `useEffect` keyed on "the selected level is empty", and the effective filter is still derived during render. Calling `setState` in the render body worked but two reviewer agents flagged it on PR #6. Evidence: `client/src/app/repos/[repoId]/pulls/[number]/_components/FindingsPanel/FindingsPanel.tsx:42`.
+- **2026-11-27** — Supersedes part of the 2026-11-21 entry on styling: the `react-best-practices` skill no longer says "no inline `style={}`"; that line and its rules for Axios, `useApiQuery`, Vite `manualChunks`, `utils/` and `components/ui/` were removed because this client has none of them. The styling convention itself is unchanged. `react-error-boundary` and React Router still appear in that skill and are not installed here. Evidence: `.claude/skills/react-best-practices/SKILL.md:114`.
+- **2026-11-27** — Folder case is deliberate, not drift: a shared module directly under `src/components/` is kebab-case (`app-shell`, `diff-viewer`) and the component folders inside it and in `_components/` are PascalCase. UI hooks for one component live in its own `hooks/` folder; only data hooks go to `src/lib/hooks/`. `AGENTS.md` said otherwise until this date. Evidence: `client/src/components/app-shell/hooks/useGlobalShortcuts.ts:1`.
 
 ## Tool & Library Notes
 <!-- Quirks and gotchas of dependencies and tooling. -->
@@ -57,6 +59,10 @@ only if it is not obvious from reading the code.
 - Decided that counts cover the whole run and ignore "Hide low confidence", so they add up to "N findings" in the run header.
 - A browser tab opened before the change kept showing the old panel until a reload; `next dev` did not hot-swap it. Reload before judging that a UI change "is not there".
 - Added, outside the homework scope and on Marie's request, the FINDINGS column and the "Reviewing…" state on the PR list and the severity tally on the run timeline (`server/specs/002-pr-list-review-state.md`). The course mockups show these as existing; the starter fork did not have them.
+### 2026-11-27
+- Added the `frontend-architecture` skill (where code lives; portable, no project paths) and linked it from `AGENTS.md`. Project rules rank above it.
+- Measured before writing it: with the rules in `AGENTS.md` and the neighbouring folders, a fresh agent placed a shared formatter, a new filter bar and the pieces of `RunHistory` correctly without any skill. Fixing a wrong rule in `AGENTS.md` changes agent behaviour more than adding a skill does; check the rules against the tree first.
+- Local event handlers are named both `handleX` (8) and `onX` (4) in `src/app` and `src/components`; no rule was written for them. Callback props are always `onX`, props types always `<Name>Props`, boolean props bare adjectives.
 
 ## Open Questions
 <!-- What was left unresolved or needs more investigation. -->
