@@ -107,4 +107,12 @@ describe("CreateConventionsSkillModal", () => {
     for (const box of screen.getAllByRole("checkbox")) fireEvent.click(box);
     expect(submit()).toBeDisabled();
   });
+
+  it("the body's title follows the name the user types, until the body is edited", () => {
+    open();
+    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "repo-conventions" } });
+    const body = screen.getByLabelText("Skill body (Markdown)") as HTMLTextAreaElement;
+    expect(body.value.startsWith("# repo-conventions\n")).toBe(true);
+    expect(body.value).not.toContain("# payments-api-conventions");
+  });
 });

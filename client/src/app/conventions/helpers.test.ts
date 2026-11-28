@@ -26,6 +26,12 @@ describe("conventionsToDraft", () => {
     expect(draft.body).toContain("````\nconst s = ```x```;\n````");
   });
 
+  it("uses a chosen name for the skill and for the body's title", () => {
+    const draft = conventionsToDraft([ROUTE_RULE, ERROR_RULE], "payments-api", "repo-conventions");
+    expect(draft.name).toBe("repo-conventions");
+    expect(draft.body.startsWith("# repo-conventions\n")).toBe(true);
+  });
+
   it("keeps the name a valid slug of at most 64 characters", () => {
     const draft = conventionsToDraft([ROUTE_RULE, ERROR_RULE], "A Very Long Repository Name That Goes On And On Forever");
     expect(isValidSkillName(draft.name)).toBe(true);

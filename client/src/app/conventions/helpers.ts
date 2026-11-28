@@ -57,11 +57,16 @@ function fenceFor(text: string): string {
 
 /**
  * The draft of a skill made from `conventions` (design: `conventionsToDraft`).
- * One convention: named after its rule. Several: `<repo>-conventions`.
+ * One convention: named after its rule. Several: `<repo>-conventions`. A name
+ * the user typed replaces the generated one, also in the body's title.
  */
-export function conventionsToDraft(conventions: readonly ConventionCandidate[], repoName: string): ConventionsSkillDraft {
+export function conventionsToDraft(
+  conventions: readonly ConventionCandidate[],
+  repoName: string,
+  chosenName?: string,
+): ConventionsSkillDraft {
   const single = conventions.length === 1 ? conventions[0] : undefined;
-  const name = single ? slugifyRule(single.rule) : slug(`${repoName}-conventions`);
+  const name = chosenName ?? (single ? slugifyRule(single.rule) : slug(`${repoName}-conventions`));
   const description = single
     ? single.rule
     : `${conventions.length} house conventions extracted from ${repoName}`;

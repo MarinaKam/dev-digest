@@ -43,8 +43,9 @@ export function CreateConventionsSkillModal({
   const [enabled, setEnabled] = React.useState(true);
 
   const selected = conventions.filter((c) => checked.has(c.id));
-  const draft = conventionsToDraft(selected, repoName);
-  const name = overrides.name ?? draft.name;
+  // The body's title follows the name the user types, until the body is edited.
+  const draft = conventionsToDraft(selected, repoName, overrides.name);
+  const name = draft.name;
   const description = overrides.description ?? draft.description;
   const body = overrides.body ?? draft.body;
 
