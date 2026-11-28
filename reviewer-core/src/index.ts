@@ -19,6 +19,9 @@ export {
   type AssembledPrompt,
 } from './prompt.js';
 
+// Unified-diff text → files, hunks and the new-side lines each hunk covers.
+export { parseUnifiedDiff } from './diff.js';
+
 // Citation grounding — the mandatory mechanical gate for diff findings.
 export { groundFindings, groundingSummary, type GroundingResult } from './grounding.js';
 

@@ -3,23 +3,22 @@
 "use client";
 
 import React from "react";
-import { commentTargetFor, type CommentThread, type DiffCommentApi, cs } from "../comments";
+import { useTranslations } from "next-intl";
+import { commentTargetFor, type CommentThread, type DiffCommentApi } from "../comments";
 import { type Line } from "../helpers";
-import { s, lineRowFor, lineSignFor } from "../styles";
+import { cs, s, lineRowFor, lineSignFor } from "../styles";
 import { CommentThreadView } from "../CommentThreadView";
 import { InlineComposer } from "../InlineComposer";
 
-export function CodeLine({
-  ln,
-  path,
-  threads,
-  commenting,
-}: {
+interface CodeLineProps {
   ln: Line;
   path: string;
   threads: CommentThread[];
   commenting?: DiffCommentApi;
-}) {
+}
+
+export function CodeLine({ ln, path, threads, commenting }: CodeLineProps) {
+  const t = useTranslations("shell");
   const [hover, setHover] = React.useState(false);
   const [composing, setComposing] = React.useState(false);
 
@@ -36,18 +35,19 @@ export function CodeLine({
   const showAdd = hover && !!target && !composing;
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: the wrapper only tracks hover to reveal the "+" button; keyboard users reach that button directly
     <div
       style={cs.rowWrap}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
       <div style={lineRowFor(ln.kind)}>
-        <span className="mono tnum" style={{ ...s.lineNo, position: "relative" }}>
+        <span className="mono tnum" style={{ ...s.lineNo, ...s.lineNoAnchor }}>
           {showAdd && target && (
             <button
               type="button"
-              title="Add a comment on this line"
-              aria-label="Add a comment on this line"
+              title={t("diffViewer.addComment")}
+              aria-label={t("diffViewer.addComment")}
               onClick={() => setComposing(true)}
               style={cs.addBtn}
             >

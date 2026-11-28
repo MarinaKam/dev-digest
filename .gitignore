@@ -30,6 +30,10 @@ docker-compose.override.yml
 # Browser-check artefacts of the Playwright MCP tool (screenshots, snapshots, logs)
 .playwright-mcp/
 
+# Verdict and override log of the pr-self-review skill (local state, one per checkout)
+.claude/.pr-self-review.json
+.claude/.pr-self-review.log
+
 # Output of the demo-video skill (flows, videos, contact sheets). The scenarios
 # they are built from are tracked in docs/demos/.
 /demo/

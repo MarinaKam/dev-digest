@@ -21,39 +21,25 @@ import { parse, Lang, type SgNode } from '@ast-grep/napi';
 import { readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 
-import type { ExtractedReference, ExtractedSymbol } from '../codeindex/extract.js';
-import { MAX_SIGNATURE_CHARS, SUPPORTED_EXT } from '../../modules/repo-intel/constants.js';
+import type {
+  ParsedImport,
+  ParsedInvocationHead,
+  ParsedReference,
+  ParsedSymbol,
+} from '../../modules/repo-intel/ports.js';
 
-// ---------------------------------------------------------------------------
-// Public types — superset of the regex extractor's row shapes.
-// ---------------------------------------------------------------------------
+/**
+ * Signatures are trimmed to this many chars in the parse phase, so a stored
+ * signature is stable for the prompt cache.
+ */
+export const MAX_SIGNATURE_CHARS = 120;
 
-export interface ParsedSymbol extends ExtractedSymbol {
-  /** True when the declaration is reached through an `export` form. */
-  exported: boolean;
-  /** Declaration head trimmed to MAX_SIGNATURE_CHARS; null for kinds without one. */
-  signature: string | null;
-  /** 1-based line of the closing token of the declaration body. */
-  endLine: number;
-}
+// The public row types (`ParsedSymbol`, `ParsedReference`, `ParsedImport`,
+// `ParsedInvocationHead`) are declared by the consumer in
+// `modules/repo-intel/ports.ts`. They are a superset of the regex extractor's
+// shapes (`ExtractedSymbol` / `ExtractedReference` in `codeindex/extract.ts`).
 
-export interface ParsedReference extends ExtractedReference {
-  /** Path passed in by the caller — surfaced so consumers can fan-out. */
-  refFile: string;
-}
-
-export interface ParsedImport {
-  name: string;
-  source: string;
-  isType: boolean;
-}
-
-// ---------------------------------------------------------------------------
-// Lang mapping — accepts SUPPORTED_EXT and falls back to null otherwise.
-// ---------------------------------------------------------------------------
-
-const SUPPORTED_SET: ReadonlySet<string> = new Set(SUPPORTED_EXT);
-
+/** The tree-sitter grammar for a file, by extension; null when there is none. */
 export function langForFile(file: string): Lang | null {
   const ext = extname(file).toLowerCase();
   switch (ext) {
@@ -465,15 +451,6 @@ export function parseReferences(file: string, source: string): ParsedReference[]
 // parseInvocationHeads — T1.3 Phantom-API gate fuel
 // ---------------------------------------------------------------------------
 
-export interface ParsedInvocationHead {
-  /** The bare identifier being invoked (callee name, ctor name, or JSX tag). */
-  name: string;
-  /** 1-based line of the invocation. */
-  line: number;
-  /** Which AST shape produced this head. */
-  kind: 'call' | 'new' | 'jsx';
-}
-
 /**
  * Bare-identifier invocation heads only — the phantom-gate's high-precision
  * input. We DELIBERATELY skip `x.foo()` (member calls) because we can't
@@ -601,7 +578,7 @@ export interface ChangedFilesResult {
 }
 
 /**
- * Read each path under `root`, skip non-SUPPORTED_EXT, skip unreadable, parse
+ * Read each path under `root`, skip files without a grammar, skip unreadable, parse
  * the rest in memory. No DB writes. This is the diff-scoped entry T1.3 calls.
  */
 export async function parseChangedFiles(
@@ -613,8 +590,7 @@ export async function parseChangedFiles(
   const imports: Array<ParsedImport & { file: string }> = [];
 
   for (const rel of changedFiles) {
-    const ext = extname(rel).toLowerCase();
-    if (!SUPPORTED_SET.has(ext)) continue;
+    if (langForFile(rel) === null) continue;
 
     let source: string;
     try {

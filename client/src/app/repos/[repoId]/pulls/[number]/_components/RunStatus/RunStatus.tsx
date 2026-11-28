@@ -5,24 +5,31 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { LiveLogStream, type LogLine } from "@devdigest/ui";
-import { useRunEvents } from "../../../../../../../lib/hooks/reviews";
+import { useRunEvents } from "@/lib/hooks/reviews";
 import { LOG_HEIGHT } from "./constants";
 import { s } from "./styles";
 
-export function RunStatus({
-  runIds,
-  onDone,
-}: {
+interface RunStatusProps {
   runIds: string[];
+  /** Called once each time the event streams go from running to closed. */
   onDone?: () => void;
-}) {
+}
+
+export function RunStatus({ runIds, onDone }: RunStatusProps) {
   const t = useTranslations("prReview");
   const { events, running } = useRunEvents(runIds);
   const wasRunning = React.useRef(false);
 
   React.useEffect(() => {
-    if (running) wasRunning.current = true;
-    if (!running && wasRunning.current) onDone?.();
+    if (running) {
+      wasRunning.current = true;
+      return;
+    }
+    if (!wasRunning.current) return;
+    // Reset first: `onDone` is often a new function on every parent render, and
+    // each of those re-runs this effect — it must report a finished stream once.
+    wasRunning.current = false;
+    onDone?.();
   }, [running, onDone]);
 
   if (runIds.length === 0) return null;

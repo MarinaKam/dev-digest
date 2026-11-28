@@ -12,7 +12,9 @@ dashboard screens.)
   (`@devdigest/ui`) and shared Zod contracts under `src/vendor/shared`
   (`@devdigest/shared`).
 - **API base:** `NEXT_PUBLIC_API_BASE` (default `http://localhost:3001`), used by
-  `src/lib/api.ts`. Every data hook lives in `src/lib/hooks/*`.
+  `src/lib/api.ts`. Every data hook lives in `src/lib/hooks/<domain>.ts`
+  (`repos`, `pulls`, `reviews`, `agents`, `settings`, `trace`, `context`,
+  `repo-intel`), next to the query keys of that domain.
 - **Run:** `pnpm dev` (`:3000`). **Test:** `pnpm test` (vitest + jsdom, fetch
   mocked — no API needed). **Typecheck:** `pnpm typecheck`. **Lint:** `pnpm lint`.
 
@@ -37,8 +39,11 @@ flowchart TD
 ```
 
 Cross-cutting chrome lives in `src/components/app-shell` (nav, breadcrumbs,
-`g`-then-key shortcuts). Pages are thin; feature logic sits in colocated
-`_components/<Name>/` folders, each with its own `*.test.tsx`.
+`g`-then-key shortcuts). Every `page.tsx` is a thin entry that renders one view
+(`_components/<Name>View`); feature logic sits in colocated
+`_components/<Name>/` folders. `src/app/error.tsx`, `global-error.tsx` and
+`not-found.tsx` are the only error and not-found files: one set for the whole
+app.
 
 ## Testing
 

@@ -1,189 +1,160 @@
+/* FindingsTab — the "Agent runs" tab of a PR: live status of in-flight runs,
+   the timeline (runs + commits) and one accordion per review run. */
 "use client";
 
-import React, { useCallback } from "react";
+import React from "react";
+import { useTranslations } from "next-intl";
 import { Icon, Badge, Button, SectionLabel, EmptyState } from "@devdigest/ui";
+import type { PrCommit, ReviewRecord, RunSummary } from "@devdigest/shared";
+import { useCancelRun, useDeleteRun, usePrReviews, usePrRuns } from "@/lib/hooks/reviews";
+import { ReviewRunAccordion, type ScrollTarget } from "../ReviewRunAccordion";
+import { RunHistory } from "../RunHistory";
 import { RunStatus } from "../RunStatus";
-import { RunHistory } from "../RunHistory/RunHistory";
-import { ReviewRunAccordion } from "../ReviewRunAccordion";
+import { countLethalTrifecta, findingsByRunId } from "./helpers";
 import { s } from "./styles";
-import type { FindingRecord, ReviewRecord, RunSummary, PrCommit } from "@devdigest/shared";
-import type { UseMutationResult } from "@tanstack/react-query";
 
 interface FindingsTabProps {
-  prId: string | null;
+  prId: string;
+  /** Ids of the runs in flight right now. */
   liveRunIds: string[];
-  reviewRunning: boolean;
-  lethalTrifecta: FindingRecord[];
-  /** The PR's reviews, newest first; each carries its own `findings`. */
-  reviews: ReviewRecord[];
-  /** Run metadata (status, cost, tokens) — one per agent run, without findings. */
-  prRuns: RunSummary[] | undefined;
-  prCommits: PrCommit[];
-  cancelMutation: UseMutationResult<any, any, string, any>;
+  commits: PrCommit[];
   /** owner/repo + head sha — used to deep-link a finding's file:line to GitHub. */
   repoFullName?: string | null;
   headSha?: string | null;
-  onOpenTrace: (id: string) => void;
-  onDelete: (id: string) => void;
+  onOpenTrace: (runId: string) => void;
+  /** Called when the live event streams of the in-flight runs have closed. */
   onRunDone: () => void;
 }
+
+const NO_REVIEWS: ReviewRecord[] = [];
+const NO_RUNS: RunSummary[] = [];
 
 export function FindingsTab({
   prId,
   liveRunIds,
-  reviewRunning,
-  lethalTrifecta,
-  reviews,
-  prRuns,
-  prCommits,
-  cancelMutation,
+  commits,
   repoFullName,
   headSha,
   onOpenTrace,
-  onDelete,
   onRunDone,
 }: FindingsTabProps) {
-  const handleCancelAll = useCallback(() => {
-    for (const id of liveRunIds) cancelMutation.mutate(id);
-  }, [liveRunIds, cancelMutation]);
-
-  const handleOpenFirstTrace = useCallback(() => {
-    if (liveRunIds[0]) onOpenTrace(liveRunIds[0]);
-  }, [liveRunIds, onOpenTrace]);
-
-  const handleOpenTrace = useCallback(
-    (id: string) => {
-      onOpenTrace(id);
-    },
-    [onOpenTrace],
-  );
-
-  const handleDelete = useCallback(
-    (id: string) => {
-      onDelete(id);
-    },
-    [onDelete],
-  );
-
+  const t = useTranslations("prReview");
+  // Reviews come newest-first; each is its own run (grouped into accordions).
+  const { data: reviews = NO_REVIEWS } = usePrReviews(prId);
+  const { data: runs = NO_RUNS } = usePrRuns(prId);
+  const cancel = useCancelRun();
+  const deleteRun = useDeleteRun(prId);
   // Timeline → Review-runs navigation: clicking an agent name in the timeline
-  // opens + scrolls to that run's accordion below. The nonce re-triggers the
-  // scroll even when the same run is clicked twice.
-  const [target, setTarget] = React.useState<{ runId: string; n: number } | null>(null);
-  const handleGoToReview = useCallback((runId: string) => {
-    setTarget((p) => ({ runId, n: (p?.n ?? 0) + 1 }));
-  }, []);
+  // opens + scrolls to that run's accordion below.
+  const [scrollTarget, setScrollTarget] = React.useState<ScrollTarget | null>(null);
 
-  // Findings of each run whose review is loaded — the Timeline shows their
-  // per-severity tally (and the list on hover) next to the run.
-  const findingsByRun = React.useMemo(
-    () =>
-      Object.fromEntries(
-        reviews.flatMap((review) =>
-          review.run_id ? [[review.run_id, review.findings] as const] : [],
-        ),
-      ),
-    [reviews],
-  );
+  const reviewRunning = liveRunIds.length > 0;
+  const lethalTrifectaCount = countLethalTrifecta(reviews);
+
+  const handleCancelAll = () => {
+    for (const runId of liveRunIds) cancel.mutate(runId);
+  };
+  const handleOpenLiveTrace = () => {
+    if (liveRunIds[0]) onOpenTrace(liveRunIds[0]);
+  };
+  const handleDeleteRun = (runId: string) => {
+    if (window.confirm(t("timeline.deleteRunConfirm"))) deleteRun.mutate(runId);
+  };
+  const handleGoToReview = (runId: string) => {
+    setScrollTarget((prev) => ({ runId, n: (prev?.n ?? 0) + 1 }));
+  };
 
   return (
     <section>
-      {liveRunIds.length > 0 && (
-        <div style={s.liveRunSection}>
-          <SectionLabel
-            icon="Sparkles"
-            right={
-              <div style={s.cancelActions}>
-                <Button
-                  kind="danger"
-                  size="sm"
-                  icon="X"
-                  loading={cancelMutation.isPending}
-                  onClick={handleCancelAll}
-                >
-                  Cancel
-                </Button>
-                <Button kind="ghost" size="sm" icon="FileText" onClick={handleOpenFirstTrace}>
-                  Open run trace
-                </Button>
-              </div>
-            }
-          >
-            Live review
-          </SectionLabel>
-          <RunStatus runIds={liveRunIds} onDone={onRunDone} />
-        </div>
-      )}
-
       {reviewRunning && (
-        <div style={s.reviewInProgress}>
-          <Icon.RefreshCw size={16} style={{ color: "var(--accent)", animation: "ddspin 1s linear infinite" }} />
-          <span style={s.reviewInProgressText}>Review in progress…</span>
-          <span style={s.reviewInProgressSub}>
-            the agent is analyzing the diff — this can take a while on large PRs.
-          </span>
-        </div>
+        <>
+          <div style={s.liveRunSection}>
+            <SectionLabel
+              icon="Sparkles"
+              right={
+                <div style={s.cancelActions}>
+                  <Button
+                    kind="danger"
+                    size="sm"
+                    icon="X"
+                    loading={cancel.isPending}
+                    onClick={handleCancelAll}
+                  >
+                    {t("findingsTab.cancel")}
+                  </Button>
+                  <Button kind="ghost" size="sm" icon="FileText" onClick={handleOpenLiveTrace}>
+                    {t("findingsTab.openRunTrace")}
+                  </Button>
+                </div>
+              }
+            >
+              {t("findingsTab.liveReview")}
+            </SectionLabel>
+            <RunStatus runIds={liveRunIds} onDone={onRunDone} />
+          </div>
+          <div style={s.reviewInProgress}>
+            <Icon.RefreshCw size={16} style={s.spinnerIcon} />
+            <span style={s.reviewInProgressText}>{t("findingsTab.inProgress")}</span>
+            <span style={s.reviewInProgressSub}>{t("findingsTab.inProgressHint")}</span>
+          </div>
+        </>
       )}
 
-      {lethalTrifecta.length > 0 && (
+      {lethalTrifectaCount > 0 && (
         <div style={s.lethalTrifecta}>
-          <Icon.Shield size={16} style={{ color: "var(--crit)" }} />
-          <span style={s.lethalTrifectaTitle}>Lethal Trifecta detected</span>
+          <Icon.Shield size={16} style={s.shieldIcon} />
+          <span style={s.lethalTrifectaTitle}>{t("findingsTab.lethalTrifecta")}</span>
           <Badge color="var(--crit)" bg="transparent">
-            {lethalTrifecta.length} finding(s)
+            {t("findingsTab.lethalTrifectaCount", { count: lethalTrifectaCount })}
           </Badge>
         </div>
       )}
 
-      {((prRuns && prRuns.length > 0) || prCommits.length > 0) && (
+      {(runs.length > 0 || commits.length > 0) && (
         <div style={s.timelineSection}>
           <SectionLabel
             icon="Activity"
-            right={<span style={{ fontSize: 12, color: "var(--text-muted)" }}>runs &amp; commits · newest first</span>}
+            right={<span style={s.sectionNote}>{t("findingsTab.timelineNote")}</span>}
           >
-            Timeline
+            {t("findingsTab.timeline")}
           </SectionLabel>
           <RunHistory
-            runs={prRuns ?? []}
-            commits={prCommits}
-            onOpenTrace={handleOpenTrace}
-            onGoToReview={handleGoToReview}
-            onDelete={handleDelete}
-            findingsByRun={findingsByRun}
+            runs={runs}
+            commits={commits}
+            findingsByRun={findingsByRunId(reviews)}
             repoFullName={repoFullName}
             headSha={headSha}
+            onOpenTrace={onOpenTrace}
+            onGoToReview={handleGoToReview}
+            onDelete={handleDeleteRun}
           />
         </div>
       )}
 
       <SectionLabel
         icon="AlertOctagon"
-        right={<span style={{ fontSize: 12, color: "var(--text-muted)" }}>grouped by run · newest first</span>}
+        right={<span style={s.sectionNote}>{t("findingsTab.reviewRunsNote")}</span>}
       >
-        Review runs
+        {t("findingsTab.reviewRuns")}
       </SectionLabel>
-      {reviews.length === 0 ? (
-        reviewRunning || liveRunIds.length > 0 ? null : (
-          <EmptyState
-            icon="Sparkles"
-            title="No findings yet"
-            body="Run a review to generate findings. Use Run Review ▾ above (run all enabled agents or a specific one)."
-          />
-        )
-      ) : (
-        prId &&
-        reviews.map((review, i) => (
-          <ReviewRunAccordion
-            key={review.id}
-            review={review}
-            run={prRuns?.find((r) => r.run_id === review.run_id) ?? null}
-            prId={prId}
-            defaultOpen={i === 0}
-            repoFullName={repoFullName}
-            headSha={headSha}
-            targetRunId={target?.runId ?? null}
-            targetNonce={target?.n ?? 0}
-          />
-        ))
+      {reviews.map((review, i) => (
+        <ReviewRunAccordion
+          key={review.id}
+          review={review}
+          run={runs.find((r) => r.run_id === review.run_id) ?? null}
+          prId={prId}
+          defaultOpen={i === 0}
+          repoFullName={repoFullName}
+          headSha={headSha}
+          scrollTarget={scrollTarget}
+        />
+      ))}
+      {reviews.length === 0 && !reviewRunning && (
+        <EmptyState
+          icon="Sparkles"
+          title={t("findingsTab.emptyTitle")}
+          body={t("findingsTab.emptyBody")}
+        />
       )}
     </section>
   );

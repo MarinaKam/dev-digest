@@ -1,15 +1,13 @@
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import type { Db } from '../../../db/client.js';
+import type { DbExecutor } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
 import type { Finding } from '@devdigest/shared';
-import type { FindingRow, PullRow } from '../../../db/rows.js';
-
-export type ReviewRow = typeof t.reviews.$inferSelect;
+import type { FindingRecord, ReviewRecord, ReviewedPull } from '../types.js';
 
 // ---- reviews + findings ---------------------------------------------------
 
 export async function insertReview(
-  db: Db,
+  db: DbExecutor,
   values: {
     workspaceId: string;
     prId: string;
@@ -21,16 +19,16 @@ export async function insertReview(
     score: number | null;
     model: string | null;
   },
-): Promise<ReviewRow> {
+): Promise<ReviewRecord> {
   const [row] = await db.insert(t.reviews).values(values).returning();
   return row!;
 }
 
 export async function insertFindings(
-  db: Db,
+  db: DbExecutor,
   reviewId: string,
   findings: Finding[],
-): Promise<FindingRow[]> {
+): Promise<FindingRecord[]> {
   if (findings.length === 0) return [];
   const rows = await db
     .insert(t.findings)
@@ -56,9 +54,9 @@ export async function insertFindings(
 
 /** Reviews for a PR (newest first), each with its findings. */
 export async function reviewsForPull(
-  db: Db,
+  db: DbExecutor,
   prId: string,
-): Promise<{ review: ReviewRow; findings: FindingRow[] }[]> {
+): Promise<{ review: ReviewRecord; findings: FindingRecord[] }[]> {
   const reviews = await db
     .select()
     .from(t.reviews)
@@ -73,7 +71,7 @@ export async function reviewsForPull(
   }));
 }
 
-export async function getReview(db: Db, reviewId: string): Promise<ReviewRow | undefined> {
+export async function getReview(db: DbExecutor, reviewId: string): Promise<ReviewRecord | undefined> {
   const [row] = await db.select().from(t.reviews).where(eq(t.reviews.id, reviewId));
   return row;
 }
@@ -81,7 +79,7 @@ export async function getReview(db: Db, reviewId: string): Promise<ReviewRow | u
 /** Delete a whole review (one agent's run) + its findings (cascade), scoped
  *  to the workspace. Returns false if not found in the workspace. */
 export async function deleteReview(
-  db: Db,
+  db: DbExecutor,
   workspaceId: string,
   reviewId: string,
 ): Promise<boolean> {
@@ -94,16 +92,16 @@ export async function deleteReview(
 
 // ---- finding actions ------------------------------------------------------
 
-export async function getFinding(db: Db, findingId: string): Promise<FindingRow | undefined> {
+export async function getFinding(db: DbExecutor, findingId: string): Promise<FindingRecord | undefined> {
   const [row] = await db.select().from(t.findings).where(eq(t.findings.id, findingId));
   return row;
 }
 
 /** Resolve workspace_id + pr_id for a finding (via review → pr). */
 export async function findingContext(
-  db: Db,
+  db: DbExecutor,
   findingId: string,
-): Promise<{ finding: FindingRow; review: ReviewRow; pull: PullRow } | undefined> {
+): Promise<{ finding: FindingRecord; review: ReviewRecord; pull: ReviewedPull } | undefined> {
   const finding = await getFinding(db, findingId);
   if (!finding) return undefined;
   const review = await getReview(db, finding.reviewId);
@@ -117,10 +115,10 @@ export async function findingContext(
 }
 
 export async function setFindingAccepted(
-  db: Db,
+  db: DbExecutor,
   findingId: string,
   at: Date | null,
-): Promise<FindingRow | undefined> {
+): Promise<FindingRecord | undefined> {
   const [row] = await db
     .update(t.findings)
     .set({ acceptedAt: at, dismissedAt: null })
@@ -130,10 +128,10 @@ export async function setFindingAccepted(
 }
 
 export async function setFindingDismissed(
-  db: Db,
+  db: DbExecutor,
   findingId: string,
   at: Date | null,
-): Promise<FindingRow | undefined> {
+): Promise<FindingRecord | undefined> {
   const [row] = await db
     .update(t.findings)
     .set({ dismissedAt: at, acceptedAt: null })

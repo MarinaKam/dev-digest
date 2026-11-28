@@ -4,28 +4,26 @@
    posted live to GitHub; existing GitHub review comments render inline. */
 "use client";
 
-import React from "react";
 import { useTranslations } from "next-intl";
-import type { PrFile } from "@/lib/types";
+import type { PrFile } from "@devdigest/shared";
 import { type DiffCommentApi } from "../comments";
 import { s } from "../styles";
 import { FileCard } from "../FileCard";
 
-export function DiffViewer({
-  files,
-  commenting,
-}: {
+interface DiffViewerProps {
   files: PrFile[];
   commenting?: DiffCommentApi;
-}) {
+}
+
+export function DiffViewer({ files, commenting }: DiffViewerProps) {
   const t = useTranslations("shell");
   if (!files || files.length === 0) {
     return <div style={s.empty}>{t("diffViewer.noChangedFiles")}</div>;
   }
   return (
     <div style={s.list}>
-      {files.map((f, i) => (
-        <FileCard key={i} file={f} commenting={commenting} />
+      {files.map((file) => (
+        <FileCard key={file.path} file={file} commenting={commenting} />
       ))}
     </div>
   );

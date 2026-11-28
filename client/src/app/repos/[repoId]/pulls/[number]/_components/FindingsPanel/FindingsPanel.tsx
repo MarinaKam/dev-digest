@@ -8,22 +8,19 @@ import { Toggle, EmptyState } from "@devdigest/ui";
 import type { FindingRecord, Severity } from "@devdigest/shared";
 import { FindingCard } from "../FindingCard";
 import { SeverityCounters } from "../SeverityCounters";
-import { useFindingAction } from "../../../../../../../lib/hooks/reviews";
+import { useFindingAction } from "@/lib/hooks/reviews";
 import { KEY_TO_ACTION } from "./constants";
-import { countBySeverity, visibleFindings } from "./helpers";
+import { countBySeverity, visibleFindings } from "../../../helpers";
 import { s } from "./styles";
 
-export function FindingsPanel({
-  findings,
-  prId,
-  repoFullName,
-  headSha,
-}: {
+interface FindingsPanelProps {
   findings: FindingRecord[];
   prId: string;
   repoFullName?: string | null;
   headSha?: string | null;
-}) {
+}
+
+export function FindingsPanel({ findings, prId, repoFullName, headSha }: FindingsPanelProps) {
   const t = useTranslations("prReview");
   const action = useFindingAction();
   const [hideLow, setHideLow] = React.useState(false);

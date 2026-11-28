@@ -5,23 +5,19 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Textarea, Button } from "@devdigest/ui";
-import { cs, type DiffCommentApi } from "../comments";
+import type { DiffCommentApi } from "../comments";
+import { cs } from "../styles";
 
-export function InlineComposer({
-  commenting,
-  path,
-  line,
-  side,
-  inReplyTo,
-  onClose,
-}: {
+interface InlineComposerProps {
   commenting: DiffCommentApi;
   path: string;
   line: number;
   side: "LEFT" | "RIGHT";
   inReplyTo?: number;
   onClose: () => void;
-}) {
+}
+
+export function InlineComposer({ commenting, path, line, side, inReplyTo, onClose }: InlineComposerProps) {
   const t = useTranslations("shell");
   const [text, setText] = React.useState("");
   const submit = async () => {
@@ -42,6 +38,7 @@ export function InlineComposer({
     }
   };
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: the wrapper catches Escape and Cmd/Ctrl+Enter typed in the textarea inside it
     <div
       style={cs.thread}
       onKeyDown={(e) => {

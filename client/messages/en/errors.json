@@ -1,0 +1,8 @@
+{
+  "unexpectedTitle": "Something went wrong",
+  "unexpectedBody": "This screen hit an unexpected error. Try again; if it keeps failing, reload the page.",
+  "notFoundTitle": "Page not found",
+  "notFoundBody": "There is no screen at this address. The link may be old or mistyped.",
+  "notFoundCta": "Go to the start page",
+  "breadcrumb": "Not found"
+}

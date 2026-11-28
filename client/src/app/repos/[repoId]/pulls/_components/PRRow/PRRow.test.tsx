@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import type { PrMeta } from "@/lib/types";
+import type { PrMeta } from "@devdigest/shared";
 import type { FindingRecord, ReviewRecord } from "@devdigest/shared";
 import messages from "../../../../../../../messages/en/prReview.json";
 

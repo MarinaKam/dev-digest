@@ -20,8 +20,18 @@ import {
 import type { FindingRecord, FindingActionKind } from "@devdigest/shared";
 import { SEV_COLOR, SEV_COLOR_FALLBACK } from "./constants";
 import { lineLabel } from "./helpers";
-import { githubBlobUrl } from "../../../../../../../lib/github-urls";
+import { githubBlobUrl } from "@/lib/github-urls";
 import { s } from "./styles";
+
+interface FindingCardProps {
+  f: FindingRecord;
+  focused?: boolean;
+  defaultExpanded?: boolean;
+  onAction?: (action: FindingActionKind, reply?: string) => void;
+  pending?: boolean;
+  repoFullName?: string | null;
+  headSha?: string | null;
+}
 
 export function FindingCard({
   f,
@@ -31,15 +41,7 @@ export function FindingCard({
   pending,
   repoFullName,
   headSha,
-}: {
-  f: FindingRecord;
-  focused?: boolean;
-  defaultExpanded?: boolean;
-  onAction?: (action: FindingActionKind, reply?: string) => void;
-  pending?: boolean;
-  repoFullName?: string | null;
-  headSha?: string | null;
-}) {
+}: FindingCardProps) {
   const t = useTranslations("prReview");
   const [expanded, setExpanded] = React.useState(defaultExpanded ?? false);
   const sevColor = SEV_COLOR[f.severity] ?? SEV_COLOR_FALLBACK;

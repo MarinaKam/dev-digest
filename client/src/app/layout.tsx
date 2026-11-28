@@ -3,8 +3,8 @@ import { Suspense } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
-import { Providers } from "../lib/providers";
-import { themeNoFlashScript } from "../lib/theme";
+import { Providers } from "@/lib/providers";
+import { themeNoFlashScript } from "@/lib/theme";
 
 export const metadata: Metadata = {
   title: "DevDigest",
@@ -18,6 +18,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang={locale} data-theme="dark" data-density="regular" suppressHydrationWarning>
       <head>
         {/* set theme before paint to avoid FOUC */}
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script from lib/theme, no user input; it must run before first paint */}
         <script dangerouslySetInnerHTML={{ __html: themeNoFlashScript }} />
       </head>
       {/* suppressHydrationWarning: browser extensions (Grammarly, translators, …)

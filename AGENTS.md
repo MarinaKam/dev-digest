@@ -53,6 +53,21 @@ not done until they pass; quote the output, do not summarise it.
   unit tests.
 - A UI change is also checked in the running app; reload the tab first.
 
+## Before a push or a pull request
+- Run the `pr-self-review` skill. It runs the checks above, sends the changed
+  `client/` files to the frontend skills and the changed `server/` and
+  `reviewer-core/` files to the backend skills, and records a verdict for that
+  exact content.
+- A hook in `.claude/settings.json` (`scripts/check-gate.sh` of the skill) blocks `git push`, `gh pr create` and
+  `gh pr merge` until that verdict is a pass. One critical finding blocks. A
+  change that touches only `*.md` files passes without a review.
+- Which folder goes to which reviewer, which files are skipped, and which
+  folders must stay identical copies is in `.claude/pr-self-review.config.json`.
+  Change that file when a package is added; do not work around the gate.
+- When the gate blocks, tell the user. The escape hatch
+  (`PR_SELF_REVIEW_OVERRIDE=<reason>` or `--no-verify`) is the user's decision:
+  never add it to a command yourself.
+
 ## Naming
 - Branches: `<type>/<slug>` (`feat/severity-counters`). Commits:
   `<type>: <description>`; types `feat`, `fix`, `refactor`, `docs`, `test`,

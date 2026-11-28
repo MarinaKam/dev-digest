@@ -1,0 +1,14 @@
+{
+  "buckets": {
+    "frontend": ["client/**"],
+    "backend": ["server/**", "reviewer-core/**"]
+  },
+  "skip": [
+    "**/pnpm-lock.yaml",
+    "**/package-lock.json",
+    "skills-lock.json",
+    "server/src/db/migrations/**",
+    "client/src/vendor/shared/**"
+  ],
+  "mirrors": [["server/src/vendor/shared", "client/src/vendor/shared"]]
+}

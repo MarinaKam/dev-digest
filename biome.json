@@ -34,15 +34,9 @@
     {
       "includes": [
         "client/src/vendor/ui/**",
-        "client/src/components/diff-viewer/**",
         "client/src/app/agents/**",
-        "client/src/app/layout.tsx",
-        "client/src/app/repos/*/pulls/page.tsx",
-        "client/src/lib/toast.tsx",
-        "client/src/lib/hooks/reviews.ts",
         "**/RunTraceDrawer/**",
         "**/FindingCard/FindingCard.tsx",
-        "**/ReviewRunAccordion/ReviewRunAccordion.tsx",
         "**/PRRow/PRRow.tsx",
         "server/src/adapters/codeindex/ripgrep.ts",
         "server/src/modules/repo-intel/service.ts",

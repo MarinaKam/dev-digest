@@ -11,6 +11,7 @@
  * happy path here takes the cheap `sha_unchanged` branch — it exercises the
  * sync→delegate handoff without re-running the parse.
  */
+import { MockSourceParser } from '../src/adapters/mocks.js';
 import { describe, it, expect } from 'vitest';
 import { RepoIntelService } from '../src/modules/repo-intel/service.js';
 import { MockGitClient } from '../src/adapters/mocks.js';
@@ -45,6 +46,7 @@ function makeService(opts: { basics: Basics | null; state?: IndexState | null; g
     db: {}, // never queried — service.repo is overridden below
     depgraph: { buildEdges: async () => [] },
     tokenizer: { count: (text: string) => Math.ceil(text.length / 4) },
+    sourceParser: new MockSourceParser(),
   } as unknown as Container;
 
   const service = new RepoIntelService(container);

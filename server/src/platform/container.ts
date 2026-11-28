@@ -10,6 +10,7 @@ import type {
 import type { AppConfig } from './config.js';
 import type { Db } from '../db/client.js';
 import { JobRunner } from './jobs.js';
+import { JobsRepository } from './repository/jobs.js';
 import { runBus, type RunBus } from './sse.js';
 import { LocalSecretsProvider } from '../adapters/secrets/local.js';
 import { LocalNoAuthProvider } from '../adapters/auth/local.js';
@@ -25,10 +26,15 @@ import { PriceBook } from './price-book.js';
 import { ConfigError } from './errors.js';
 import { AgentsRepository } from '../modules/agents/repository.js';
 import { ReviewRepository } from '../modules/reviews/repository.js';
+import { PullsRepository } from '../modules/pulls/repository.js';
+import { RepoRepository } from '../modules/repos/repository.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
-import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
-import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer/index.js';
+import type { DepGraph, SourceParser, Tokenizer } from '../modules/repo-intel/ports.js';
+import { SUPPORTED_EXT } from '../modules/repo-intel/constants.js';
+import { DepCruiseGraph } from '../adapters/depgraph/index.js';
+import { TiktokenTokenizer } from '../adapters/tokenizer/index.js';
+import { AstGrepSourceParser } from '../adapters/astgrep/source-parser.js';
 
 /**
  * DI container. One per app instance. Holds config, db, the JobRunner,
@@ -51,6 +57,14 @@ export interface ContainerOverrides {
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
   tokenizer?: Tokenizer;
+  sourceParser?: SourceParser;
+}
+
+/** The repositories one unit of work may write through (see `Container.unitOfWork`). */
+export interface UnitOfWork {
+  reviews: ReviewRepository;
+  pulls: PullsRepository;
+  repos: RepoRepository;
 }
 
 export class Container {
@@ -72,9 +86,12 @@ export class Container {
   // `container.agentsRepo` instead of reaching into another module's folder.
   private _agentsRepo?: AgentsRepository;
   private _reviewRepo?: ReviewRepository;
+  private _pullsRepo?: PullsRepository;
+  private _reposRepo?: RepoRepository;
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
+  private _sourceParser?: SourceParser;
   private _priceBook?: PriceBook;
 
   constructor(config: AppConfig, db: Db, private overrides: ContainerOverrides = {}) {
@@ -83,7 +100,7 @@ export class Container {
     this.secrets = overrides.secrets ?? new LocalSecretsProvider(config.secretsPath);
     this.auth = overrides.auth ?? new LocalNoAuthProvider(db);
     this.runBus = runBus;
-    this.jobs = new JobRunner(db);
+    this.jobs = new JobRunner(new JobsRepository(db));
   }
 
   get git(): GitClient {
@@ -98,6 +115,31 @@ export class Container {
 
   get reviewRepo(): ReviewRepository {
     return (this._reviewRepo ??= new ReviewRepository(this.db));
+  }
+
+  get pullsRepo(): PullsRepository {
+    this._pullsRepo ??= new PullsRepository(this.db);
+    return this._pullsRepo;
+  }
+
+  get reposRepo(): RepoRepository {
+    this._reposRepo ??= new RepoRepository(this.db);
+    return this._reposRepo;
+  }
+
+  /**
+   * Run `fn` as one transaction over the repositories of more than one module:
+   * everything written through `work` is committed together, or nothing is when
+   * `fn` throws. For a unit inside one module use that repository's own method.
+   */
+  unitOfWork<T>(fn: (work: UnitOfWork) => Promise<T>): Promise<T> {
+    return this.db.transaction((tx) =>
+      fn({
+        reviews: new ReviewRepository(tx),
+        pulls: new PullsRepository(tx),
+        repos: new RepoRepository(tx),
+      }),
+    );
   }
 
   get codeIndex(): CodeIndex {
@@ -120,7 +162,7 @@ export class Container {
   /** Import-graph builder (dependency-cruiser). T3 indexer pipeline only. */
   get depgraph(): DepGraph {
     if (this.overrides.depgraph) return this.overrides.depgraph;
-    this._depgraph ??= new DepCruiseGraph();
+    this._depgraph ??= new DepCruiseGraph(SUPPORTED_EXT);
     return this._depgraph;
   }
 
@@ -129,6 +171,13 @@ export class Container {
     if (this.overrides.tokenizer) return this.overrides.tokenizer;
     this._tokenizer ??= new TiktokenTokenizer();
     return this._tokenizer;
+  }
+
+  /** Source parser (ast-grep + regex extractor) for the indexer and the facade. */
+  get sourceParser(): SourceParser {
+    if (this.overrides.sourceParser) return this.overrides.sourceParser;
+    this._sourceParser ??= new AstGrepSourceParser();
+    return this._sourceParser;
   }
 
   /**

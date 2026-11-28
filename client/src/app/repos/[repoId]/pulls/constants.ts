@@ -1,4 +1,4 @@
-import type { PrMeta } from "../../../../lib/types";
+import type { PrMeta, Severity } from "@devdigest/shared";
 
 /** Constants for the PR list page (/repos/:repoId/pulls). */
 
@@ -38,6 +38,18 @@ export const STATUS_FILTERS: { key: string; labelKey: string }[] = [
   { key: "stale", labelKey: "stale" },
 ];
 
+/** `?status=` when the URL names none — the most actionable filter on open. */
+export const DEFAULT_STATUS = "needs_review";
+/** `?status=` value that shows every PR. */
+export const ALL_STATUSES = "all";
+
+/** `?sort=` values; the first is the default. */
+export const SORT_NEWEST = "newest";
+export const SORT_OLDEST = "oldest";
+
+/** Open PRs carry a derived review status; everything else is merged/closed. */
+export const OPEN_STATUSES: ReadonlySet<string> = new Set(["needs_review", "reviewed", "stale"]);
+
 /** Column header i18n keys (under `list.columns`), in display order. */
 export const COLUMN_KEYS: string[] = [
   "pullRequest",
@@ -49,6 +61,20 @@ export const COLUMN_KEYS: string[] = [
   "cost",
   "updated",
 ];
+
+/** Severity levels that get a counter, most severe first. */
+export const SEVERITY_LEVELS = ["CRITICAL", "WARNING", "SUGGESTION"] as const satisfies readonly Severity[];
+
+/** Sort weight per severity (lower = shown first). */
+export const SEVERITY_ORDER: Record<string, number> = {
+  CRITICAL: 0,
+  WARNING: 1,
+  SUGGESTION: 2,
+  INFO: 3,
+};
+
+/** Confidence below this is hidden when "hide low confidence" is on. */
+export const LOW_CONFIDENCE_THRESHOLD = 0.65;
 
 /** Number of skeleton rows shown while loading. */
 export const SKELETON_ROWS = 4;

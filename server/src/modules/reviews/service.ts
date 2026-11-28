@@ -1,8 +1,8 @@
 import type { Container } from '../../platform/container.js';
 import type { FindingActionKind, RunEventKind, RunTrace } from '@devdigest/shared';
 import { AppError, NotFoundError } from '../../platform/errors.js';
-import type { AgentRow } from '../../db/rows.js';
-import { ReviewRepository } from './repository.js';
+import type { ReviewAgent } from './types.js';
+import type { ReviewRepository } from './repository.js';
 import { type ReviewDto, type ReviewDtoFinding } from './helpers.js';
 import { ReviewRunExecutor, type Logger } from './run-executor.js';
 import { actOnFinding as actOnFindingImpl } from './findings.js';
@@ -31,7 +31,7 @@ export class ReviewService {
   private executor: ReviewRunExecutor;
 
   constructor(private container: Container) {
-    this.repo = new ReviewRepository(container.db);
+    this.repo = container.reviewRepo;
     this.agents = container.agentsRepo;
     this.executor = new ReviewRunExecutor(container, this.repo, this.agents);
   }
@@ -46,7 +46,7 @@ export class ReviewService {
   async resolveTargets(
     workspaceId: string,
     opts: { agentId?: string; all?: boolean },
-  ): Promise<AgentRow[]> {
+  ): Promise<ReviewAgent[]> {
     if (opts.all) return this.agents.listEnabled(workspaceId);
     if (opts.agentId) {
       const agent = await this.agents.getById(workspaceId, opts.agentId);
@@ -71,8 +71,13 @@ export class ReviewService {
     return this.repo.listRunsForPull(workspaceId, prId);
   }
 
-  /** Delete one run from the history (+ its trace). */
+  /**
+   * Delete one run from the history (+ its trace). A run that is still in
+   * flight is told to stop first, so it makes no further model call.
+   */
   async deleteRun(workspaceId: string, runId: string): Promise<boolean> {
+    if (!(await this.repo.runExists(workspaceId, runId))) return false;
+    this.container.runBus.cancel(runId);
     return this.repo.deleteAgentRun(workspaceId, runId);
   }
 
@@ -82,11 +87,21 @@ export class ReviewService {
    * so cancel also works for ORPHANED runs (whose background process died on a
    * server restart) where signalling alone would do nothing.
    */
-  async cancelRun(runId: string): Promise<void> {
+  async cancelRun(workspaceId: string, runId: string): Promise<void> {
+    await this.assertRunExists(workspaceId, runId);
     this.publish(runId, 'info', 'Cancellation requested — stopping…');
     this.container.runBus.cancel(runId);
-    await this.repo.cancelRunIfRunning(runId);
+    await this.repo.cancelRunIfRunning(workspaceId, runId);
     this.container.runBus.complete(runId);
+  }
+
+  /**
+   * Throws NotFound unless the run belongs to the workspace. Every operation
+   * addressed by a run id alone (cancel, trace, event stream) checks this
+   * first: the in-memory run bus is keyed by run id and knows no workspace.
+   */
+  async assertRunExists(workspaceId: string, runId: string): Promise<void> {
+    if (!(await this.repo.runExists(workspaceId, runId))) throw new NotFoundError('Run not found');
   }
 
   /** Reap runs left 'running' by a previous (now-dead) process. Called on boot. */
@@ -103,7 +118,7 @@ export class ReviewService {
   async runReview(
     workspaceId: string,
     prId: string,
-    targets: AgentRow[],
+    targets: ReviewAgent[],
     logger?: Logger,
   ): Promise<{ runs: { run_id: string; agent_id: string; agent_name: string }[]; reviews: ReviewDto[] }> {
     const pull = await this.repo.getPull(workspaceId, prId);
@@ -114,19 +129,23 @@ export class ReviewService {
     // Create the agent_run rows up front so a runId is available IMMEDIATELY —
     // the client persists these in global state and subscribes to the SSE
     // stream. The actual (slow) review runs in the background below.
-    const runs: { run_id: string; agent_id: string; agent_name: string }[] = [];
-    const jobs: { agent: AgentRow; runId: string }[] = [];
-    for (const agent of targets) {
-      const runId = await this.repo.createAgentRun({
+    // All of them or none: a run row without a background execution would stay
+    // 'running' until the next boot.
+    const runIds = await this.repo.createAgentRuns(
+      targets.map((agent) => ({
         workspaceId,
         agentId: agent.id,
         prId,
         provider: agent.provider,
         model: agent.model,
-      });
-      runs.push({ run_id: runId, agent_id: agent.id, agent_name: agent.name });
-      jobs.push({ agent, runId });
-    }
+      })),
+    );
+    const jobs = targets.map((agent, i) => ({ agent, runId: runIds[i] as string }));
+    const runs = jobs.map(({ agent, runId }) => ({
+      run_id: runId,
+      agent_id: agent.id,
+      agent_name: agent.name,
+    }));
 
     // Fire-and-forget: the HTTP response returns now with the runIds; reviews
     // are persisted as each agent finishes and the client refetches on SSE done.
@@ -173,7 +192,7 @@ export class ReviewService {
     );
   }
 
-  async getRunTrace(runId: string): Promise<RunTrace | undefined> {
-    return this.repo.getRunTrace(runId);
+  async getRunTrace(workspaceId: string, runId: string): Promise<RunTrace | undefined> {
+    return this.repo.getRunTrace(workspaceId, runId);
   }
 }

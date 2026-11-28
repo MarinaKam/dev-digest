@@ -2,30 +2,32 @@
    we render the provider/model + skill count here. */
 "use client";
 
-import React from "react";
+import type React from "react";
 import { useTranslations } from "next-intl";
 import { Icon, Badge, Toggle } from "@devdigest/ui";
 import type { Agent } from "@devdigest/shared";
-import { useDeleteAgent } from "../../../../lib/hooks/agents";
+import { useDeleteAgent } from "@/lib/hooks/agents";
 import { modelColor } from "./helpers";
 import { s } from "./styles";
 
-export function AgentCard({
-  ag,
-  active,
-  skillCount,
-  onClick,
-  onToggle,
-}: {
+interface AgentCardProps {
   ag: Agent;
   active?: boolean;
   skillCount?: number;
   onClick?: () => void;
   onToggle?: (enabled: boolean) => void;
-}) {
+}
+
+export function AgentCard({ ag, active, skillCount, onClick, onToggle }: AgentCardProps) {
   const t = useTranslations("agents");
   const del = useDeleteAgent();
   const color = modelColor(ag.model);
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm(t("card.deleteConfirm", { name: ag.name }))) del.mutate(ag.id);
+  };
+
   return (
     <div onClick={onClick} style={s.card(!!active, ag.enabled)}>
       <div style={s.headerRow}>
@@ -39,23 +41,14 @@ export function AgentCard({
           </div>
         )}
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (window.confirm(`Delete agent "${ag.name}"? This cannot be undone.`)) del.mutate(ag.id);
-          }}
+          type="button"
+          onClick={handleDelete}
           disabled={del.isPending}
-          title="Delete agent"
-          aria-label="Delete agent"
-          style={{
-            background: "none",
-            border: "none",
-            cursor: del.isPending ? "not-allowed" : "pointer",
-            color: "var(--text-muted)",
-            display: "inline-flex",
-            padding: 4,
-          }}
+          title={t("card.deleteTitle")}
+          aria-label={t("card.deleteTitle")}
+          style={s.deleteBtn(del.isPending)}
         >
-          <Icon.Trash size={14} style={del.isPending ? { animation: "ddspin 1s linear infinite" } : undefined} />
+          <Icon.Trash size={14} style={del.isPending ? s.spinning : undefined} />
         </button>
       </div>
       <div style={s.description}>{ag.description || t("card.noDescription")}</div>

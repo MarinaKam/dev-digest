@@ -5,19 +5,18 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@devdigest/ui";
-import { type CommentThread, type DiffCommentApi, cs } from "../comments";
+import type { CommentThread, DiffCommentApi } from "../comments";
+import { cs } from "../styles";
 import { CommentCard } from "../CommentCard";
 import { InlineComposer } from "../InlineComposer";
 
-export function CommentThreadView({
-  thread,
-  commenting,
-  path,
-}: {
+interface CommentThreadViewProps {
   thread: CommentThread;
   commenting: DiffCommentApi;
   path: string;
-}) {
+}
+
+export function CommentThreadView({ thread, commenting, path }: CommentThreadViewProps) {
   const t = useTranslations("shell");
   const [replying, setReplying] = React.useState(false);
   return (

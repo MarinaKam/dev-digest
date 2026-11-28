@@ -1,13 +1,13 @@
 import { and, eq } from 'drizzle-orm';
-import type { Db } from '../../db/client.js';
+import type { DbExecutor } from '../../db/client.js';
 import * as t from '../../db/schema.js';
+import type { RepoRecord } from './types.js';
 
 /**
  * F1 — repos data-access layer. The ONLY place that touches the `repos`
  * table. Every query is scoped by `workspaceId` (tenancy guard).
  */
 
-export type RepoRow = typeof t.repos.$inferSelect;
 
 export interface InsertRepo {
   workspaceId: string;
@@ -18,10 +18,10 @@ export interface InsertRepo {
 }
 
 export class RepoRepository {
-  constructor(private db: Db) {}
+  constructor(private db: DbExecutor) {}
 
   /** Find a repo in a workspace by its `owner/name` full name (dedupe on add). */
-  async findByFullName(workspaceId: string, fullName: string): Promise<RepoRow | undefined> {
+  async findByFullName(workspaceId: string, fullName: string): Promise<RepoRecord | undefined> {
     const [row] = await this.db
       .select()
       .from(t.repos)
@@ -29,11 +29,11 @@ export class RepoRepository {
     return row;
   }
 
-  async list(workspaceId: string): Promise<RepoRow[]> {
+  async list(workspaceId: string): Promise<RepoRecord[]> {
     return this.db.select().from(t.repos).where(eq(t.repos.workspaceId, workspaceId));
   }
 
-  async getById(workspaceId: string, id: string): Promise<RepoRow | undefined> {
+  async getById(workspaceId: string, id: string): Promise<RepoRecord | undefined> {
     const [row] = await this.db
       .select()
       .from(t.repos)
@@ -41,7 +41,7 @@ export class RepoRepository {
     return row;
   }
 
-  async insert(values: InsertRepo): Promise<RepoRow> {
+  async insert(values: InsertRepo): Promise<RepoRecord> {
     const [row] = await this.db
       .insert(t.repos)
       .values({
@@ -75,6 +75,11 @@ export class RepoRepository {
       .update(t.repos)
       .set({ clonePath, lastPolledAt: new Date() })
       .where(eq(t.repos.id, repoId));
+  }
+
+  /** Record that the repo's PR list was just synced from GitHub. */
+  async markPolled(repoId: string): Promise<void> {
+    await this.db.update(t.repos).set({ lastPolledAt: new Date() }).where(eq(t.repos.id, repoId));
   }
 
   async remove(workspaceId: string, id: string): Promise<boolean> {

@@ -8,14 +8,17 @@ Reusable AI skills that provide specialized knowledge and workflows. Canonical l
 |-------|-------|-------------|
 | [fastify-best-practices](fastify-best-practices/SKILL.md) | Backend | Fastify routes, plugins, JSON-schema validation, error handling |
 | [drizzle-orm-patterns](drizzle-orm-patterns/SKILL.md) | Backend | Drizzle schema, queries, relations, transactions, migrations |
+| [onion-architecture](onion-architecture/SKILL.md) | Backend | Dependency direction in a layered backend: ports with the consumer, domain rules without row types, transactions, table ownership, transport out of the core, import-boundary checks ([README](onion-architecture/README.md)) |
 | [postgresql-table-design](postgresql-table-design/SKILL.md) | Backend | Postgres schema design, data types, indexing, constraints |
 | [next-best-practices](next-best-practices/SKILL.md) | Frontend | Next.js App Router, RSC boundaries, data fetching, optimization |
 | [react-best-practices](react-best-practices/SKILL.md) | Frontend | React anti-patterns, state management, hooks rules |
+| [frontend-architecture](frontend-architecture/SKILL.md) | Frontend | Where frontend code lives: folder strategy, component folders, constants, helpers vs utils vs lib, hooks placement, import boundaries, App Router route folders ([README](frontend-architecture/README.md)) |
 | [react-testing-library](react-testing-library/SKILL.md) | Frontend | General-purpose React Testing Library guide with Vitest |
 | [zod](zod/SKILL.md) | Full-stack | Zod schema validation, parsing, error handling, type inference |
 | [typescript-expert](typescript-expert/SKILL.md) | Full-stack | Type-level programming, performance, tooling, migrations |
 | [security](security/SKILL.md) | Full-stack | OWASP Top 10:2025, auth, injection, uploads, secrets |
 | [mermaid-diagram](mermaid-diagram/SKILL.md) | Shared | Mermaid diagrams in markdown (flowcharts, sequence, ERD, …) |
+| [pr-self-review](pr-self-review/SKILL.md) | Shared | Reviews the open changes before a push or a pull request: runs the checks, routes changed files to the frontend and backend skills, and blocks on one critical finding. Enforced by a `PreToolUse` hook in `.claude/settings.json`; folder map in `.claude/pr-self-review.config.json` ([README](pr-self-review/README.md)) |
 | [engineering-insights](engineering-insights/SKILL.md) | Shared | Appends non-obvious lessons to the module's `INSIGHTS.md` during a session |
 | [demo-video](demo-video/SKILL.md) | Shared | Records a demo video of the web app from a scenario in `docs/demos/` (needs `agent-browser` and `ffmpeg`) |
 

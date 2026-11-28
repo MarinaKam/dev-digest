@@ -7,19 +7,11 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button, Dropdown, type DropdownItemDef } from "@devdigest/ui";
-import { useAgents } from "../../../../../../../lib/hooks/agents";
-import { useRunReview } from "../../../../../../../lib/hooks/reviews";
+import { useAgents } from "@/lib/hooks/agents";
+import { useRunReview } from "@/lib/hooks/reviews";
 import { DROPDOWN_WIDTH } from "./constants";
 
-export function RunReviewDropdown({
-  prId,
-  size = "sm",
-  kind = "primary",
-  warnMerged = false,
-  onRunStart,
-  onRunsStarted,
-  onRunSettled,
-}: {
+interface RunReviewDropdownProps {
   prId: string;
   size?: "sm" | "md" | "lg";
   kind?: "primary" | "secondary";
@@ -30,7 +22,17 @@ export function RunReviewDropdown({
   onRunsStarted?: (runIds: string[]) => void;
   /** Fired when the run request settles (success or error). */
   onRunSettled?: () => void;
-}) {
+}
+
+export function RunReviewDropdown({
+  prId,
+  size = "sm",
+  kind = "primary",
+  warnMerged = false,
+  onRunStart,
+  onRunsStarted,
+  onRunSettled,
+}: RunReviewDropdownProps) {
   const t = useTranslations("prReview");
   const router = useRouter();
   const { data: agents } = useAgents();
@@ -55,10 +57,10 @@ export function RunReviewDropdown({
     ? all.map((a) => ({
         label: a.name,
         icon: "Cpu" as const,
-        hint: a.enabled ? a.model : `${a.model} · disabled`,
+        hint: a.enabled ? a.model : t("runReview.disabledHint", { model: a.model }),
         onClick: () => kick({ agentId: a.id }),
       }))
-    : [{ label: "No agents yet — create one", icon: "Plus", muted: true, onClick: () => router.push("/agents") }];
+    : [{ label: t("runReview.noAgents"), icon: "Plus", muted: true, onClick: () => router.push("/agents") }];
 
   const items: DropdownItemDef[] = [
     // Merged/closed PRs can still be reviewed (informational only); lead with a

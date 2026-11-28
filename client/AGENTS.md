@@ -17,8 +17,19 @@ Next.js web app. Talks to the API on `:3001`; has no backend logic of its own.
 - A component is a folder: `Name/Name.tsx`, `Name.test.tsx`, `index.ts`, and,
   when needed, `styles.ts`, `helpers.ts`, `constants.ts`. `PascalCase` for the
   component and its folder.
+- A shared module directly under `src/components/` is a `kebab-case` folder
+  (`app-shell`, `diff-viewer`); the component folders inside it are
+  `PascalCase`, also when the module holds one component
+  (`app-shell/AppShell/AppShell.tsx`). The module's `index.ts` names what it
+  exports; nothing is exported as `default` except a route file.
 - Route-private components live in `_components/` next to their `page.tsx`.
-- Hooks are `useThing`, grouped by domain in `src/lib/hooks/<domain>.ts`.
+- Hooks are `useThing`. Data hooks are grouped by domain in
+  `src/lib/hooks/<domain>.ts`, with that domain's query keys in the same file
+  (`reviewKeys`, `pullKeys`). A component never writes a query key out; it
+  calls a hook. A UI hook used by one component lives in that component's
+  `hooks/` folder, one hook per file (`hooks/useThing.ts`).
+- A props type is `<Name>Props`. A callback prop is `onThing`. A boolean prop
+  is a bare adjective (`open`, `running`), without an `is` or `has` prefix.
 - Message keys are `camelCase` inside a namespace file
   (`messages/en/prReview.json` → `panel.severityCount`).
 - A prop is named after what it carries (`reviews`, `prRuns`), not after where
@@ -31,21 +42,32 @@ Next.js web app. Talks to the API on `:3001`; has no backend logic of its own.
 - All data comes from the Fastify API, in the browser. Do not add server-side
   data fetching, Server Actions or route handlers (`route.ts`); a new endpoint
   belongs in `../server/`.
-- A new `page.tsx` is a thin route entry: it renders one view from
-  `_components/<Name>View` and holds no state, effects or data hooks. Do not
-  copy the older pages that still hold logic.
+- A `page.tsx` is a thin route entry: it renders one view from
+  `_components/<Name>View` and holds no state, effects or data hooks.
+- An import that leaves the route folder uses the `@/` alias
+  (`@/lib/hooks/reviews`, `@/components/app-shell`). Inside one route tree,
+  import relatively (`../../helpers`).
+- Import a data hook from its domain file and a contract type from
+  `@devdigest/shared`. There is no `lib/hooks` barrel and no `lib/types`.
 - Imports point one way: `app/` -> `components/` -> `lib/` and `vendor/`.
   Nothing outside `src/app` imports from it, and a route does not import
   another route's `_components/`. A component used by two routes moves to
   their nearest shared `_components/` or to `src/components/`.
-- State that must survive a reload or be linkable (active tab, filter) lives
-  in the URL query. Server state lives only in the TanStack Query cache.
+- State that must survive a reload or be linkable (active tab, filter, sort)
+  lives in the URL query, read and written with `useQueryParams`
+  (`src/lib/query-params.ts`). Server state lives only in the TanStack Query
+  cache.
+- A view or tab reads the data it shows with the hooks itself. Do not load it
+  in a parent only to pass it down: the query cache already shares it.
 - A view handles its own loading, error and empty states from the hook's
-  flags, with `Skeleton`, `ErrorState` and `EmptyState`. There are no
-  `loading.tsx` or `error.tsx` files; do not add them for one screen.
+  flags, with `Skeleton`, `ErrorState` and `EmptyState`. Do not add
+  `loading.tsx`, `error.tsx` or `not-found.tsx` for one screen. The app has one
+  set at the root (`src/app/error.tsx`, `global-error.tsx`, `not-found.tsx`)
+  for what no view can handle: an exception during render and an unknown URL.
 - Every screen renders inside `AppShell` and passes its breadcrumb as `crumb`.
-- Where the `next-best-practices` skill recommends a server-first pattern,
-  this section wins.
+- Where a skill disagrees with this file, this file wins. Example: the
+  `next-best-practices` skill recommends server-first patterns; this section
+  overrides them.
 
 ## Conventions
 - All API calls go through `src/lib/api.ts`, wrapped in TanStack Query hooks in
@@ -53,7 +75,6 @@ Next.js web app. Talks to the API on `:3001`; has no backend logic of its own.
 - Import UI components from `@devdigest/ui` (the barrel), never from a file
   inside `src/vendor/ui/`.
 - User-facing text lives in `messages/en/*.json` (next-intl), not in components.
-- Route-private components sit in `_components/` next to their `page.tsx`.
 
 ## Gotchas
 - `src/vendor/shared` is a copy of `server/src/vendor/shared`. Change the server
@@ -74,3 +95,6 @@ Next.js web app. Talks to the API on `:3001`; has no backend logic of its own.
 - Read `INSIGHTS.md` before you start any work here. Append a dated entry when you learn
   something the code does not show. Never rewrite entries.
 - Read `../TESTING.md` before you add or move a test.
+- Use the `frontend-architecture` skill before you add, move or split a file
+  and are not sure where it belongs (component, hook, constant, helper, route
+  folder).

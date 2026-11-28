@@ -7,7 +7,11 @@ import { Icon } from "@devdigest/ui";
 import type { ToolCall } from "@devdigest/shared";
 import { s } from "../../styles";
 
-export function ToolCallRow({ tc }: { tc: ToolCall }) {
+interface ToolCallRowProps {
+  tc: ToolCall;
+}
+
+export function ToolCallRow({ tc }: ToolCallRowProps) {
   const t = useTranslations("runs");
   const [open, setOpen] = React.useState(false);
   return (

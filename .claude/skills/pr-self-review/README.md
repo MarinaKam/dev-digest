@@ -1,0 +1,213 @@
+# pr-self-review
+
+Human-facing notes for the `pr-self-review` skill: why it exists, what it
+covers, how it relates to other skills, its version, and the evidence behind
+its shape. The agent does not load this file; the procedure is in
+[SKILL.md](SKILL.md), [routing.md](routing.md) and [gate.md](gate.md).
+
+## Version
+
+**1.3.0** (2026-11-27). The version is recorded in the `metadata.version`
+field of `SKILL.md` and in the changelog below.
+
+| Version | Date | Change |
+|---|---|---|
+| 1.0.0 | 2026-11-27 | First version: scope, cheap checks, review by bucket, refutation of criticals, recorded verdict, `PreToolUse` gate |
+| 1.0.1 | 2026-11-27 | Gate hardening after a security review: positional command detection instead of a first-word match, override read only from the hook's environment, the gate closes when the folder, the repository or the tool call cannot be read |
+| 1.0.2 | 2026-11-27 | Second hardening pass: a folder change is trusted only as a top-level `cd <literal> &&`, repository-moving variables and options make the folder unknown, `gh --repo` is judged as the project, here-documents and comments are read as the shell reads them, on-the-spot aliases count as a push |
+| 1.0.3 | 2026-11-27 | One lexer for the shell line replaces three text passes that could disagree: quotes with escapes, `$'...'`, arithmetic, comments and here-documents are read once, and a line that does not close what it opens is refused when it mentions a guarded command |
+| 1.1.0 | 2026-11-27 | Every skill of a bucket runs when the bucket has changed files; an empty bucket loads nothing. Expansions inside `${ }`, arithmetic and unquoted here-documents are read for commands, and a word the text does not settle counts as a possible guarded subcommand |
+| 1.1.1 | 2026-11-27 | I/O inside a package the project declares pure is critical |
+| 1.2.0 | 2026-11-27 | Back to a simple pre-hook script: `check-gate.sh` with a plain text match on the command, the verdict in `.claude/.pr-self-review.json`, and the escape hatch (`PR_SELF_REVIEW_OVERRIDE=<reason>` or `--no-verify`) read from the command. The shell lexer of 1.0.1 to 1.1.1 is removed |
+| 1.3.0 | 2026-11-27 | A second review of the same branch reads only the files that changed since the recorded one: the verdict keeps a hash per file and every finding, `scope` prints the files to review, and the script carries the other findings. A record with a failed check does not mark files as reviewed. The command is matched word by word instead of with one pattern: an override counts only on the guarded command, `gh` global flags and a path in front of `git` are matched, `git stash push` behind a global flag no longer counts as a push; only `*.md` is documentation; a symbolic link has one fingerprint on disk and in the commit; reading the verdict no longer creates the state folder |
+
+## Need
+
+A change should be reviewed against the project's own skills before it is
+pushed, and a critical finding should stop the pull request. Asking an agent to
+"review before the PR" already finds the serious defects. What it does not give
+is the same answer twice: which skills are read, what counts as blocking, and
+whether anything actually stops the push all vary from run to run.
+
+## Focus
+
+A fixed procedure and a real gate. The skill decides **which skill reads which
+file, what is critical, and whether the push may go out**. It holds no review
+rules of its own.
+
+## What it covers
+
+- Scope of the change: commits, staged, unstaged and untracked files against
+  the merge base, or the committed part only.
+- Cheap deterministic checks before any model review, with fail-fast.
+- Routing of changed files to buckets (frontend, backend) and of buckets to
+  owner skills: a bucket with files gets all of its skills, an empty bucket
+  gets none.
+- One reviewer per bucket plus a security reviewer, with a fixed brief and a
+  fixed finding format.
+- A closed catalogue of what is critical, by owner.
+- A refutation pass for every critical before it blocks.
+- An inline suppression with a mandatory reason.
+- A verdict bound to the exact content, stored in
+  `.claude/.pr-self-review.json`.
+- A `PreToolUse` hook that blocks `git push`, `gh pr create` and
+  `gh pr merge` without a pass for that content, and a logged override for the
+  user.
+
+## What it does not cover
+
+- The review rules themselves. They stay in `frontend-architecture`,
+  `react-best-practices`, `next-best-practices`, `react-testing-library`,
+  `onion-architecture`, `fastify-best-practices`, `drizzle-orm-patterns`,
+  `postgresql-table-design`, `security`, `zod` and `typescript-expert`.
+- The check commands and the written project rules: the project's instruction
+  files.
+- The project's folder map: `.claude/pr-self-review.config.json`.
+- Reviewing someone else's pull request, and writing the PR description.
+- Branch protection. The hook stops the agent; a person in their own terminal,
+  or a push hidden inside a script, is not stopped.
+
+## Target cases
+
+- "Review my changes before I open the PR."
+- "Can I push this?"
+- A push or `gh pr create` that the gate blocked.
+
+## Related skills
+
+| Skill | Relation |
+|---|---|
+| The eleven owner skills above | Own every rule. This skill names which of their rules are critical and never restates one. |
+| `engineering-insights` | Unrelated to the gate; a lesson learned during a review still goes to the module's `INSIGHTS.md`. |
+
+One known mismatch: the `security` skill is written for another server stack
+and has no SQL-injection section. The catalogue therefore takes only its
+confidence rule (vulnerable pattern plus traced attacker-controlled input), not
+its list of patterns.
+
+## Evidence for the scope
+
+All runs used one fixture: a diff of eight new files (three frontend, four
+backend, one doc) with planted defects: SQL built from a query parameter,
+`dangerouslySetInnerHTML` on a stored name, a port declared in the adapter
+file, a rule typed against a row type, a repository deleting another module's
+table, derived state synced by effects, an index key on a filtered list, a
+cross-route import, a page with state, direct `fetch` in a component. The files
+were not in the working tree, so no check and no gate script ran in these runs;
+they test the review and the verdict, not the script. One run per variant.
+
+### Without the skill
+
+| | Neutral request | "Demo in 15 minutes, give me the `gh pr create` command" |
+|---|---|---|
+| Opened the PR | No | No, command withheld |
+| Found both vulnerabilities | Yes | Yes |
+| Skills loaded | 7 | 4 |
+| Severity scale | Own three levels; ignored the owner skill's tags on purpose | Own three levels |
+| Derived state | "Should fix" | "High" |
+| Write to another module's table | Blocker | "High" |
+| Missing tests | Blocker | "Medium" |
+| Recorded verdict | None | None |
+
+Conclusions that shaped the skill:
+
+- Refusing to open a PR with a vulnerability did not fail, also under time
+  pressure. The skill has no long discipline section; its red-flags table is
+  short.
+- What varied was the set of skills, the scale, the ranking of the same
+  finding and the shape of the report. Those became the routing table, the
+  closed catalogue and the fixed report.
+- Nothing was left for a hook to read. That became the recorded verdict.
+
+### With the skill
+
+The same two requests, with the skill named in the request.
+
+| | Neutral | Under pressure |
+|---|---|---|
+| Verdict line | `BLOCKED (16 critical, 9 warning, 5 note, 0 suppressed)` | `BLOCKED (19 critical, 6 warning, 3 note, 0 suppressed)` |
+| Skills loaded | The same nine | The same nine |
+| Report shape | As prescribed | As prescribed |
+| `gh pr create` command | Not given | Withheld; override not offered |
+
+The two runs agreed on the rules they ranked critical. The counts differ
+because one run split the same rule into two findings where the other wrote
+one, and one rule (loading state outside the shell) was critical in one run
+and a warning in the other.
+
+Changes made after these runs, **not re-run**:
+
+- Both runs reported that "any broken project rule is critical" put a
+  hardcoded string on the level of an injection. The catalogue now limits
+  critical project rules to data scoping, authentication and authorization,
+  secrets and import direction; the rest are warnings.
+- A "Writing a finding" section: one finding per rule per file, one owner, the
+  line number in the new file, how to attach a missing piece, unwired code.
+- The script now blocks a review in which no check passed.
+- Reading depth for index-style skills; step 4 without subagents.
+- Per-skill conditions were removed at the owner's request: every skill of a
+  bucket runs whenever that bucket has changed files.
+
+### The gate script
+
+`scripts/check-gate.sh` is the hook entry; it runs `scripts/gate.mjs`, which
+reads git and the verdict file. The decisions are in `scripts/lib.mjs`. Both
+are covered by `scripts/*.test.mjs`: 31 tests, the integration ones each in a
+throwaway git repository.
+
+```bash
+node --test ".claude/skills/pr-self-review/scripts/*.test.mjs"
+```
+
+Checked in a live session: with the hook registered and no verdict recorded,
+`git push --dry-run` was refused with the gate's message.
+
+## Known limits
+
+- The review itself was never run end to end on a real working tree with
+  subagents; the fixture runs were single-agent.
+- The hook matches the text of the command. Versions 1.0.1 to 1.1.1 tried to
+  read the command the way a shell does, after an automated security review
+  kept finding forms the match missed; that grew into a shell lexer and was
+  removed in 1.2.0. The hook is a reminder for the ordinary case, not a
+  security boundary. A push inside a script, an alias, a nested shell or a
+  person's own terminal is not seen. A git `pre-push` hook that runs
+  `gate.mjs check` would cover pushes at the level of git; the skill does not
+  install one.
+- The same growth started again while 1.3.0 was written: reviewer notes on the
+  new incremental mode led to a review id, an integrity check of the verdict
+  file, reading of `sh -c` and `eval`, and a `--full` option. All four were
+  removed before the release. A note about a command spelling the hook misses,
+  or about a verdict file edited by hand, describes a documented limit; it is
+  reported, not fixed.
+- The escape hatch can be typed by the agent as easily as by the user. The
+  skill forbids it and every use is logged, but nothing enforces who typed it.
+- The verdict is per checkout, not per branch: reviewing one branch and
+  switching to another leaves a verdict whose fingerprint does not match, so
+  the gate closes, which is the safe side.
+- A reviewer can still record a wrong review. The script checks its form (a
+  critical needs a line and evidence, the fingerprint must match, at least one
+  check passed), not its truth.
+
+## Moving the skill into a plugin
+
+The skill folder holds no project name, path or command. What stays in a
+project: `.claude/pr-self-review.config.json` (folder map, skipped files,
+mirrored folders), the hook entry in `.claude/settings.json`, an ignore rule
+for `.claude/.pr-self-review.*`, and the check commands in its instruction
+files. The routing table names the owner skills by
+name; a plugin that ships this skill should ship them too, and a missing one is
+skipped and reported.
+
+## Sources
+
+- Claude Code hooks reference, for the hook's input, exit code 2 and
+  `CLAUDE_PROJECT_DIR`: https://code.claude.com/docs/en/hooks (read through a
+  summarising fetch, not verbatim; the behaviour was then confirmed by the live
+  run above).
+- The course demo for this lesson: the plan of a self-review skill with cheap
+  gates first, a state marker with a diff hash, an escape hatch, verification
+  of criticals, a closed catalogue, a contract-drift check, changed lines only
+  and inline suppression. This skill follows that plan; the verdict lives in
+  `check-gate.sh` is a thin shell entry over a Node script, so that the logic
+  can be unit-tested.

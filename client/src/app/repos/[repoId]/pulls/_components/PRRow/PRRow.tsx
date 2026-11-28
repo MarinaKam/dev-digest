@@ -5,14 +5,13 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Icon, Avatar, Badge, CircularScore } from "@devdigest/ui";
-import type { PrMeta } from "@/lib/types";
+import type { PrMeta } from "@devdigest/shared";
 import { SIZE_COLOR, STATUS_META } from "../../constants";
-import { relativeTime, sizeOf } from "../../helpers";
-import { s } from "../../styles";
-import { RunCostBadge } from "../RunCostBadge";
-import { FindingsPopover } from "../FindingsPopover";
 import { usePrReviews } from "@/lib/hooks/reviews";
-import { currentFindings } from "../../helpers";
+import { currentFindings, relativeTime, sizeOf } from "../../helpers";
+import { s } from "../../styles";
+import { FindingsPopover } from "../FindingsPopover";
+import { RunCostBadge } from "../RunCostBadge";
 
 const reviewingStyle: React.CSSProperties = {
   display: "inline-flex",
@@ -29,16 +28,14 @@ const spinnerStyle: React.CSSProperties = { animation: "ddspin 1s linear infinit
 /** Score and findings of the previous review while a new one is running. */
 const outdatedStyle: React.CSSProperties = { opacity: 0.4 };
 
-export function PRRow({
-  pr,
-  repoId,
-  repoFullName,
-}: {
+interface PRRowProps {
   pr: PrMeta;
   repoId: string;
   /** owner/repo — lets a finding's file:line in the findings list link to GitHub. */
   repoFullName?: string | null;
-}) {
+}
+
+export function PRRow({ pr, repoId, repoFullName }: PRRowProps) {
   const t = useTranslations("prReview");
   const router = useRouter();
   const [h, setH] = React.useState(false);
@@ -55,13 +52,10 @@ export function PRRow({
   // the first time this row's findings list is opened.
   const [findingsOpened, setFindingsOpened] = React.useState(false);
   const { data: reviews } = usePrReviews(findingsOpened ? pr.id : null);
-  const listedFindings = React.useMemo(
-    () => (reviews ? currentFindings(reviews) : undefined),
-    [reviews],
-  );
-  const handleFindingsOpen = React.useCallback((open: boolean) => {
+  const listedFindings = reviews ? currentFindings(reviews) : undefined;
+  const handleFindingsOpen = (open: boolean) => {
     if (open) setFindingsOpened(true);
-  }, []);
+  };
   return (
     <div
       onMouseEnter={() => setH(true)}

@@ -1,12 +1,40 @@
-import { SIZE_MEDIUM_MAX, SIZE_SMALL_MAX, type PrMeta, type SizeInfo } from "./constants";
-import type { FindingRecord, ReviewRecord } from "@devdigest/shared";
-import { SEVERITY_ORDER } from "./[number]/_components/FindingsPanel/constants";
+import type { FindingRecord, ReviewRecord, Severity } from "@devdigest/shared";
+import {
+  LOW_CONFIDENCE_THRESHOLD,
+  SEVERITY_ORDER,
+  SIZE_MEDIUM_MAX,
+  SIZE_SMALL_MAX,
+  ALL_STATUSES,
+  SORT_OLDEST,
+  type PrMeta,
+  type SizeInfo,
+} from "./constants";
 
 /** Bucket a PR into S/M/L by total changed lines. */
 export function sizeOf(pr: PrMeta): SizeInfo {
   const lines = pr.additions + pr.deletions;
   const size = lines < SIZE_SMALL_MAX ? "S" : lines < SIZE_MEDIUM_MAX ? "M" : "L";
   return { size, lines };
+}
+
+/** What the PR list is narrowed and ordered by. */
+export interface PullsFilter {
+  /** A PR status, or "all". */
+  status: string;
+  /** Free text matched against the title and the PR number. */
+  query: string;
+  /** "newest" or "oldest", by last update. */
+  sort: string;
+}
+
+/** The PRs that match the filter, ordered by last update. Never changes `pulls`. */
+export function filterPulls(pulls: readonly PrMeta[], { status, query, sort }: PullsFilter): PrMeta[] {
+  const q = query.trim().toLowerCase();
+  const updatedAt = (pr: PrMeta) => Date.parse(pr.updated_at ?? "") || 0;
+  return pulls
+    .filter((pr) => status === ALL_STATUSES || pr.status === status)
+    .filter((pr) => !q || pr.title.toLowerCase().includes(q) || String(pr.number).includes(q))
+    .sort((a, b) => (sort === SORT_OLDEST ? updatedAt(a) - updatedAt(b) : updatedAt(b) - updatedAt(a)));
 }
 
 /** Shown wherever there is no cost data. Never "$0.00": zero is a real cost. */
@@ -90,4 +118,28 @@ export function currentFindings(reviews: readonly ReviewRecord[]): FindingRecord
   return latestPerAgent
     .flatMap((review) => review.findings)
     .sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9));
+}
+
+/** Number of findings per severity level; a level without findings is 0. */
+export type SeverityCounts = Record<Severity, number>;
+
+/** Count a run's findings per severity, regardless of confidence. */
+export function countBySeverity(findings: FindingRecord[]): SeverityCounts {
+  const count = (level: Severity) => findings.filter((f) => f.severity === level).length;
+  // Written out so that a new severity level fails to compile here.
+  return { CRITICAL: count("CRITICAL"), WARNING: count("WARNING"), SUGGESTION: count("SUGGESTION") };
+}
+
+/** Optionally drop low-confidence findings, keep one severity level, and sort by severity. */
+export function visibleFindings(
+  findings: FindingRecord[],
+  hideLow: boolean,
+  severity: Severity | null = null,
+): FindingRecord[] {
+  let shown = findings;
+  if (hideLow) shown = shown.filter((f) => f.confidence >= LOW_CONFIDENCE_THRESHOLD);
+  if (severity) shown = shown.filter((f) => f.severity === severity);
+  return [...shown].sort(
+    (a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9),
+  );
 }

@@ -72,11 +72,14 @@ export class RunBus {
     return this.buffers.get(runId) ?? [];
   }
 
-  /** Signal completion and release buffers/emitters. */
+  /**
+   * Signal completion and release the emitter. The cancellation flag is kept:
+   * a cancel completes the stream at once, while the runner is still between
+   * two model calls and has yet to read the flag.
+   */
   complete(runId: string): void {
     const e = this.emitters.get(runId);
     this.completed.add(runId);
-    this.cancelled.delete(runId);
     e?.emit('done');
     // Keep the buffer briefly available for late subscribers; clear emitter.
     this.emitters.delete(runId);

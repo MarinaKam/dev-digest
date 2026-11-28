@@ -44,7 +44,11 @@ const COLORS: Record<ToastKind, { bg: string; border: string; icon: string }> = 
   info: { bg: "var(--bg-elevated)", border: "var(--border-strong)", icon: "ℹ" },
 };
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
+interface ToastProviderProps {
+  children: React.ReactNode;
+}
+
+export function ToastProvider({ children }: ToastProviderProps) {
   const [items, setItems] = React.useState<Toast[]>([]);
   const seq = React.useRef(1);
 
@@ -112,6 +116,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               <span style={{ color: c.border, fontWeight: 700 }}>{c.icon}</span>
               <span style={{ flex: 1 }}>{t.message}</span>
               <button
+                type="button"
                 onClick={() => setItems((prev) => prev.filter((x) => x.id !== t.id))}
                 style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 16 }}
                 aria-label="Dismiss"

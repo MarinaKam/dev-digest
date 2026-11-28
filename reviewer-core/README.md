@@ -38,8 +38,8 @@ extra slots are omitted, so `assemblePrompt` simply leaves those sections out.
 
 Exported from `src/index.ts`: `assemblePrompt` / `wrapUntrusted` (prompt),
 `groundFindings` / `groundingSummary` (grounding), `toJsonSchema` / `extractJson`
-/ `parseWithRepair` (structured output), plus the `run` entrypoint and
-`reduce`. Contracts (`Review`, `Finding`, `Verdict`, …) come from
+/ `parseWithRepair` (structured output), `parseUnifiedDiff` (unified-diff text
+to files and hunks), plus the `run` entrypoint and `reduce`. Contracts (`Review`, `Finding`, `Verdict`, …) come from
 `@devdigest/shared`.
 
 ## Testing
