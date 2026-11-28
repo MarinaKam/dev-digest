@@ -37,6 +37,13 @@ describe('parseFrontMatter — values it reads', () => {
     expect(parseFrontMatter(fm('description: |+', '  a', '', '', 'name: x')).fields.description).toBe('a\n\n\n');
   });
 
+  it('ends a block at the first line indented less than its first line, without cutting it', () => {
+    const r = parseFrontMatter(fm('description: |', '    deep', '  foo', 'name: x'));
+    expect(r.fields.description).toBe('deep\n');
+    expect(r.unreadable[0]).toMatchObject({ key: 'foo', line: 4 });
+    expect(r.fields.name).toBe('x');
+  });
+
   it('lists other keys as ignored', () => {
     const r = parseFrontMatter(fm('name: x', 'version: 2', 'license: MIT'));
     expect(r.ignoredKeys).toEqual(['version', 'license']);

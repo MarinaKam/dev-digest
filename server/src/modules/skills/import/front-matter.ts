@@ -153,11 +153,18 @@ function skipIndented(header: string[], from: number): number {
 
 /** A `>` or `|` block: the indented lines after the key, with chomping. */
 function readBlock(style: '>' | '|', chomp: string, header: string[], from: number): ValueResult {
-  const end = skipIndented(header, from);
-  const lines = header.slice(from, end);
-  const first = lines.find((l) => l.trim() !== '');
-  if (first === undefined) return { error: 'the block has no indented line', next: end };
+  const indentedEnd = skipIndented(header, from);
+  const first = header.slice(from, indentedEnd).find((l) => l.trim() !== '');
+  if (first === undefined) return { error: 'the block has no indented line', next: indentedEnd };
   const indent = (/^\s*/.exec(first)?.[0] ?? '').length;
+  // The block ends at the first non-blank line indented less than its first line.
+  let end = from;
+  while (end < indentedEnd) {
+    const l = header[end] ?? '';
+    if (l.trim() !== '' && (/^\s*/.exec(l)?.[0] ?? '').length < indent) break;
+    end++;
+  }
+  const lines = header.slice(from, end);
   const content = lines.map((l) => (l.trim() === '' ? '' : l.slice(indent)));
   const lastText = content.reduce((acc, l, idx) => (l !== '' ? idx : acc), -1);
   const text = content.slice(0, lastText + 1);
