@@ -9,7 +9,7 @@ import { useTheme } from "@/lib/theme";
 import { useActiveRepo } from "@/lib/repo-context";
 import { usePulls } from "@/lib/hooks/pulls";
 import { useDeleteRepo } from "@/lib/hooks/repos";
-import { activeKeyFor, toShellRepo } from "../helpers";
+import { activeKeyFor, followsActiveRepo, toShellRepo } from "../helpers";
 
 interface ShellContextOptions {
   onOpenCommandPalette: () => void;
@@ -32,9 +32,10 @@ export function useShellContext({ onOpenCommandPalette }: ShellContextOptions): 
   const onSelectRepo = React.useCallback(
     (id: string) => {
       setRepoId(id);
-      router.push(`/repos/${id}/pulls`);
+      // A page without a repo in its URL follows the switch in place.
+      if (!followsActiveRepo(pathname)) router.push(`/repos/${id}/pulls`);
     },
-    [setRepoId, router],
+    [setRepoId, router, pathname],
   );
 
   const onAddRepo = React.useCallback(() => router.push("/onboarding"), [router]);

@@ -13,13 +13,15 @@ import { s } from "../../styles";
 
 interface ImportReviewProps {
   preview: SkillImportPreview;
+  /** The URL the draft was downloaded from; absent for a file import. */
+  origin?: string;
   onClose: () => void;
   /** Called with the id of the saved skill. */
   onCreated: (id: string) => void;
 }
 
 /** The parsed draft, the import report and the Save skill button. Saves nothing until Save skill. */
-export function ImportReview({ preview, onClose, onCreated }: ImportReviewProps) {
+export function ImportReview({ preview, origin, onClose, onCreated }: ImportReviewProps) {
   const t = useTranslations("skills");
   const create = useCreateSkill();
   const [form, setForm] = React.useState<SkillFormValues>(() => ({
@@ -27,7 +29,8 @@ export function ImportReview({ preview, onClose, onCreated }: ImportReviewProps)
     description: preview.draft.description,
     type: preview.draft.type,
     body: preview.draft.body,
-    enabled: true,
+    // A body that tries to take over the reviewer is saved off (spec 004).
+    enabled: preview.injection_flags.length === 0,
   }));
   const invalid = hasErrors(validateSkillForm(form));
 
@@ -38,8 +41,13 @@ export function ImportReview({ preview, onClose, onCreated }: ImportReviewProps)
         description: form.description,
         type: form.type,
         body: form.body,
-        source: "imported_file",
-        version_note: fitVersionNote(t("import.versionNote", { file: preview.core_path })),
+        enabled: form.enabled,
+        source: preview.draft.source,
+        version_note: fitVersionNote(
+          origin
+            ? t("import.versionNoteUrl", { url: origin })
+            : t("import.versionNote", { file: preview.core_path }),
+        ),
       },
       {
         onSuccess: (skill) => {
@@ -54,7 +62,21 @@ export function ImportReview({ preview, onClose, onCreated }: ImportReviewProps)
       <div role="note" style={s.trust}>
         {t("import.trustWarning")}
       </div>
-      <div style={s.muted}>{t("import.coreFile", { path: preview.core_path })}</div>
+      <div style={s.muted}>{t("import.coreFile", { path: origin ?? preview.core_path })}</div>
+
+      {preview.injection_flags.length > 0 && (
+        <section role="alert" style={s.injection}>
+          <div style={s.injectionTitle}>{t("import.injectionTitle")}</div>
+          <div>{t("import.injectionBody")}</div>
+          <ul style={s.list}>
+            {preview.injection_flags.map((flag) => (
+              <li key={flag} className="mono" style={s.flag}>
+                {flag}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {preview.warnings.length > 0 && (
         <section style={s.section}>

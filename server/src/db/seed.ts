@@ -8,8 +8,6 @@ import {
   PERFORMANCE_REVIEWER_PROMPT,
 } from './seed-prompts.js';
 import {
-  API_CONTRACT_REVIEWER_PROMPT,
-  API_CONTRACT_SKILLS,
   type SeedSkill,
   TEST_QUALITY_REVIEWER_PROMPT,
   TEST_QUALITY_SKILLS,
@@ -229,17 +227,6 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       version: 1,
       createdBy: userId,
     },
-    {
-      workspaceId,
-      name: 'API Contract Reviewer',
-      description: 'Flags route and response changes that break existing clients.',
-      provider: DEFAULT_PROVIDER,
-      model: DEFAULT_MODEL,
-      systemPrompt: API_CONTRACT_REVIEWER_PROMPT,
-      enabled: true,
-      version: 1,
-      createdBy: userId,
-    },
   ];
   // An agent and its skills (spec 003) are created together, in one
   // transaction: a failure while linking must not leave an agent that every
@@ -248,7 +235,6 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
   // or recreates skills the user unlinked or deleted.
   const skillSets = new Map<string, SeedSkill[]>([
     ['Test Quality Reviewer', TEST_QUALITY_SKILLS],
-    ['API Contract Reviewer', API_CONTRACT_SKILLS],
   ]);
   for (const a of seedAgents) {
     const [existing] = await db

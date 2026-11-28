@@ -102,14 +102,14 @@ describe("Run Trace drawer — skills block", () => {
       },
     };
     open();
-    expect(screen.getByText("Skills · 1200 tokens · api-contract@v1, edge-case-coverage@v3")).toBeInTheDocument();
+    expect(screen.getByText("Skills (dynamic) · 1200 tokens · api-contract@v1, edge-case-coverage@v3")).toBeInTheDocument();
   });
 
   it("shows no skills block when the trace has no skills", () => {
     traceData = { ...TRACE, prompt_assembly: { ...TRACE.prompt_assembly, skills: null } };
     open();
     expect(screen.queryByText("Skills", { exact: true })).not.toBeInTheDocument();
-    expect(screen.queryByText(/^Skills ·/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Skills \(dynamic\)/)).not.toBeInTheDocument();
   });
 
   it("lists the loaded skills in Configuration, as in the design", () => {

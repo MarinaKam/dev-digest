@@ -9,7 +9,7 @@
     "loadError": "Could not load skills.",
     "menu": {
       "fromScratch": "Create from scratch",
-      "fromFile": "Import from file"
+      "fromFile": "Import from file or URL"
     },
     "empty": {
       "title": "No skills yet",
@@ -46,7 +46,9 @@
       "preview": "Preview",
       "stats": "Stats",
       "versions": "Versions"
-    }
+    },
+    "injectionTitle": "Injection detected — do not enable",
+    "injectionBody": "This skill contains prompt injection patterns. Read the lines below before you enable it."
   },
   "config": {
     "title": "Configuration",
@@ -119,8 +121,8 @@
   },
   "import": {
     "versionNote": "Imported from {file}",
-    "title": "Import a skill from a file",
-    "subtitle": "A .md file or a .zip with a SKILL.md. Nothing is saved until you click Save skill.",
+    "title": "Import a skill",
+    "subtitle": "From a .md file, a .zip with a SKILL.md, or a public https URL. Nothing is saved until you click Save skill.",
     "fileLabel": "Skill file (.md or .zip)",
     "reading": "Reading the file…",
     "trustWarning": "An imported skill is somebody else's instructions inside your agent's prompt. Read the body before you save it.",
@@ -139,6 +141,17 @@
     "save": "Save skill",
     "saving": "Saving…",
     "cancel": "Cancel",
-    "previewFailed": "Could not read the file: {message}"
+    "previewFailed": "Could not read the file: {message}",
+    "fromFile": "From file",
+    "fromUrl": "Import from URL",
+    "urlLabel": "URL (https:// only)",
+    "urlPlaceholder": "https://raw.githubusercontent.com/org/repo/main/skill.md",
+    "urlHint": "The raw Markdown file. The server downloads it; private and local addresses are refused.",
+    "fetchUrl": "Preview",
+    "fetching": "Downloading…",
+    "urlFailed": "Could not import from the URL: {message}",
+    "versionNoteUrl": "Imported from {url}",
+    "injectionTitle": "Injection detected — do not enable",
+    "injectionBody": "These lines try to override the reviewer's instructions. The skill is saved disabled; read it before you turn it on."
   }
 }

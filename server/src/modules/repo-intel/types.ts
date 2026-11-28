@@ -159,8 +159,15 @@ export interface RepoIntel {
    * T2/T3: persistent `references.decl_file IS NULL`.
    */
   getUnresolvedReferences(repoId: string, files: string[]): Promise<RefRow[]>;
-  /** Top-N file paths by rank, filtered of tests/configs. */
-  getConventionSamples(repoId: string, n: number): Promise<string[]>;
+  /**
+   * Up to N source files for the conventions extractor, filtered of tests and
+   * configs: by rank when indexed, else from a walk of the clone.
+   */
+  getConventionSamples(
+    repoId: string,
+    n: number,
+    opts?: ConventionSampleOptions,
+  ): Promise<string[]>;
 
   // --- T3: onboarding reading-path + critical paths (graph required) ------
   getTopFilesByRank(
@@ -169,4 +176,10 @@ export interface RepoIntel {
     opts?: { exclude?: string[] },
   ): Promise<string[]>;
   getCriticalPaths(repoId: string): Promise<string[][]>;
+}
+
+/** How `getConventionSamples` picks files. */
+export interface ConventionSampleOptions {
+  /** Spread the ranked files across folders instead of taking the top N. */
+  spread?: boolean;
 }

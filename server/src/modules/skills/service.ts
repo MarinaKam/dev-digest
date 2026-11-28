@@ -1,18 +1,25 @@
-import type {
-  CreateSkill,
-  Skill,
-  SkillImportPreview,
-  SkillImportRequest,
-  SkillVersion,
-  UpdateSkill,
+import {
+  SKILL_IMPORT_URL_MAX_BYTES,
+  type CreateSkill,
+  type Skill,
+  type SkillImportPreview,
+  type SkillImportRequest,
+  type SkillImportUrlRequest,
+  type SkillVersion,
+  type UpdateSkill,
 } from '@devdigest/shared';
 import type { Container } from '../../platform/container.js';
 import { ConflictError, NotFoundError, PayloadTooLargeError } from '../../platform/errors.js';
-import { CREATED_VERSION_NOTE, MAX_UPLOAD_BYTES } from './constants.js';
+import {
+  CREATED_VERSION_NOTE,
+  MAX_UPLOAD_BYTES,
+  URL_IMPORT_MAX_REDIRECTS,
+  URL_IMPORT_TIMEOUT_MS,
+} from './constants.js';
 import { bodyChanged, toSkillDto, toSkillVersionDto } from './helpers.js';
-import { buildImportPreview } from './import/preview.js';
+import { buildImportPreview, buildTextPreview } from './import/preview.js';
 import { type NameTaken, SkillsRepository } from './repository.js';
-import type { SkillRecord } from './types.js';
+import type { ExtractedSkillInput, SkillRecord } from './types.js';
 
 /**
  * Skills: reusable, text-only review rules that agents link in order. A skill
@@ -22,7 +29,7 @@ import type { SkillRecord } from './types.js';
 export class SkillsService {
   private repo: SkillsRepository;
 
-  constructor(container: Container) {
+  constructor(private container: Container) {
     this.repo = new SkillsRepository(container.db);
   }
 
@@ -55,6 +62,32 @@ export class SkillsService {
           enabled: input.enabled ?? true,
         },
         input.version_note || CREATED_VERSION_NOTE,
+      ),
+    );
+    return toSkillDto(row);
+  }
+
+  /**
+   * Save a skill built from a repository's accepted conventions (spec 004):
+   * type `convention`, source `extracted`, with the files its rules came from.
+   * The caller checked that every convention is accepted.
+   */
+  async createExtracted(workspaceId: string, input: ExtractedSkillInput): Promise<Skill> {
+    await this.assertNameFree(workspaceId, input.name);
+    const row = this.orConflict(
+      input.name,
+      await this.repo.create(
+        workspaceId,
+        {
+          name: input.name,
+          description: input.description,
+          type: 'convention',
+          source: 'extracted',
+          body: input.body,
+          enabled: input.enabled,
+          evidenceFiles: input.evidenceFiles,
+        },
+        input.note,
       ),
     );
     return toSkillDto(row);
@@ -93,6 +126,19 @@ export class SkillsService {
     return buildImportPreview(request.filename, new Uint8Array(bytes));
   }
 
+  /**
+   * Download a markdown file from a public https URL and parse it into a draft,
+   * like a file import. Writes nothing; the user saves through `create`.
+   */
+  async previewImportFromUrl(request: SkillImportUrlRequest): Promise<SkillImportPreview> {
+    const fetched = await this.container.textFetcher.fetchText(request.url, {
+      maxBytes: SKILL_IMPORT_URL_MAX_BYTES,
+      timeoutMs: URL_IMPORT_TIMEOUT_MS,
+      maxRedirects: URL_IMPORT_MAX_REDIRECTS,
+    });
+    return buildTextPreview(fileNameOf(fetched.finalUrl), fetched.text);
+  }
+
   private async requireSkill(workspaceId: string, id: string) {
     const row = await this.repo.getById(workspaceId, id);
     if (!row) throw new NotFoundError('Skill not found');
@@ -112,3 +158,8 @@ export class SkillsService {
   }
 }
 
+/** The last path segment of a URL, for the draft's fallback name. */
+function fileNameOf(url: string): string {
+  const segment = new URL(url).pathname.split('/').filter(Boolean).pop();
+  return segment ? decodeURIComponent(segment) : 'skill.md';
+}

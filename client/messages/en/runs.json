@@ -45,7 +45,7 @@
     },
     "prompt": {
       "system": "System",
-      "skills": "Skills",
+      "skills": "Skills (dynamic)",
       "skillsTokens": "{count} tokens",
       "memory": "Memory (dynamic)",
       "repoMap": "Repo skeleton — repo-intel (dynamic)",

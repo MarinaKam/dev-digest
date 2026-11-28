@@ -89,7 +89,7 @@ describe("SkillList", () => {
     expect(onCreate).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole("button", { name: "Add Skill" }));
-    fireEvent.click(screen.getByRole("button", { name: "Import from file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Import from file or URL" }));
     expect(onImport).toHaveBeenCalledTimes(1);
   });
 });

@@ -2,6 +2,22 @@ import type { CSSProperties } from "react";
 
 export const s = {
   body: { padding: 24, display: "flex", flexDirection: "column", gap: 16 } satisfies CSSProperties,
+  tabs: { display: "flex", gap: 8 } satisfies CSSProperties,
+  urlRow: { display: "flex", gap: 8, alignItems: "center" } satisfies CSSProperties,
+  injection: {
+    padding: "10px 12px",
+    borderRadius: 7,
+    border: "1px solid var(--crit)",
+    background: "var(--crit-bg)",
+    color: "var(--text-primary)",
+    fontSize: 13,
+    lineHeight: 1.45,
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  } satisfies CSSProperties,
+  injectionTitle: { fontWeight: 700, color: "var(--crit)", letterSpacing: "0.02em" } satisfies CSSProperties,
+  flag: { fontSize: 12, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } satisfies CSSProperties,
   fileInput: { fontSize: 14, color: "var(--text-primary)" } satisfies CSSProperties,
   muted: { fontSize: 13, color: "var(--text-muted)" } satisfies CSSProperties,
   error: { fontSize: 13, color: "var(--crit)" } satisfies CSSProperties,

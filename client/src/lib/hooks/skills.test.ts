@@ -18,6 +18,7 @@ const skill = (id: string, usedBy: string[]): Skill => ({
   body: "b",
   enabled: true,
   version: 1,
+  injection_flags: [],
   used_by: usedBy.map((a) => ({ id: a, name: a })),
 });
 

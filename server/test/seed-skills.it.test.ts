@@ -13,10 +13,13 @@ const TEST_QUALITY = [
   'mock-overuse-gate',
   'flaky-test-patterns',
 ];
-const API_CONTRACT = ['route-signature-breaking-change', 'response-shape-compat'];
 
-/** The seed adds the two skill-driven reviewers and links their skills, idempotently. */
-d('seed: Test Quality and API Contract reviewers', () => {
+/**
+ * The seed adds the skill-driven Test Quality reviewer and links its skills,
+ * idempotently. The API Contract Reviewer is not seeded: it is built in the UI
+ * (L02 homework, spec 004).
+ */
+d('seed: the Test Quality reviewer', () => {
   let pg: PgFixture;
 
   beforeAll(async () => {
@@ -39,20 +42,22 @@ d('seed: Test Quality and API Contract reviewers', () => {
     return rows.map((r) => r.name);
   }
 
-  it('seeding twice leaves 5 agents, 6 skills, 6 links and 6 versions', async () => {
+  it('seeding twice leaves 4 agents, 4 skills, 4 links and 4 versions', async () => {
     const db = pg.handle.db;
-    expect(await db.select().from(t.agents)).toHaveLength(5);
-    expect(await db.select().from(t.skills)).toHaveLength(6);
-    expect(await db.select().from(t.agentSkills)).toHaveLength(6);
-    expect(await db.select().from(t.skillVersions)).toHaveLength(6);
+    expect(await db.select().from(t.agents)).toHaveLength(4);
+    expect(await db.select().from(t.skills)).toHaveLength(4);
+    expect(await db.select().from(t.agentSkills)).toHaveLength(4);
+    expect(await db.select().from(t.skillVersions)).toHaveLength(4);
   });
 
   it('links the Test Quality skills in order', async () => {
     expect(await linkedNames('Test Quality Reviewer')).toEqual(TEST_QUALITY);
   });
 
-  it('links the API Contract skills in order', async () => {
-    expect(await linkedNames('API Contract Reviewer')).toEqual(API_CONTRACT);
+  it('does not seed the API Contract Reviewer or its old skills', async () => {
+    const db = pg.handle.db;
+    expect(await db.select().from(t.agents).where(eq(t.agents.name, 'API Contract Reviewer'))).toHaveLength(0);
+    expect(await db.select().from(t.skills).where(eq(t.skills.name, 'response-shape-compat'))).toHaveLength(0);
   });
 
   it('every seeded skill is enabled, manual, v1, with a description within 1024 characters', async () => {
@@ -128,6 +133,5 @@ d('seed: a reseed keeps the user changes', () => {
     await seed(db);
     expect(await linkedNames('Test Quality Reviewer')).toEqual([]);
     expect(await db.select().from(t.skills).where(eq(t.skills.name, 'flaky-test-patterns'))).toHaveLength(0);
-    expect(await linkedNames('API Contract Reviewer')).toEqual(API_CONTRACT);
   });
 });

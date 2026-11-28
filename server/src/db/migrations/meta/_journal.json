@@ -85,6 +85,20 @@
       "when": 1795849156714,
       "tag": "0011_gifted_tarantula",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795855659692,
+      "tag": "0012_sharp_marvex",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795856521829,
+      "tag": "0013_fancy_morg",
+      "breakpoints": true
     }
   ]
 }

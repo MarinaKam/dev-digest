@@ -26,7 +26,7 @@ export function TraceBody({ trace, findings }: TraceBodyProps) {
   const t = useTranslations("runs");
   const stats = trace.stats;
   const pa = trace.prompt_assembly;
-  // "Skills · 1200 tokens · a@v1, b@v3": only the parts the trace carries.
+  // "Skills (dynamic) · 1200 tokens · a@v1, b@v3": only the parts the trace carries.
   const skillsLabel = [
     t("trace.prompt.skills"),
     pa.skills_tokens != null ? t("trace.prompt.skillsTokens", { count: pa.skills_tokens }) : null,

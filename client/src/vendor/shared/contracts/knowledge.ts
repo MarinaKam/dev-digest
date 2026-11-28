@@ -154,6 +154,8 @@ export const Skill = z.object({
   enabled: z.boolean(),
   version: z.number().int(),
   evidence_files: z.array(z.string()).nullish(),
+  /** Lines of the body that look like a prompt injection; empty when none. */
+  injection_flags: z.array(z.string()).default([]),
   used_by: z.array(SkillUser).default([]),
   created_at: z.string().optional(),
 });
@@ -168,7 +170,7 @@ const SkillFields = z.object({
 });
 
 export const CreateSkill = SkillFields.extend({
-  source: z.enum(['manual', 'imported_file']).optional(),
+  source: z.enum(['manual', 'imported_file', 'imported_url']).optional(),
   version_note: VersionNote,
 }).strict();
 export type CreateSkill = z.infer<typeof CreateSkill>;
@@ -200,7 +202,7 @@ export const SkillImportPreview = z.object({
     description: z.string(),
     type: SkillType,
     body: z.string(),
-    source: z.literal('imported_file'),
+    source: z.enum(['imported_file', 'imported_url']),
   }),
   core_path: z.string(),
   skipped_files: z.array(
@@ -209,8 +211,18 @@ export const SkillImportPreview = z.object({
   ignored_keys: z.array(z.string()),
   unreadable_keys: z.array(z.object({ key: z.string(), line: z.number().int(), reason: z.string() })),
   warnings: z.array(z.string()),
+  /** Lines of the body that look like a prompt injection; empty when none. */
+  injection_flags: z.array(z.string()).default([]),
 });
 export type SkillImportPreview = z.infer<typeof SkillImportPreview>;
+
+/** Largest markdown file the URL import downloads. */
+export const SKILL_IMPORT_URL_MAX_BYTES = 1_048_576;
+
+export const SkillImportUrlRequest = z
+  .object({ url: z.string().trim().url().max(2048) })
+  .strict();
+export type SkillImportUrlRequest = z.infer<typeof SkillImportUrlRequest>;
 
 export const CommunitySkill = z.object({
   name: z.string(),
@@ -222,15 +234,121 @@ export const CommunitySkill = z.object({
 export type CommunitySkill = z.infer<typeof CommunitySkill>;
 
 // ---- Conventions ----
+/** `pending` until the user decides; a `rejected` one stays marked and is never re-added by a scan. */
+export const ConventionStatus = z.enum(['pending', 'accepted', 'rejected']);
+export type ConventionStatus = z.infer<typeof ConventionStatus>;
+
+export const CONVENTION_RULE_MAX = 500;
+/** Most conventions one extraction may return. */
+export const CONVENTIONS_PER_RUN_MAX = 20;
+/** Most conventions one skill may be built from. */
+export const CONVENTIONS_PER_SKILL_MAX = 50;
+
 export const ConventionCandidate = z.object({
   id: z.string(),
+  repo_id: z.string(),
   rule: z.string(),
   evidence_path: z.string(),
   evidence_snippet: z.string(),
+  evidence_line_start: z.number().int().nullish(),
+  evidence_line_end: z.number().int().nullish(),
+  /** Commit the evidence was read at; the GitHub link pins to it. */
+  evidence_sha: z.string().nullish(),
   confidence: z.number().min(0).max(1),
   accepted: z.boolean(),
+  status: ConventionStatus,
 });
 export type ConventionCandidate = z.infer<typeof ConventionCandidate>;
+
+
+/**
+ * How a run picks source files: `top` = the 12 best-ranked files, `spread` =
+ * 24 ranked files spread across folders (the default; more parts of the repo).
+ */
+export const ConventionSampling = z.enum(['top', 'spread']);
+export type ConventionSampling = z.infer<typeof ConventionSampling>;
+
+export const ExtractConventionsRequest = z
+  .object({ sampling: ConventionSampling.optional() })
+  .strict();
+export type ExtractConventionsRequest = z.infer<typeof ExtractConventionsRequest>;
+
+/** One extraction run: what it read, what the model proposed, what was kept and added. */
+export const ConventionScan = z.object({
+  at: z.string(),
+  sampling: ConventionSampling,
+  files_sampled: z.number().int(),
+  /** Rules the model returned. */
+  proposed: z.number().int(),
+  /** Rules whose evidence was found in the files (the rest were dropped by code). */
+  kept: z.number().int(),
+  /** Kept rules that were new for this repo (not already accepted, rejected or listed). */
+  added: z.number().int(),
+  model: z.string(),
+  cost_usd: z.number().nullable(),
+});
+export type ConventionScan = z.infer<typeof ConventionScan>;
+
+/** A run in flight: when it started and, once known, what it reads and with which model. */
+export const ConventionRun = z.object({
+  started_at: z.string(),
+  sampling: ConventionSampling,
+  files_sampled: z.number().int().nullable(),
+  model: z.string().nullable(),
+});
+export type ConventionRun = z.infer<typeof ConventionRun>;
+
+/**
+ * The candidates of one repo (accepted, pending, then rejected), its last run
+ * (`null` = never run) and the run in flight, if any (`null` = none), so every
+ * open page sees it.
+ */
+export const ConventionList = z.object({
+  candidates: z.array(ConventionCandidate),
+  last_scan: ConventionScan.nullable(),
+  running: ConventionRun.nullable(),
+});
+export type ConventionList = z.infer<typeof ConventionList>;
+
+export const UpdateConvention = z
+  .object({
+    rule: z.string().trim().min(1).max(CONVENTION_RULE_MAX).optional(),
+    status: ConventionStatus.optional(),
+  })
+  .strict()
+  .refine((v) => v.rule !== undefined || v.status !== undefined, {
+    message: 'Send a rule or a status',
+  });
+export type UpdateConvention = z.infer<typeof UpdateConvention>;
+
+/** The model's answer for one extraction run (structured output). */
+export const ConventionExtraction = z.object({
+  conventions: z
+    .array(
+      z.object({
+        rule: z.string(),
+        evidence_path: z.string(),
+        line_start: z.number().int(),
+        line_end: z.number().int(),
+        evidence_snippet: z.string(),
+        confidence: z.number(),
+      }),
+    )
+    .max(CONVENTIONS_PER_RUN_MAX),
+});
+export type ConventionExtraction = z.infer<typeof ConventionExtraction>;
+
+/** Save accepted conventions of one repo as a `convention` skill (`source: extracted`). */
+export const CreateSkillFromConventions = z
+  .object({
+    convention_ids: z.array(z.string().uuid()).min(1).max(CONVENTIONS_PER_SKILL_MAX),
+    name: SkillName,
+    description: z.string().trim().min(1).max(SKILL_DESCRIPTION_MAX),
+    body: z.string().trim().min(1).max(SKILL_BODY_MAX),
+    enabled: z.boolean().optional(),
+  })
+  .strict();
+export type CreateSkillFromConventions = z.infer<typeof CreateSkillFromConventions>;
 
 // ---- Agents ----
 // 'openrouter' routes through the OpenAI-compatible API (OpenAIProvider with a

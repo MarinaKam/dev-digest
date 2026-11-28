@@ -22,6 +22,14 @@ export function isTextInput(el: EventTarget | null): boolean {
   );
 }
 
+/**
+ * Pages that work on the active repo without a repo id in their URL
+ * (Conventions, as in the design). Switching the repo keeps the user there.
+ */
+export function followsActiveRepo(pathname: string): boolean {
+  return pathname === "/conventions" || pathname.startsWith("/conventions/");
+}
+
 /** Derive the active sidebar key from the current pathname. */
 export function activeKeyFor(pathname: string): string {
   if (pathname.startsWith("/settings")) return "settings";

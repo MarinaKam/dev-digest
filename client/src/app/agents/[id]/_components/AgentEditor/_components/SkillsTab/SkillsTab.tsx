@@ -6,7 +6,7 @@
 import React from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Badge, EmptyState, ErrorState, Icon, Skeleton, TextInput } from "@devdigest/ui";
+import { Badge, EmptyState, ErrorState, Icon, Skeleton, TextInput, Toggle } from "@devdigest/ui";
 import { SkillTypeBadge } from "@/components/skill-type";
 import { useQueryParams } from "@/lib/query-params";
 import { useAgentSkillLinks, useSetAgentSkills, useSkills } from "@/lib/hooks/skills";
@@ -170,13 +170,13 @@ export function SkillsTab({ agentId }: SkillsTabProps) {
               <span style={s.handle(linked)} aria-hidden={!linked}>
                 <Icon.Menu size={14} />
               </span>
-              <input
-                type="checkbox"
-                checked={linked}
-                onChange={(e) => toggle(skill.id, e.target.checked)}
+              {/* A switch per skill, as in the design and the homework screenshot. */}
+              <Toggle
+                on={linked}
+                onChange={(on) => toggle(skill.id, on)}
                 disabled={busy}
                 aria-label={t("skills.toggleSkill", { name: skill.name })}
-                style={s.checkbox}
+                size={14}
               />
               <span className="mono" style={s.name}>
                 {skill.name}

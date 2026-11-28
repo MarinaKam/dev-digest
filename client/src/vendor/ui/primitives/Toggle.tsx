@@ -1,20 +1,28 @@
 import React from "react";
 
+/** On/off switch. Other button attributes (`aria-label`, `disabled`) pass through. */
 export function Toggle({
   on,
   onChange,
   size = 18,
+  disabled,
+  ...rest
 }: {
   on: boolean;
   onChange: (v: boolean) => void;
   size?: number;
-}) {
+} & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onChange" | "onClick" | "role" | "style">) {
   return (
     <button
+      {...rest}
+      type="button"
+      disabled={disabled}
       onClick={() => onChange(!on)}
       role="switch"
       aria-checked={on}
       style={{
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled ? 0.6 : 1,
         width: size * 1.85,
         height: size + 4,
         borderRadius: 99,

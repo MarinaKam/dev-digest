@@ -27,6 +27,7 @@ import type {
   BlastCallerRow,
   BlastChangedSymbol,
   BlastResult,
+  ConventionSampleOptions,
   FileRankRow,
   IndexResult,
   IndexState,
@@ -48,6 +49,8 @@ import {
 } from './constants.js';
 import { runFullIndex, type IndexPayload } from './pipeline/full.js';
 import { runIncremental } from './pipeline/incremental.js';
+import { spreadAcrossFolders } from './pipeline/samples.js';
+import { walkClone } from './pipeline/walk.js';
 
 /**
  * GLOBALS allowlist — common JS/TS builtins + runtime that appear as bare
@@ -620,9 +623,36 @@ export class RepoIntelService implements RepoIntel {
     return out;
   }
 
-  /** Top-N files by rank, minus tests/configs/migrations — conventions sample. */
-  async getConventionSamples(repoId: string, n: number): Promise<string[]> {
-    return this.getTopFilesByRank(repoId, n);
+  /**
+   * Up to N source files for the conventions extractor, minus tests, configs
+   * and migrations. Ranked files when the repo is indexed (with `spread`, the
+   * ranked files are spread across folders). Before the first index there is no
+   * rank, so the clone is walked and the files are spread across folders.
+   * Never throws: no clone, or an unreadable one, gives `[]`.
+   */
+  async getConventionSamples(
+    repoId: string,
+    n: number,
+    opts?: ConventionSampleOptions,
+  ): Promise<string[]> {
+    if (n <= 0) return [];
+    const spread = opts?.spread ?? false;
+    const ranked = await this.getTopFilesByRank(repoId, spread ? n * SPREAD_OVERFETCH : n);
+    if (ranked.length > 0) return spread ? spreadAcrossFolders(ranked, n) : ranked;
+    return this.sampleFromClone(repoId, n);
+  }
+
+  /** Files of the clone in path order, spread across folders. `[]` without a clone. */
+  private async sampleFromClone(repoId: string, n: number): Promise<string[]> {
+    const repo = await this.repo.getRepoBasics(repoId);
+    if (!repo?.clonePath) return [];
+    try {
+      const walk = await walkClone(repo.clonePath);
+      const files = walk.files.filter((p) => !isJunkPath(p)).sort();
+      return spreadAcrossFolders(files, n);
+    } catch {
+      return [];
+    }
   }
 
   /**
@@ -695,6 +725,9 @@ export class RepoIntelService implements RepoIntel {
     return paths;
   }
 }
+
+/** With `spread`, how many ranked files per wanted sample are read before spreading. */
+const SPREAD_OVERFETCH = 4;
 
 /** How many top-ranked files seed `getCriticalPaths` dependency chains. */
 const CRITICAL_PATH_ROOTS = 5;

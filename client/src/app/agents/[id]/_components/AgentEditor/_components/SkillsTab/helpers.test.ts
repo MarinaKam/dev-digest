@@ -12,6 +12,7 @@ function skill(id: string, name: string, enabled = true): Skill {
     body: "b",
     enabled,
     version: 1,
+    injection_flags: [],
     used_by: [],
   };
 }
