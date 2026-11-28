@@ -55,6 +55,7 @@ export const s = {
     flexWrap: "wrap",
   } satisfies CSSProperties,
   filterChips: { display: "flex", gap: 8 } satisfies CSSProperties,
+  filterSearch: { width: 240 } satisfies CSSProperties,
   filterActions: {
     marginLeft: "auto",
     display: "flex",

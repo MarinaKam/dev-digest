@@ -31,7 +31,11 @@ function highlightLine(line: string, q: string): React.ReactNode {
   return parts;
 }
 
-export function PromptModalBody({ text }: { text: string }) {
+interface PromptModalBodyProps {
+  text: string;
+}
+
+export function PromptModalBody({ text }: PromptModalBodyProps) {
   const t = useTranslations("runs");
   const [q, setQ] = React.useState("");
   const lines = React.useMemo(() => (text || "—").split("\n"), [text]);

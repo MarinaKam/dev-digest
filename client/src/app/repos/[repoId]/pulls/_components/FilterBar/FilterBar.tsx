@@ -1,11 +1,21 @@
 /* FilterBar — search box, status chips, sort select, and refresh for the PR list. */
 "use client";
 
-import React from "react";
 import { useTranslations } from "next-intl";
 import { Chip, Button, TextInput, SelectInput } from "@devdigest/ui";
-import { STATUS_FILTERS } from "../../constants";
+import { SORT_NEWEST, SORT_OLDEST, STATUS_FILTERS } from "../../constants";
 import { s } from "../../styles";
+
+interface FilterBarProps {
+  active: string;
+  onActive: (status: string) => void;
+  query: string;
+  onQuery: (query: string) => void;
+  sort: string;
+  onSort: (sort: string) => void;
+  onRefresh: () => void;
+  refreshing: boolean;
+}
 
 export function FilterBar({
   active,
@@ -16,25 +26,16 @@ export function FilterBar({
   onSort,
   onRefresh,
   refreshing,
-}: {
-  active: string;
-  onActive: (k: string) => void;
-  query: string;
-  onQuery: (v: string) => void;
-  sort: string;
-  onSort: (v: string) => void;
-  onRefresh: () => void;
-  refreshing: boolean;
-}) {
+}: FilterBarProps) {
   const t = useTranslations("prReview");
   const sortOptions = [
-    { value: "newest", label: t("list.sort.newest") },
-    { value: "oldest", label: t("list.sort.oldest") },
+    { value: SORT_NEWEST, label: t("list.sort.newest") },
+    { value: SORT_OLDEST, label: t("list.sort.oldest") },
   ];
   return (
     <div style={s.filterBar}>
       <div style={s.filterChips}>
-        <div style={{ width: 240 }}>
+        <div style={s.filterSearch}>
           <TextInput value={query} onChange={onQuery} placeholder={t("list.filterPlaceholder")} />
         </div>
         {STATUS_FILTERS.map(({ key, labelKey }) => (

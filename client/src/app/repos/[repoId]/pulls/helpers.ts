@@ -4,6 +4,8 @@ import {
   SEVERITY_ORDER,
   SIZE_MEDIUM_MAX,
   SIZE_SMALL_MAX,
+  ALL_STATUSES,
+  SORT_OLDEST,
   type PrMeta,
   type SizeInfo,
 } from "./constants";
@@ -13,6 +15,26 @@ export function sizeOf(pr: PrMeta): SizeInfo {
   const lines = pr.additions + pr.deletions;
   const size = lines < SIZE_SMALL_MAX ? "S" : lines < SIZE_MEDIUM_MAX ? "M" : "L";
   return { size, lines };
+}
+
+/** What the PR list is narrowed and ordered by. */
+export interface PullsFilter {
+  /** A PR status, or "all". */
+  status: string;
+  /** Free text matched against the title and the PR number. */
+  query: string;
+  /** "newest" or "oldest", by last update. */
+  sort: string;
+}
+
+/** The PRs that match the filter, ordered by last update. Never changes `pulls`. */
+export function filterPulls(pulls: readonly PrMeta[], { status, query, sort }: PullsFilter): PrMeta[] {
+  const q = query.trim().toLowerCase();
+  const updatedAt = (pr: PrMeta) => Date.parse(pr.updated_at ?? "") || 0;
+  return pulls
+    .filter((pr) => status === ALL_STATUSES || pr.status === status)
+    .filter((pr) => !q || pr.title.toLowerCase().includes(q) || String(pr.number).includes(q))
+    .sort((a, b) => (sort === SORT_OLDEST ? updatedAt(a) - updatedAt(b) : updatedAt(b) - updatedAt(a)));
 }
 
 /** Shown wherever there is no cost data. Never "$0.00": zero is a real cost. */

@@ -46,7 +46,12 @@ import {
 import { s } from "./styles";
 import { SEVERITIES, CATEGORIES, MODEL_OPTIONS } from "./constants";
 
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
+interface GroupProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+function Group({ title, children }: GroupProps) {
   return (
     <section style={s.group}>
       <SectionLabel>{title}</SectionLabel>

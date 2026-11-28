@@ -11,15 +11,7 @@ import { useAgents } from "@/lib/hooks/agents";
 import { useRunReview } from "@/lib/hooks/reviews";
 import { DROPDOWN_WIDTH } from "./constants";
 
-export function RunReviewDropdown({
-  prId,
-  size = "sm",
-  kind = "primary",
-  warnMerged = false,
-  onRunStart,
-  onRunsStarted,
-  onRunSettled,
-}: {
+interface RunReviewDropdownProps {
   prId: string;
   size?: "sm" | "md" | "lg";
   kind?: "primary" | "secondary";
@@ -30,7 +22,17 @@ export function RunReviewDropdown({
   onRunsStarted?: (runIds: string[]) => void;
   /** Fired when the run request settles (success or error). */
   onRunSettled?: () => void;
-}) {
+}
+
+export function RunReviewDropdown({
+  prId,
+  size = "sm",
+  kind = "primary",
+  warnMerged = false,
+  onRunStart,
+  onRunsStarted,
+  onRunSettled,
+}: RunReviewDropdownProps) {
   const t = useTranslations("prReview");
   const router = useRouter();
   const { data: agents } = useAgents();

@@ -5,19 +5,15 @@ import React from "react";
 import { Icon } from "@devdigest/ui";
 import { s } from "../../styles";
 
-export function TraceSection({
-  icon,
-  title,
-  right,
-  children,
-  defaultOpen = true,
-}: {
+interface TraceSectionProps {
   icon: "Settings" | "Gauge" | "FileText" | "Wrench" | "Code" | "AlertOctagon";
   title: string;
   right?: React.ReactNode;
   children: React.ReactNode;
   defaultOpen?: boolean;
-}) {
+}
+
+export function TraceSection({ icon, title, right, children, defaultOpen = true }: TraceSectionProps) {
   const [open, setOpen] = React.useState(defaultOpen);
   const I = Icon[icon];
   return (

@@ -2,26 +2,25 @@
    body. Used by CommentThreadView and OutdatedComments. */
 "use client";
 
-import React from "react";
 import { useTranslations } from "next-intl";
 import { Icon, Card, Avatar, Markdown } from "@devdigest/ui";
 import type { PrReviewComment } from "@devdigest/shared";
-import { cs } from "../comments";
+import { formatDateTime } from "@/lib/format-date";
+import { cs, s } from "../styles";
 
-function formatWhen(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+interface CommentCardProps {
+  c: PrReviewComment;
 }
 
-export function CommentCard({ c }: { c: PrReviewComment }) {
+export function CommentCard({ c }: CommentCardProps) {
   const t = useTranslations("shell");
   return (
     <Card>
       <div style={cs.headRow}>
         <Avatar name={c.user} size={20} />
         <span style={cs.user}>{c.user}</span>
-        <span style={cs.time}>{formatWhen(c.created_at)}</span>
-        <span style={{ flex: 1 }} />
+        <span style={cs.time}>{formatDateTime(c.created_at)}</span>
+        <span style={s.spacer} />
         <a href={c.html_url} target="_blank" rel="noopener noreferrer" style={cs.ghLink}>
           <Icon.ExternalLink size={12} />
           {t("diffViewer.viewOnGitHub")}

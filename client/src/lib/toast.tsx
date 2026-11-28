@@ -44,7 +44,11 @@ const COLORS: Record<ToastKind, { bg: string; border: string; icon: string }> = 
   info: { bg: "var(--bg-elevated)", border: "var(--border-strong)", icon: "ℹ" },
 };
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
+interface ToastProviderProps {
+  children: React.ReactNode;
+}
+
+export function ToastProvider({ children }: ToastProviderProps) {
   const [items, setItems] = React.useState<Toast[]>([]);
   const seq = React.useRef(1);
 

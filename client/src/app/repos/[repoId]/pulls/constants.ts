@@ -38,6 +38,18 @@ export const STATUS_FILTERS: { key: string; labelKey: string }[] = [
   { key: "stale", labelKey: "stale" },
 ];
 
+/** `?status=` when the URL names none — the most actionable filter on open. */
+export const DEFAULT_STATUS = "needs_review";
+/** `?status=` value that shows every PR. */
+export const ALL_STATUSES = "all";
+
+/** `?sort=` values; the first is the default. */
+export const SORT_NEWEST = "newest";
+export const SORT_OLDEST = "oldest";
+
+/** Open PRs carry a derived review status; everything else is merged/closed. */
+export const OPEN_STATUSES: ReadonlySet<string> = new Set(["needs_review", "reviewed", "stale"]);
+
 /** Column header i18n keys (under `list.columns`), in display order. */
 export const COLUMN_KEYS: string[] = [
   "pullRequest",

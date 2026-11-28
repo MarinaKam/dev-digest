@@ -20,7 +20,13 @@ const miniBtnStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
-export function PromptBlock({ label, text, color }: { label: string; text: string; color: string }) {
+interface PromptBlockProps {
+  label: string;
+  text: string;
+  color: string;
+}
+
+export function PromptBlock({ label, text, color }: PromptBlockProps) {
   const t = useTranslations("runs");
   const [open, setOpen] = React.useState(false);
   const [full, setFull] = React.useState(false);

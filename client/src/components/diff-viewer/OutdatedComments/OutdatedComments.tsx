@@ -4,10 +4,15 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { type CommentThread, cs } from "../comments";
+import type { CommentThread } from "../comments";
+import { cs } from "../styles";
 import { CommentCard } from "../CommentCard";
 
-export function OutdatedComments({ threads }: { threads: CommentThread[] }) {
+interface OutdatedCommentsProps {
+  threads: CommentThread[];
+}
+
+export function OutdatedComments({ threads }: OutdatedCommentsProps) {
   const t = useTranslations("shell");
   if (threads.length === 0) return null;
   const count = threads.reduce((n, th) => n + th.comments.length, 0);

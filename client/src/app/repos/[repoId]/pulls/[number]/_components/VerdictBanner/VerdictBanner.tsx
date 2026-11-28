@@ -10,17 +10,7 @@ import { VERDICT_META } from "./constants";
 import { s } from "./styles";
 import { RunCostBadge } from "../../../_components/RunCostBadge";
 
-export function VerdictBanner({
-  verdict,
-  summary,
-  score,
-  findingsCount,
-  blockers,
-  agentName,
-  costUsd = null,
-  tokensIn = null,
-  tokensOut = null,
-}: {
+interface VerdictBannerProps {
   verdict: Verdict;
   summary: string | null;
   score: number | null;
@@ -31,7 +21,19 @@ export function VerdictBanner({
   costUsd?: number | null;
   tokensIn?: number | null;
   tokensOut?: number | null;
-}) {
+}
+
+export function VerdictBanner({
+  verdict,
+  summary,
+  score,
+  findingsCount,
+  blockers,
+  agentName,
+  costUsd = null,
+  tokensIn = null,
+  tokensOut = null,
+}: VerdictBannerProps) {
   const t = useTranslations("prReview");
   const m = VERDICT_META[verdict] ?? VERDICT_META.comment;
   const VIcon = Icon[m.icon];

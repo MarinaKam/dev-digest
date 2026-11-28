@@ -30,7 +30,12 @@ function threadsForLine(ln: Line, matched: Map<string, CommentThread[]>): Commen
   return out;
 }
 
-export function FileCard({ file, commenting }: { file: PrFile; commenting?: DiffCommentApi }) {
+interface FileCardProps {
+  file: PrFile;
+  commenting?: DiffCommentApi;
+}
+
+export function FileCard({ file, commenting }: FileCardProps) {
   const t = useTranslations("shell");
   const [open, setOpen] = React.useState(
     (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
@@ -54,7 +59,7 @@ export function FileCard({ file, commenting }: { file: PrFile; commenting?: Diff
 
   return (
     <div style={s.fileCard}>
-      <div onClick={() => setOpen((o) => !o)} style={s.fileHeader}>
+      <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} style={s.fileHeader}>
         <Icon.ChevronRight size={13} style={chevronFor(open)} />
         <Icon.FileText size={14} style={s.fileIcon} />
         <span className="mono" style={s.filePath}>
@@ -65,14 +70,12 @@ export function FileCard({ file, commenting }: { file: PrFile; commenting?: Diff
           <span style={s.delText}>−{file.deletions}</span>
         </span>
         {commentCount > 0 && (
-          <span
-            style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-muted)" }}
-          >
+          <span style={s.commentCount}>
             <Icon.MessageSquare size={12} />
             {commentCount}
           </span>
         )}
-      </div>
+      </button>
       {open && (
         <div style={s.fileBody}>
           {lines.length === 0 ? (
@@ -80,6 +83,7 @@ export function FileCard({ file, commenting }: { file: PrFile; commenting?: Diff
           ) : (
             lines.map((ln, i) => (
               <CodeLine
+                // biome-ignore lint/suspicious/noArrayIndexKey: a patch line has no id; the list comes from immutable patch text and is never reordered
                 key={i}
                 ln={ln}
                 path={file.path}

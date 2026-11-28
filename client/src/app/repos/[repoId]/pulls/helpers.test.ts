@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
 import type { FindingRecord } from "@devdigest/shared";
-import { countBySeverity, formatCost, formatTokensCompact, visibleFindings } from "./helpers";
+import {
+  countBySeverity,
+  filterPulls,
+  formatCost,
+  formatTokensCompact,
+  visibleFindings,
+} from "./helpers";
 
 describe("formatCost", () => {
   it("renders an em dash when there is no cost data", () => {
@@ -131,5 +137,43 @@ describe("visibleFindings", () => {
     const before = ids(MIXED);
     visibleFindings(MIXED, true, "WARNING");
     expect(ids(MIXED)).toEqual(before);
+  });
+});
+
+describe("filterPulls", () => {
+  const pr = (number: number, status: string, title: string, updated_at: string | null) =>
+    ({ number, status, title, updated_at }) as unknown as Parameters<typeof filterPulls>[0][number];
+  const pulls = [
+    pr(1, "needs_review", "Add login form", "2026-06-01T00:00:00Z"),
+    pr(2, "reviewed", "Fix cache key", "2026-06-03T00:00:00Z"),
+    pr(13, "needs_review", "Rename helper", "2026-06-02T00:00:00Z"),
+    pr(4, "merged", "No date", null),
+  ];
+  const numbers = (filter: Parameters<typeof filterPulls>[1]) =>
+    filterPulls(pulls, filter).map((p) => p.number);
+
+  it("keeps every status for \"all\", newest first; a PR without a date is the oldest", () => {
+    expect(numbers({ status: "all", query: "", sort: "newest" })).toEqual([2, 13, 1, 4]);
+  });
+
+  it("keeps one status", () => {
+    expect(numbers({ status: "needs_review", query: "", sort: "newest" })).toEqual([13, 1]);
+  });
+
+  it("orders oldest first on request", () => {
+    expect(numbers({ status: "all", query: "", sort: "oldest" })).toEqual([4, 1, 13, 2]);
+  });
+
+  it("matches the title without regard to case or surrounding spaces", () => {
+    expect(numbers({ status: "all", query: "  CACHE ", sort: "newest" })).toEqual([2]);
+  });
+
+  it("matches a part of the PR number", () => {
+    expect(numbers({ status: "all", query: "1", sort: "newest" })).toEqual([13, 1]);
+  });
+
+  it("does not reorder the list it was given", () => {
+    numbers({ status: "all", query: "", sort: "oldest" });
+    expect(pulls.map((p) => p.number)).toEqual([1, 2, 13, 4]);
   });
 });

@@ -39,6 +39,15 @@ export const s = {
     overflow: "hidden",
     textOverflow: "ellipsis",
   } satisfies CSSProperties,
+  spinning: { animation: "ddspin 1s linear infinite" } satisfies CSSProperties,
+  deleteBtn: (pending: boolean): CSSProperties => ({
+    background: "none",
+    border: "none",
+    cursor: pending ? "not-allowed" : "pointer",
+    color: "var(--text-muted)",
+    display: "inline-flex",
+    padding: 4,
+  }),
   metaRow: { display: "flex", alignItems: "center", gap: 8 } satisfies CSSProperties,
   modelChip: (color: string): CSSProperties => ({
     fontSize: 12,

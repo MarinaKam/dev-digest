@@ -15,7 +15,11 @@ const SEV_COLOR: Record<string, string> = {
   SUGGESTION: "var(--accent)",
 };
 
-export function FindingsSection({ findings }: { findings: FindingRecord[] }) {
+interface FindingsSectionProps {
+  findings: FindingRecord[];
+}
+
+export function FindingsSection({ findings }: FindingsSectionProps) {
   const t = useTranslations("runs");
   return (
     <TraceSection

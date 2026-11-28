@@ -17,7 +17,12 @@ import { FindingsSection } from "../FindingsSection";
 import { Row } from "../Row";
 import { Stat } from "../Stat";
 
-export function TraceBody({ trace, findings }: { trace: RunTrace; findings: FindingRecord[] }) {
+interface TraceBodyProps {
+  trace: RunTrace;
+  findings: FindingRecord[];
+}
+
+export function TraceBody({ trace, findings }: TraceBodyProps) {
   const t = useTranslations("runs");
   const stats = trace.stats;
   return (

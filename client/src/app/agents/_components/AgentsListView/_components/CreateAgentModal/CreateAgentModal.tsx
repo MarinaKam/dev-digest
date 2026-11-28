@@ -10,7 +10,11 @@ import { DEFAULT_MODEL, DEFAULT_PROVIDER, MODAL_WIDTH, PROVIDER_OPTIONS } from "
 import { s } from "./styles";
 
 /** Create-agent modal — name/description/provider/model/system-prompt. */
-export function CreateAgentModal({ onClose }: { onClose: () => void }) {
+interface CreateAgentModalProps {
+  onClose: () => void;
+}
+
+export function CreateAgentModal({ onClose }: CreateAgentModalProps) {
   const t = useTranslations("agents");
   const router = useRouter();
   const create = useCreateAgent();

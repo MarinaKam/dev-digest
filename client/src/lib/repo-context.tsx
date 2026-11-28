@@ -21,7 +21,11 @@ function repoIdFromPath(pathname: string | null): string | null {
   return m ? decodeURIComponent(m[1]!) : null;
 }
 
-export function RepoProvider({ children }: { children: React.ReactNode }) {
+interface RepoProviderProps {
+  children: React.ReactNode;
+}
+
+export function RepoProvider({ children }: RepoProviderProps) {
   const pathname = usePathname();
   const { data: repos, isSuccess: reposLoaded } = useRepos();
   const [stored, setStored] = React.useState<string | null>(null);

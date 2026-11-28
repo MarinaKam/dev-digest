@@ -18,7 +18,11 @@ function errorMessage(e: unknown): string {
   return "Something went wrong";
 }
 
-export function Providers({ children }: { children: React.ReactNode }) {
+interface ProvidersProps {
+  children: React.ReactNode;
+}
+
+export function Providers({ children }: ProvidersProps) {
   const [qc] = React.useState(
     () =>
       new QueryClient({

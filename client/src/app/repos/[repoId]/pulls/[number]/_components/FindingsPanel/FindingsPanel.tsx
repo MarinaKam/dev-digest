@@ -13,17 +13,14 @@ import { KEY_TO_ACTION } from "./constants";
 import { countBySeverity, visibleFindings } from "../../../helpers";
 import { s } from "./styles";
 
-export function FindingsPanel({
-  findings,
-  prId,
-  repoFullName,
-  headSha,
-}: {
+interface FindingsPanelProps {
   findings: FindingRecord[];
   prId: string;
   repoFullName?: string | null;
   headSha?: string | null;
-}) {
+}
+
+export function FindingsPanel({ findings, prId, repoFullName, headSha }: FindingsPanelProps) {
   const t = useTranslations("prReview");
   const action = useFindingAction();
   const [hideLow, setHideLow] = React.useState(false);
