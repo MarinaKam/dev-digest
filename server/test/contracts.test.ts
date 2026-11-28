@@ -314,6 +314,12 @@ describe('skill contracts', () => {
     expect(SkillSource.parse('extracted')).toBe('extracted');
   });
 
+  it('a save may carry a version note of up to 200 characters', () => {
+    expect(UpdateSkill.parse({ body: 'b', version_note: 'Tightened' })).toEqual({ body: 'b', version_note: 'Tightened' });
+    expect(UpdateSkill.safeParse({ version_note: 'n'.repeat(201) }).success).toBe(false);
+    expect(CreateSkill.safeParse({ ...valid, version_note: 'Imported from x.zip' }).success).toBe(true);
+  });
+
   it('UpdateSkill takes any subset and never a source', () => {
     expect(UpdateSkill.parse({ enabled: false })).toEqual({ enabled: false });
     expect(UpdateSkill.safeParse({ source: 'manual' }).success).toBe(false);

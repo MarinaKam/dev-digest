@@ -135,6 +135,10 @@ export type SkillName = z.infer<typeof SkillName>;
 
 export const SKILL_DESCRIPTION_MAX = 1024;
 export const SKILL_BODY_MAX = 20_000;
+export const SKILL_VERSION_NOTE_MAX = 200;
+
+/** A short note stored on the version a save creates. */
+const VersionNote = z.string().trim().max(SKILL_VERSION_NOTE_MAX).optional();
 
 /** An agent that links a skill, as shown on the skill. */
 export const SkillUser = z.object({ id: z.string(), name: z.string() });
@@ -165,16 +169,18 @@ const SkillFields = z.object({
 
 export const CreateSkill = SkillFields.extend({
   source: z.enum(['manual', 'imported_file']).optional(),
+  version_note: VersionNote,
 });
 export type CreateSkill = z.infer<typeof CreateSkill>;
 
-export const UpdateSkill = SkillFields.partial().strict();
+export const UpdateSkill = SkillFields.partial().extend({ version_note: VersionNote }).strict();
 export type UpdateSkill = z.infer<typeof UpdateSkill>;
 
 export const SkillVersion = z.object({
   skill_id: z.string(),
   version: z.number().int(),
   body: z.string(),
+  note: z.string().nullable(),
   created_at: z.string(),
 });
 export type SkillVersion = z.infer<typeof SkillVersion>;

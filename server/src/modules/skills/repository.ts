@@ -43,8 +43,8 @@ export class SkillsRepository {
     return row ? toRecord(row) : undefined;
   }
 
-  /** Insert a skill and its version 1 together. */
-  create(workspaceId: string, input: InsertSkill): Promise<SkillRecord> {
+  /** Insert a skill and its version 1 (with `note`) together. */
+  create(workspaceId: string, input: InsertSkill, note: string): Promise<SkillRecord> {
     return this.db.transaction(async (tx) => {
       const [row] = await tx
         .insert(t.skills)
@@ -53,20 +53,21 @@ export class SkillsRepository {
       if (!row) throw new Error('skill insert returned no row');
       await tx
         .insert(t.skillVersions)
-        .values({ skillId: row.id, version: INITIAL_SKILL_VERSION, body: row.body });
+        .values({ skillId: row.id, version: INITIAL_SKILL_VERSION, body: row.body, note });
       return toRecord(row);
     });
   }
 
   /**
    * Apply `patch`. With `newVersion`, the version is raised by one and the new
-   * body is snapshotted, in the same transaction as the update.
+   * body is snapshotted with `note`, in the same transaction as the update.
    */
   update(
     workspaceId: string,
     id: string,
     patch: SkillPatch,
     newVersion: boolean,
+    note: string | null = null,
   ): Promise<SkillRecord | undefined> {
     return this.db.transaction(async (tx) => {
       const [current] = await tx
@@ -83,7 +84,7 @@ export class SkillsRepository {
         .returning();
       if (!row) return undefined;
       if (newVersion) {
-        await tx.insert(t.skillVersions).values({ skillId: id, version, body: row.body });
+        await tx.insert(t.skillVersions).values({ skillId: id, version, body: row.body, note });
       }
       return toRecord(row);
     });

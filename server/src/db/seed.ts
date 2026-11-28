@@ -289,7 +289,7 @@ async function seedAgentSkills(db: Db, workspaceId: string, agentId: string, lis
         .values({ workspaceId, ...s, source: 'manual', enabled: true, version: 1 })
         .returning();
       if (!row) throw new Error(`seed: skill ${s.name} was not inserted`);
-      await tx.insert(t.skillVersions).values({ skillId: row.id, version: 1, body: row.body });
+      await tx.insert(t.skillVersions).values({ skillId: row.id, version: 1, body: row.body, note: 'Created' });
       return row.id;
     });
     ids.push(id);

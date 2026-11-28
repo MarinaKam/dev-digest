@@ -29,24 +29,32 @@ the whole feature's trust boundary.
 - **Linking:** a checkbox in the agent's Skills tab links or unlinks a skill.
   The global on/off switch is on the skill itself (its card and its Config tab).
   Order is changed by drag and drop.
-- **Skills page tabs:** Config, Preview, Versions. Not built: Evals (not needed
-  yet), Stats (bonus), "Run on evals", "Import from URL", "Search community
-  skills".
+- **Skills page tabs:** Config, Preview, Stats, Versions. Stats shows only
+  what the data holds: the agents that use the skill. Not built: Evals (not
+  needed yet), pull frequency / accept rate / findings by category (no data
+  for them), "Run on evals", "Import from URL", "Search community skills".
+- **Versions** follow the user's mockup: each version has a short note, the
+  current one is marked, an older one can be diffed against the current body
+  and restored.
 
 ## Data
 
-No migration. `skills`, `skill_versions` and `agent_skills` exist since
-`0000_init.sql`.
+`skills`, `skill_versions` and `agent_skills` exist since `0000_init.sql`.
+One generated migration adds:
+
+- `skill_versions.note` — `text`, nullable: the version's note (rule 5a).
+  Versions written before the migration have no note.
+- a unique index on `skills (workspace_id, name)`, so rule 1 holds under
+  concurrent writes too.
 
 - `skills.source` gains the value `imported_file` (TypeScript enum and Zod
   contract only; the column is plain `text` without a check constraint).
   A skill made in the UI is `manual`. The list stays open for more sources:
   `extracted` is already in the enum for the L02 homework (skills extracted
   from a repository), which builds on this feature.
-- `skills` has **no unique constraint on `(workspace_id, name)`**: in
-  `0000_init.sql` its only constraints are the primary key and the foreign key
-  to `workspaces`. Uniqueness (rule 1) is enforced in the service only; see
-  Known limits.
+- Before the migration, `skills` had no unique constraint on
+  `(workspace_id, name)` (`0000_init.sql` holds only the primary key and the
+  foreign key to `workspaces`).
 - `skills` is owned by the new `skills` module; `skill_versions` too.
   `agent_skills` stays owned by `agents`.
 
@@ -65,6 +73,13 @@ No migration. `skills`, `skill_versions` and `agent_skills` exist since
    that changes the body raises `version` by one and writes a snapshot, in one
    transaction. A save that changes only name, description, type or enabled
    does not create a version.
+5a. **Version note.** A save that changes the body may carry `version_note`
+   (up to 200 characters); it is stored on the new version. Version 1 of a
+   skill made in the UI is noted "Created", of an imported skill "Imported
+   from <file>". Without a note the UI shows the version's date only.
+5b. **Restore.** Restoring version N saves N's body as a new version with the
+   note "Restored v<N>". Restoring a body equal to the current one is refused
+   in the UI (the button is disabled for it).
 6. **Deleting a skill** removes it from every agent (cascade). The UI asks for
    confirmation and says how many agents use it.
 7. **What reaches the prompt.** For a run, the agent's linked skills are taken
@@ -179,7 +194,7 @@ All under the workspace from `getContext()`; bodies validated by Zod.
 | GET | `/skills` | all skills, each with `used_by` (agents linking it) |
 | GET | `/skills/:id` | one skill |
 | POST | `/skills` | create (rules 1–5) |
-| PUT | `/skills/:id` | update any subset of fields and/or `enabled` (same verb as `PUT /agents/:id`) |
+| PUT | `/skills/:id` | update any subset of fields and/or `enabled`, plus an optional `version_note` (same verb as `PUT /agents/:id`) |
 | DELETE | `/skills/:id` | delete (rule 6) |
 | GET | `/skills/:id/versions` | snapshots, newest first |
 | POST | `/skills/import/preview` | parse an upload, return draft + report, write nothing |
@@ -188,7 +203,7 @@ Existing, unchanged: `GET/POST /agents/:id/skills` (the POST with `skill_ids`
 sets links and order in one transaction).
 
 Contracts in `server/src/vendor/shared` (mirrored to `client/`):
-`SkillSource` + `imported_file`; `CreateSkill`, `UpdateSkill`, `SkillVersion`,
+`SkillSource` + `imported_file`; `CreateSkill` (+ optional `version_note`), `UpdateSkill` (+ optional `version_note`), `SkillVersion` (+ `note`),
 `SkillImportPreview` (`draft`, `skipped_files`, `ignored_keys`, `warnings`);
 `Skill.used_by`; `PromptAssembly.skills_tokens` and `skills_used`
 (`[{ name, version }]`), both optional.
@@ -282,17 +297,16 @@ The experiment is a demonstration, not a test. Automated tests cover rules 7–9
 
 ## Out of scope
 
-Evals and Stats tabs, import from URL, community search, skills that carry
-files or tools, per-agent enable state separate from linking, version restore
-(Versions is read-only).
+Evals tab and usage analytics in Stats, import from URL, community search,
+skills that carry files or tools, per-agent enable state separate from
+linking.
 
 ## Known limits
 
-- Name uniqueness (rule 1) is checked in the service, with no unique index
-  behind it. Two creates with the same name racing each other can both pass
-  the check and store two skills with one name. Closing it needs a migration
-  with a unique index on `(workspace_id, name)`, which this feature does not
-  add.
+- Name uniqueness (rule 1) is checked in the service for a clear 409, and the
+  unique index catches a concurrent write that passes the check; that write
+  also answers 409. The migration fails on a database that already holds two
+  skills with one name in a workspace; none can exist through this API.
 
 ## Dependency
 

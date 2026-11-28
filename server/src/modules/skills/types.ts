@@ -24,6 +24,7 @@ export interface SkillVersionRecord {
   skillId: string;
   version: number;
   body: string;
+  note: string | null;
   createdAt: Date;
 }
 

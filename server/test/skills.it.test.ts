@@ -98,6 +98,40 @@ d('skills routes', () => {
     expect(list[0]?.body).toBe('v3 body');
   });
 
+  it('stores a version note, and notes version 1 "Created"', async () => {
+    const s = await create();
+    await app.inject({
+      method: 'PUT',
+      url: `/skills/${s.id}`,
+      payload: { body: 'tighter body', version_note: 'Tightened scope rule' },
+    });
+    const list = (await app.inject({ method: 'GET', url: `/skills/${s.id}/versions` })).json() as {
+      version: number;
+      note: string | null;
+    }[];
+    expect(list.map((v) => [v.version, v.note])).toEqual([
+      [2, 'Tightened scope rule'],
+      [1, 'Created'],
+    ]);
+  });
+
+  it('keeps the note given on create', async () => {
+    const s = await create({ source: 'imported_file', version_note: 'Imported from x.zip' });
+    const list = (await app.inject({ method: 'GET', url: `/skills/${s.id}/versions` })).json() as {
+      note: string | null;
+    }[];
+    expect(list[0]?.note).toBe('Imported from x.zip');
+  });
+
+  it('two concurrent creates with one name: one 200, one 409', async () => {
+    const payload = body({ name: `race-${Date.now()}` });
+    const [a, b] = await Promise.all([
+      app.inject({ method: 'POST', url: '/skills', payload }),
+      app.inject({ method: 'POST', url: '/skills', payload }),
+    ]);
+    expect([a.statusCode, b.statusCode].sort()).toEqual([200, 409]);
+  });
+
   it('GET /skills lists used_by with agent names', async () => {
     const s = await create();
     const [agent] = await agentIds();
