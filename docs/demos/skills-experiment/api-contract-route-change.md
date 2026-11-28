@@ -3,9 +3,8 @@
 Demo PR against `server/`. It changes `PUT /settings` in a copy-paste-ready way:
 one request body field is renamed and one response field is removed. The API
 Contract Reviewer with its linked skills (`route-signature-breaking-change`,
-`response-shape-compat`) should flag both as breaking. Apply these changes on a
-throwaway branch only when the experiment is run; this document is the
-instruction set and does not change the code.
+`response-shape-compat`) should flag both as breaking. The branch
+`demo/api-contract-route-change` holds exactly these changes on top of `main`.
 
 The route is `server/src/modules/settings/routes.ts`, `PUT /settings`. Its body
 schema is `SettingsUpdate` (`Settings.partial()` in

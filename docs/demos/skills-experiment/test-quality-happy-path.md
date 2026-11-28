@@ -4,10 +4,10 @@ Demo PR against `server/`. It adds one pure helper and a Vitest file that tests
 only one happy-path input. The Test Quality Reviewer with its linked skills
 (`uncovered-branch-detector`, `edge-case-coverage`, `mock-overuse-gate`,
 `flaky-test-patterns`) should flag the untested branches and edge cases below.
-Apply these files to a throwaway branch only when the experiment is run; this
-document is the instruction set and does not change the code.
+The branch `demo/test-quality-happy-path` holds these two files on top of `main`
+(the `skills` module does not exist there, so the helper sits in `pulls/`).
 
-## File 1: `server/src/modules/skills/demo/discount.ts` (new)
+## File 1: `server/src/modules/pulls/discount.ts` (new)
 
 ```ts
 /**
@@ -28,7 +28,7 @@ export function applyDiscount(price: number, percent: number): number {
 
 ```ts
 import { describe, it, expect } from 'vitest';
-import { applyDiscount } from '../src/modules/skills/demo/discount.js';
+import { applyDiscount } from '../src/modules/pulls/discount.js';
 
 describe('applyDiscount', () => {
   it('applies a 10 percent discount to a positive price', () => {
