@@ -104,7 +104,16 @@ export function SkillsTab({ agentId }: SkillsTabProps) {
               data-testid={`skill-row-${skill.name}`}
               tabIndex={linked ? 0 : undefined}
               draggable={linked}
-              onDragStart={linked ? () => setDragFrom(index) : undefined}
+              onDragStart={
+                linked
+                  ? (e: React.DragEvent) => {
+                      // Firefox starts a drag only when it carries data.
+                      e.dataTransfer.setData("text/plain", skill.id);
+                      e.dataTransfer.effectAllowed = "move";
+                      setDragFrom(index);
+                    }
+                  : undefined
+              }
               onDragOver={
                 linked && dragFrom != null
                   ? (e) => {

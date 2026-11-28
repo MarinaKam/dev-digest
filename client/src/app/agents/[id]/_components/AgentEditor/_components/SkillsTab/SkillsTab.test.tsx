@@ -86,10 +86,21 @@ describe("SkillsTab", () => {
 
   it("drag and drop moves a linked row", () => {
     renderTab();
-    fireEvent.dragStart(screen.getByTestId("skill-row-skill-a"));
+    fireEvent.dragStart(screen.getByTestId("skill-row-skill-a"), {
+      dataTransfer: { setData: vi.fn(), effectAllowed: "" },
+    });
     fireEvent.dragOver(screen.getByTestId("skill-row-skill-c"));
     fireEvent.drop(screen.getByTestId("skill-row-skill-c"));
     expect(hooks.mutate).toHaveBeenCalledWith({ agentId: "ag1", skillIds: ["b", "c", "a"] });
+  });
+
+  it("puts data on the drag, which Firefox needs to start one", () => {
+    renderTab();
+    const setData = vi.fn();
+    fireEvent.dragStart(screen.getByTestId("skill-row-skill-a"), {
+      dataTransfer: { setData, effectAllowed: "" },
+    });
+    expect(setData).toHaveBeenCalledWith("text/plain", "a");
   });
 
   it("only linked rows are draggable", () => {
