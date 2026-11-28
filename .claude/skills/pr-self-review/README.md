@@ -7,7 +7,7 @@ its shape. The agent does not load this file; the procedure is in
 
 ## Version
 
-**1.0.3** (2026-11-27). The version is recorded in the `metadata.version`
+**1.1.0** (2026-11-27). The version is recorded in the `metadata.version`
 field of `SKILL.md` and in the changelog below.
 
 | Version | Date | Change |
@@ -16,6 +16,7 @@ field of `SKILL.md` and in the changelog below.
 | 1.0.1 | 2026-11-27 | Gate hardening after a security review: positional command detection instead of a first-word match, override read only from the hook's environment, the gate closes when the folder, the repository or the tool call cannot be read |
 | 1.0.2 | 2026-11-27 | Second hardening pass: a folder change is trusted only as a top-level `cd <literal> &&`, repository-moving variables and options make the folder unknown, `gh --repo` is judged as the project, here-documents and comments are read as the shell reads them, on-the-spot aliases count as a push |
 | 1.0.3 | 2026-11-27 | One lexer for the shell line replaces three text passes that could disagree: quotes with escapes, `$'...'`, arithmetic, comments and here-documents are read once, and a line that does not close what it opens is refused when it mentions a guarded command |
+| 1.1.0 | 2026-11-27 | Every skill of a bucket runs when the bucket has changed files; an empty bucket loads nothing. Expansions inside `${ }`, arithmetic and unquoted here-documents are read for commands, and a word the text does not settle counts as a possible guarded subcommand |
 
 ## Need
 
@@ -37,7 +38,8 @@ rules of its own.
   the merge base, or the committed part only.
 - Cheap deterministic checks before any model review, with fail-fast.
 - Routing of changed files to buckets (frontend, backend) and of buckets to
-  owner skills, with a condition for each skill.
+  owner skills: a bucket with files gets all of its skills, an empty bucket
+  gets none.
 - One reviewer per bucket plus a security reviewer, with a fixed brief and a
   fixed finding format.
 - A closed catalogue of what is critical, by owner.
@@ -138,15 +140,16 @@ Changes made after these runs, **not re-run**:
 - A "Writing a finding" section: one finding per rule per file, one owner, the
   line number in the new file, how to attach a missing piece, unwired code.
 - The script now blocks a review in which no check passed.
-- Narrower condition for `typescript-expert`; reading depth for index-style
-  skills; step 4 without subagents.
+- Reading depth for index-style skills; step 4 without subagents.
+- Per-skill conditions were removed at the owner's request: every skill of a
+  bucket runs whenever that bucket has changed files.
 
 ### The gate script
 
 `scripts/shell-text.mjs` (reading a shell line as text), `scripts/command.mjs`
 (finding a guarded command and its folder), `scripts/lib.mjs` (verdict logic)
 and `scripts/gate.mjs` (git and file access) are covered by
-`scripts/*.test.mjs`: 55 tests, the integration ones each in a
+`scripts/*.test.mjs`: 58 tests, the integration ones each in a
 throwaway git repository.
 
 ```bash

@@ -17,7 +17,8 @@ const TWO_CHAR_SEPARATORS = ['&&', '||', ';;'];
 const ONE_CHAR_SEPARATORS = new Set([';', '|', '\n']);
 const PATTERN_CHARACTERS = new Set(['~', '*', '?']);
 const HEREDOC_DELIMITER = /-?[ \t]*(?:"([^"\n]*)"|'([^'\n]*)'|((?:\\.|[^\s;&|()<>])+))/y;
-const GUARDED_WORDS = /\bpush\b|\bpr\s+(create|merge)\b/;
+
+const KEPT_AFTER_BACKSLASH_IN_DOUBLE_QUOTES = new Set(['$', '`', '"', '\\']);
 
 function newWord() {
   return { value: '', quoted: false, dynamic: false, escaped: false };
@@ -26,19 +27,22 @@ function newWord() {
 /** Moves past the bodies of the pending here-documents. Stops, unbalanced, if one never ends. */
 function skipHeredocBodies(state) {
   let cursor = state.index + 1;
-  for (const delimiter of state.pending) {
+  for (const heredoc of state.pending) {
     let found = false;
     let line = cursor;
+    let bodyEnd = cursor;
     while (line < state.text.length && !found) {
       const end = state.text.indexOf('\n', line);
       const stop = end === -1 ? state.text.length : end;
-      found = state.text.slice(line, stop).trim() === delimiter;
+      found = state.text.slice(line, stop).trim() === heredoc.delimiter;
+      bodyEnd = line;
       line = end === -1 ? state.text.length : end + 1;
     }
     if (!found) {
       state.balanced = false;
       break;
     }
+    if (!heredoc.quoted) nestExpansions(state, state.text.slice(cursor, bodyEnd));
     cursor = line;
   }
   state.pending = [];
@@ -61,14 +65,38 @@ function nest(state, text) {
   state.lists.push(...inner.lists);
 }
 
-/** `$(( ))` or `(( ))`: copied as one opaque piece. Read as commands too if it could be some. */
+/**
+ * The shell expands `$( )`, backticks and `${ }` in the body of a here-document whose
+ * delimiter is not quoted. Reads the body as one double-quoted word to find them.
+ */
+function nestExpansions(state, body) {
+  const inner = lex(`"${body.replace(/"/g, '\\"')}"`);
+  state.lists.push(...inner.lists.slice(1));
+}
+
+/** The index after the `}` that closes the `${` at `start`, or -1. */
+function closingBrace(text, start) {
+  let depth = 0;
+  for (let index = start; index < text.length; index += 1) {
+    if (text[index] === '{') depth += 1;
+    if (text[index] === '}') depth -= 1;
+    if (depth === 0 && text[index] === '}') return index + 1;
+  }
+  return -1;
+}
+
+/**
+ * `$(( ))` or `(( ))`: copied as one opaque piece. Its body is always read as commands
+ * too: it can hold substitutions, and the shell falls back to a subshell when it is not
+ * arithmetic.
+ */
 function readArithmetic(state, word, opener) {
   const start = state.index + opener.length;
   const end = closingParenthesis(state.text, start - 1);
   const stop = end === -1 ? state.text.length : end;
   const body = state.text.slice(start - 1, stop);
   if (end === -1) state.balanced = false;
-  if (GUARDED_WORDS.test(body)) nest(state, body.replace(/^\(+|\)+$/g, ' '));
+  nest(state, body.replace(/^\(+|\)+$/g, ' '));
   word.value += state.text.slice(state.index, stop);
   word.dynamic = true;
   state.index = stop;
@@ -101,9 +129,10 @@ function readDollar(state, word) {
     return undefined;
   }
   if (text.startsWith('${', index)) {
-    const end = text.indexOf('}', index);
+    const end = closingBrace(text, index + 1);
     if (end === -1) state.balanced = false;
-    const stop = end === -1 ? text.length : end + 1;
+    const stop = end === -1 ? text.length : end;
+    nest(state, text.slice(index + 2, Math.max(index + 2, stop - 1)));
     word.value += text.slice(index, stop);
     state.index = stop;
     return undefined;
@@ -113,7 +142,23 @@ function readDollar(state, word) {
   return undefined;
 }
 
-/** Reads up to the closing quote. In `"` and `$'`, a backslash escapes the next character. */
+/**
+ * A backslash inside quotes. In `" "` it is dropped before a newline, removed before
+ * `$`, a backtick, `"` and `\`, and kept otherwise. In `$' '` it starts an escape code
+ * that is not decoded here, so the word is marked as not literally known.
+ */
+function readQuotedEscape(state, word, quote) {
+  const next = state.text[state.index + 1] ?? '';
+  if (quote === "'") {
+    word.dynamic = word.dynamic || (next !== "'" && next !== '\\');
+    word.value += next;
+  } else if (next !== '\n') {
+    word.value += KEPT_AFTER_BACKSLASH_IN_DOUBLE_QUOTES.has(next) ? next : `\\${next}`;
+  }
+  state.index += 2;
+}
+
+/** Reads up to the closing quote: `' '` is literal, `" "` and `$' '` have escapes. */
 function readQuoted(state, word, quote, opener) {
   const literal = quote === "'" && opener === "'";
   word.quoted = true;
@@ -128,8 +173,7 @@ function readQuoted(state, word, quote, opener) {
       word.value += '\n';
       skipHeredocBodies(state);
     } else if (!literal && char === '\\') {
-      word.value += state.text[state.index + 1] ?? '';
-      state.index += 2;
+      readQuotedEscape(state, word, quote);
     } else if (quote === '"' && char === '$') {
       readDollar(state, word);
     } else if (quote === '"' && char === '`') {
@@ -147,7 +191,11 @@ function readHeredocOperator(state) {
   HEREDOC_DELIMITER.lastIndex = state.index + 2;
   const match = HEREDOC_DELIMITER.exec(state.text);
   if (!match) return false;
-  state.pending.push((match[1] ?? match[2] ?? match[3]).replace(/\\/g, ''));
+  const bare = match[3];
+  state.pending.push({
+    delimiter: (match[1] ?? match[2] ?? bare).replace(/\\/g, ''),
+    quoted: bare === undefined || bare.includes('\\'),
+  });
   state.index = HEREDOC_DELIMITER.lastIndex;
   return true;
 }

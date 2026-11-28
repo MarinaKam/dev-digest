@@ -135,6 +135,59 @@ test('guardedAction lets everyday commands that mention a guarded word through',
   }
 });
 
+const HIDDEN_IN_AN_EXPANSION = [
+  'echo ${x:-$(git push)}',
+  'echo ${x:-`git push`}',
+  'echo "${x:-$(git push)}"',
+  'echo ${a:-${b:-$(git push)}}',
+  'echo $(( $(git push) + 1 ))',
+  'echo $((1 + `git push`))',
+  "$'\\x67it' push",
+  "git $'pu\\x73h'",
+  'git $SUB origin',
+  'git "$@"',
+  'gh pr $VERB',
+  'gh $A $B',
+  '"gi\\\nt" push',
+  'cat <<EOF\n$(git push)\nEOF',
+  'cat <<EOF\n`git push`\nEOF',
+  'cat <<-EOF\n\t${x:-$(git push)}\n\tEOF',
+  '/usr/bin/gi? push',
+  '"$HOME"/bin/git push',
+];
+
+test('a guarded command hidden in an expansion, or behind a word the text does not settle, is found', () => {
+  for (const command of HIDDEN_IN_AN_EXPANSION) {
+    assert.notEqual(guardedAction(command), null, JSON.stringify(command));
+  }
+});
+
+const EXPANSIONS_THAT_RUN_NOTHING_GUARDED = [
+  "cat <<'EOF'\n$(git push)\nEOF",
+  'cat <<"EOF"\n$(git push)\nEOF',
+  'cat <<\\EOF\n$(git push)\nEOF',
+  'cat <<EOF\ngit push is gated\nEOF',
+  "git commit -m \"$(cat <<'EOF'\nfix: push it\nEOF\n)\"",
+  'git -C "$DIR" status',
+  'git log $RANGE',
+  'gh pr view $NUMBER',
+  'echo ${x:-push}',
+  'echo $((1 + 2))',
+  "echo 'git push' \"$x\"",
+];
+
+test('an expansion that runs nothing guarded does not close the gate', () => {
+  for (const command of EXPANSIONS_THAT_RUN_NOTHING_GUARDED) {
+    assert.equal(guardedAction(command), null, JSON.stringify(command));
+  }
+});
+
+test('lex applies the escape rules of each kind of quote', () => {
+  assert.deepEqual(valuesOf('echo "a\\b" "c\\$d" "e\\\nf"'), [['echo', 'a\\b', 'c$d', 'ef']]);
+  assert.equal(lex("echo $'a\\x41'").lists[0][0].words[1].dynamic, true);
+  assert.equal(lex("echo $'plain'").lists[0][0].words[1].dynamic, false);
+});
+
 const UNTRUSTED_FOLDER_CHANGES = [
   '(cd /other); git push',
   '(cd /other && true); git push',

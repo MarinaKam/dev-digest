@@ -22,22 +22,17 @@ the review makes the verdict stale.
 
 ## Skills per bucket
 
-Load a skill only when its condition holds. A reviewer that loads every skill
-for every file reads a lot and finds nothing more.
+The diff decides which buckets exist. A bucket with no changed files gets no
+reviewer and loads no skill: a backend-only change never loads a frontend
+skill. A bucket that has files gets **every** skill listed for it.
 
-| Bucket | Skill | When |
-|---|---|---|
-| frontend | `frontend-architecture` | Always |
-| frontend | `react-best-practices` | A component or a hook changed |
-| frontend | `next-best-practices` | A route file, a layout, a directive (`'use client'`, `'use server'`) or the framework config changed |
-| frontend | `react-testing-library` | Test files only |
-| backend | `onion-architecture` | Always |
-| backend | `fastify-best-practices` | A route, a plugin, a hook or the server bootstrap changed |
-| backend | `drizzle-orm-patterns` | A changed file imports the ORM |
-| backend | `postgresql-table-design` | A table definition changed |
-| any source file | `security` | Always; it is the security reviewer's only skill |
-| any source file | `zod` | A changed file imports the validation library |
-| any source file | `typescript-expert` | The change adds generic, conditional or mapped types, or changes compiler options |
+| Bucket | Skills |
+|---|---|
+| frontend | `frontend-architecture`, `react-best-practices`, `next-best-practices` |
+| frontend, test files only | `react-testing-library` |
+| backend | `onion-architecture`, `fastify-best-practices`, `drizzle-orm-patterns`, `postgresql-table-design` |
+| every reviewed bucket | `zod`, `typescript-expert` |
+| all source files, by the security reviewer | `security` |
 
 Some skills are an index over many reference files. Read the index, then open
 only the reference file whose topic a changed line touches; say in the report

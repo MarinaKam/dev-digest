@@ -42,10 +42,13 @@ export function mentionsGuardedWords(text) {
   return GUARDED_WORDS.test(text ?? '');
 }
 
-/** The program a word names: the folder is dropped; `$` stands for "named by a variable". */
+/**
+ * The program a word names, without its folder. `$` stands for a word the text does not
+ * settle: one that holds an expansion, a pattern or an escape code.
+ */
 function programOf(word) {
   if (!word) return '';
-  if (word.dynamic && /[$`]/.test(word.value)) return '$';
+  if (word.dynamic) return '$';
   return word.value.slice(word.value.lastIndexOf('/') + 1);
 }
 
@@ -101,14 +104,16 @@ function gitAction(words, context) {
     if (option.startsWith('--config-env')) renamed = true;
     index += GIT_OPTIONS_WITH_VALUE.has(option) ? 2 : 1;
   }
-  const publishes = renamed || GIT_PUBLISHING_SUBCOMMANDS.has(words[index]?.value);
+  const subcommand = words[index];
+  const publishes = renamed || subcommand?.dynamic || GIT_PUBLISHING_SUBCOMMANDS.has(subcommand?.value);
   return publishes ? { action: 'git push', directory: target } : null;
 }
 
 function pullRequestAction(words, start, directory) {
-  const verb = words[start + 1]?.value;
-  const guarded = words[start]?.value === 'pr' && (verb === 'create' || verb === 'merge');
-  return guarded ? { action: `gh pr ${verb}`, directory } : null;
+  const [group, verb] = [words[start], words[start + 1]];
+  if (group?.dynamic || (group?.value === 'pr' && verb?.dynamic)) return { action: 'gh pr create', directory };
+  const guarded = group?.value === 'pr' && (verb?.value === 'create' || verb?.value === 'merge');
+  return guarded ? { action: `gh pr ${verb.value}`, directory } : null;
 }
 
 /** `gh` aimed at a named repository acts on it from any folder: judge it in the session's. */
@@ -121,7 +126,7 @@ function ghAction(words, context) {
   return pullRequestAction(words, index, named ? context.origin : context.directory);
 }
 
-/** A command named by a variable cannot be read; judge it by the words that follow. */
+/** A command named by an unsettled word cannot be read; judge it by the words that follow. */
 function variableAction(words, context) {
   const rest = words.slice(1);
   if (rest.some((word) => word.value === 'push')) return { action: 'git push', directory: context.directory };
@@ -147,7 +152,7 @@ function actionAt(words, position, context) {
   if (program === 'git') return gitAction(candidate, context);
   if (program === 'gh') return ghAction(candidate, context);
   if (SCRIPT_RUNNERS.has(program)) return scriptAction(candidate, context);
-  if (program === '$' && position === 0) return variableAction(candidate, context);
+  if (program === '$') return variableAction(candidate, context);
   return null;
 }
 

@@ -2,7 +2,7 @@
 name: pr-self-review
 description: "Use when changes are about to leave the machine: before git push, before opening or merging a pull request, when the user asks to self-review, pre-review or check the open changes or the branch before a PR, when asked 'can I open the PR' or 'is this ready to push', or when a push or pull-request command was blocked by the pr-self-review gate. Not for reviewing someone else's pull request, and not for writing the pull-request description."
 metadata:
-  version: "1.0.3"
+  version: "1.1.0"
 ---
 
 # PR Self-Review
@@ -58,8 +58,9 @@ needs them. Look in the root file and in the package's own. Record each as
 ## Step 3: review by bucket
 
 Start one reviewer per non-empty bucket, in parallel, plus one security
-reviewer for all source files. [routing.md](routing.md) says which skills each
-reviewer loads and gives the brief to hand it. Without subagents, do the same
+reviewer for all source files. A bucket with no changed files gets no reviewer.
+[routing.md](routing.md) lists the skills of each bucket, all of which the
+reviewer loads, and gives the brief to hand it. Without subagents, do the same
 passes yourself, one bucket at a time.
 
 Reviewers judge **changed lines only** and return findings in the fixed format.
