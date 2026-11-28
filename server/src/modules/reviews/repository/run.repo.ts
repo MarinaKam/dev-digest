@@ -126,12 +126,17 @@ export async function cancelRunIfRunning(
   return rows.length > 0;
 }
 
+/** Error of a run that the API cut off by restarting; the timeline shows it. */
+export const RESTARTED_RUN_ERROR =
+  'The API restarted while this run was in progress, so it stopped. Run the review again.';
+
 /** On boot: any run still 'running' is orphaned (its process died / restarted),
- *  so mark it failed. Prevents permanently stuck "running" runs in the UI. */
+ *  so mark it failed and say why. Prevents permanently stuck "running" runs in
+ *  the UI, and a failed run with nothing to read. */
 export async function reapStaleRunningRuns(db: DbExecutor): Promise<number> {
   const rows = await db
     .update(t.agentRuns)
-    .set({ status: 'failed' })
+    .set({ status: 'failed', error: RESTARTED_RUN_ERROR })
     .where(eq(t.agentRuns.status, 'running'))
     .returning({ id: t.agentRuns.id });
   return rows.length;
