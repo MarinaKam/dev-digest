@@ -66,6 +66,7 @@ d('review runs with skills', () => {
         repo_intel: false,
       },
     });
+    expect(res.statusCode).toBe(201);
     return (res.json() as { id: string }).id;
   }
 
@@ -75,6 +76,7 @@ d('review runs with skills', () => {
       url: '/skills',
       payload: { name, description: `Apply ${name}.`, type: 'rubric', body: `${name} body v1`, ...extra },
     });
+    expect(res.statusCode).toBe(200);
     return (res.json() as { id: string }).id;
   }
 
@@ -118,6 +120,7 @@ d('review runs with skills', () => {
     const prId = await newPr();
     const before = llm.calls.length;
     const res = await app.inject({ method: 'POST', url: `/pulls/${prId}/review`, payload: { agentId } });
+    expect(res.statusCode).toBe(200);
     const runId = (res.json() as { runs: { run_id: string }[] }).runs[0]?.run_id;
     await waitForPrRuns(pg.handle.db, prId, { expected: 1 });
     const call = llm.calls.slice(before).find((c) => c.method === 'completeStructured');
@@ -139,8 +142,10 @@ d('review runs with skills', () => {
       prompt_assembly: { skills_used?: { name: string; version: number }[] | null };
     };
 
-  const link = (agentId: string, skillIds: string[]) =>
-    app.inject({ method: 'POST', url: `/agents/${agentId}/skills`, payload: { skill_ids: skillIds } });
+  const link = async (agentId: string, skillIds: string[]) => {
+    const res = await app.inject({ method: 'POST', url: `/agents/${agentId}/skills`, payload: { skill_ids: skillIds } });
+    expect(res.statusCode).toBe(200);
+  };
 
   it('sends only enabled linked skills, in link order', async () => {
     const agent = await newAgent();
