@@ -54,18 +54,27 @@ export interface PromptSkill {
   body: string;
 }
 
-/** Make every opening or closing skill tag inert, so text cannot end or open a block. */
+/**
+ * Make every opening or closing `<skill>` and `<untrusted>` tag inert, so skill
+ * text can neither end its own block nor forge a data block of the request.
+ */
 function neutraliseSkillTags(text: string): string {
-  return text.replace(/<\s*(\/?)\s*skill\b/gi, (_match, slash: string) =>
-    slash ? '<\\/skill' : '<\\skill',
+  return text.replace(/<\s*(\/?)\s*(skill|untrusted)\b/gi, (_match, slash: string, tag: string) =>
+    slash ? `<\\/${tag}` : `<\\${tag}`,
   );
 }
 
-/** One skill as a delimited block. `name` is a slug and `version` an integer. */
+/** The `name` attribute is a slug; anything else a caller passes is folded into one. */
+function slugAttribute(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'skill';
+}
+
+/** One skill as a delimited block, with tags in its text neutralised. */
 export function renderSkillBlock(skill: PromptSkill): string {
   const description = neutraliseSkillTags(skill.description);
   const body = neutraliseSkillTags(skill.body);
-  return `<skill name="${skill.name}" version="${skill.version}">\n${description}\n\n${body}\n</skill>`;
+  const version = Math.max(0, Math.trunc(skill.version));
+  return `<skill name="${slugAttribute(skill.name)}" version="${version}">\n${description}\n\n${body}\n</skill>`;
 }
 
 export function wrapUntrusted(label: string, content: string): string {
