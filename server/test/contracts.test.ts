@@ -18,6 +18,10 @@ import {
   Settings,
   Repo,
   PrDetail,
+  SkillName,
+  SkillSource,
+  CreateSkill,
+  UpdateSkill,
 } from '@devdigest/shared';
 
 /**
@@ -283,5 +287,35 @@ describe('run cost contracts', () => {
     expect(() => RunSummary.parse({ ...summary, cost_usd: '0.014' })).toThrow();
     expect(() => RunStats.parse({ ...stats, cost_usd: '0.014' })).toThrow();
     expect(() => PrMeta.parse({ ...pr, cost_usd: '0.014' })).toThrow();
+  });
+});
+
+describe('skill contracts', () => {
+  const valid = { name: 'edge-case-coverage', description: 'Flag it.', type: 'rubric', body: 'B' };
+
+  it('SkillName accepts a slug and rejects anything else', () => {
+    expect(SkillName.safeParse('edge-case-coverage').success).toBe(true);
+    for (const bad of ['Edge', 'a--b', '-a', 'a-', 'a'.repeat(65), '']) {
+      expect(SkillName.safeParse(bad).success).toBe(false);
+    }
+    expect(SkillName.safeParse('a'.repeat(64)).success).toBe(true);
+  });
+
+  it('CreateSkill caps description at 1024 and body at 20,000 characters', () => {
+    expect(CreateSkill.safeParse({ ...valid, description: 'd'.repeat(1024) }).success).toBe(true);
+    expect(CreateSkill.safeParse({ ...valid, description: 'd'.repeat(1025) }).success).toBe(false);
+    expect(CreateSkill.safeParse({ ...valid, body: 'b'.repeat(20_000) }).success).toBe(true);
+    expect(CreateSkill.safeParse({ ...valid, body: 'b'.repeat(20_001) }).success).toBe(false);
+    expect(CreateSkill.safeParse({ ...valid, description: '' }).success).toBe(false);
+  });
+
+  it('SkillSource has imported_file and keeps extracted', () => {
+    expect(SkillSource.parse('imported_file')).toBe('imported_file');
+    expect(SkillSource.parse('extracted')).toBe('extracted');
+  });
+
+  it('UpdateSkill takes any subset and never a source', () => {
+    expect(UpdateSkill.parse({ enabled: false })).toEqual({ enabled: false });
+    expect(UpdateSkill.safeParse({ source: 'manual' }).success).toBe(false);
   });
 });
