@@ -10,7 +10,7 @@ Spec: `server/specs/003-review-agent-skills.md`.
 
 ## Video 1 — Skills page: one rule, written once, versioned
 
-**Status:** ⏳ not recorded
+**Status:** ✅ recorded 2026-11-27 · [01-skills-page.mp4](../../demo/feat-review-agent-skills/01-skills-page.mp4) · 19 s
 
 **Preconditions:** seeded skills exist (`edge-case-coverage` at v1, linked to Test Quality Reviewer).
 **Changes data:** `edge-case-coverage` gets a new body line and becomes v2.
@@ -34,7 +34,7 @@ Spec: `server/specs/003-review-agent-skills.md`.
 
 ## Video 2 — Import: preview first, nothing runs
 
-**Status:** ⏳ not recorded
+**Status:** ✅ recorded 2026-11-27 · [02-import.mp4](../../demo/feat-review-agent-skills/02-import.mp4) · 16 s
 
 **Preconditions:** `docs/demos/skills/test-naming-clarity.zip` exists (the user runs
 `cd docs/demos/skills && zip -r test-naming-clarity.zip test-naming-clarity`); no skill named
@@ -77,7 +77,7 @@ switches `flaky-test-patterns` off and back on.
 
 ## Video 4 — Control experiment: Test Quality Reviewer
 
-**Status:** ⏳ not recorded
+**Status:** ✅ recorded 2026-11-27 · [04-skills-in-runs.mp4](../../demo/feat-review-agent-skills/04-skills-in-runs.mp4) · 52 s
 
 **Preconditions:** a pull request in `MarinaKam/dev-digest` built from
 `docs/demos/skills-experiment/test-quality-happy-path.md` (a helper with a throw and a clamp
