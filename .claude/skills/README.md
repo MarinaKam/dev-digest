@@ -18,6 +18,7 @@ Reusable AI skills that provide specialized knowledge and workflows. Canonical l
 | [typescript-expert](typescript-expert/SKILL.md) | Full-stack | Type-level programming, performance, tooling, migrations |
 | [security](security/SKILL.md) | Full-stack | OWASP Top 10:2025, auth, injection, uploads, secrets |
 | [mermaid-diagram](mermaid-diagram/SKILL.md) | Shared | Mermaid diagrams in markdown (flowcharts, sequence, ERD, …) |
+| [pr-self-review](pr-self-review/SKILL.md) | Shared | Reviews the open changes before a push or a pull request: runs the checks, routes changed files to the frontend and backend skills, and blocks on one critical finding. Enforced by a `PreToolUse` hook in `.claude/settings.json`; folder map in `.claude/pr-self-review.config.json` ([README](pr-self-review/README.md)) |
 | [engineering-insights](engineering-insights/SKILL.md) | Shared | Appends non-obvious lessons to the module's `INSIGHTS.md` during a session |
 | [demo-video](demo-video/SKILL.md) | Shared | Records a demo video of the web app from a scenario in `docs/demos/` (needs `agent-browser` and `ffmpeg`) |
 
