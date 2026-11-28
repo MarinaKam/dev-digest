@@ -41,7 +41,9 @@ interface EntryInfo {
 export function readSkillArchive(bytes: Uint8Array, options: ArchiveReadOptions = {}): SkillArchive {
   const entries = listEntries(bytes);
   const files = entries.filter((e) => !e.name.endsWith('/'));
-  const core = pickCore(files);
+  // Finder-made zips add __MACOSX/ and ._* resource forks; they are listed as
+  // skipped but never considered for the core or for the folder layout.
+  const core = pickCore(files.filter((f) => !isOsMetadata(f.name)));
   const inflated = inflateEntry(bytes, core, options);
   const skipped = files
     .filter((f) => f.index !== core.index)
@@ -143,7 +145,13 @@ function assertSafePath(name: string): void {
 }
 
 function isMarkdown(name: string): boolean {
-  return name.toLowerCase().endsWith('.md');
+  return name.toLowerCase().endsWith('.md') && !isOsMetadata(name);
+}
+
+/** macOS archive metadata: the `__MACOSX/` tree, AppleDouble `._*` and `.DS_Store`. */
+function isOsMetadata(name: string): boolean {
+  const base = name.split('/').pop() ?? name;
+  return name.startsWith('__MACOSX/') || base.startsWith('._') || base === '.DS_Store';
 }
 
 /** `SKILL.md` at the root or in the one top-level folder; else the only `.md`. */

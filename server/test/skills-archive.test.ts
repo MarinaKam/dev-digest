@@ -42,6 +42,22 @@ describe('readSkillArchive', () => {
     expect(status(() => readSkillArchive(zip({ 'a/b/SKILL.md': 'x', 'a/c.md': 'y', 'd.md': 'z' })))).toBe(422);
   });
 
+  it('reads a Finder-made zip: __MACOSX and AppleDouble files do not hide the core', () => {
+    const r = readSkillArchive(
+      zip({
+        'my-skill/SKILL.md': 'core',
+        'my-skill/.DS_Store': 'x',
+        '__MACOSX/my-skill/._SKILL.md': 'resource fork',
+        'my-skill/._notes.md': 'resource fork',
+      }),
+    );
+    expect(r.corePath).toBe('my-skill/SKILL.md');
+    expect(r.core).toBe('core');
+    expect(r.skipped.map((s) => s.path).sort()).toEqual(
+      ['__MACOSX/my-skill/._SKILL.md', 'my-skill/.DS_Store', 'my-skill/._notes.md'].sort(),
+    );
+  });
+
   it('uses the only markdown file when there is no SKILL.md', () => {
     const r = readSkillArchive(zip({ 'rule.md': 'only', 'x.sh': 'y' }));
     expect(r.corePath).toBe('rule.md');
