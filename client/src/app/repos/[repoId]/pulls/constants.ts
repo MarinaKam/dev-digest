@@ -1,4 +1,4 @@
-import type { PrMeta } from "@devdigest/shared";
+import type { PrMeta, Severity } from "@devdigest/shared";
 
 /** Constants for the PR list page (/repos/:repoId/pulls). */
 
@@ -49,6 +49,20 @@ export const COLUMN_KEYS: string[] = [
   "cost",
   "updated",
 ];
+
+/** Severity levels that get a counter, most severe first. */
+export const SEVERITY_LEVELS = ["CRITICAL", "WARNING", "SUGGESTION"] as const satisfies readonly Severity[];
+
+/** Sort weight per severity (lower = shown first). */
+export const SEVERITY_ORDER: Record<string, number> = {
+  CRITICAL: 0,
+  WARNING: 1,
+  SUGGESTION: 2,
+  INFO: 3,
+};
+
+/** Confidence below this is hidden when "hide low confidence" is on. */
+export const LOW_CONFIDENCE_THRESHOLD = 0.65;
 
 /** Number of skeleton rows shown while loading. */
 export const SKELETON_ROWS = 4;

@@ -7,8 +7,8 @@
 import { useTranslations } from "next-intl";
 import { Icon, SEV } from "@devdigest/ui";
 import type { Severity } from "@devdigest/shared";
-import { SEVERITY_LEVELS } from "../FindingsPanel/constants";
-import type { SeverityCounts } from "../FindingsPanel/helpers";
+import { SEVERITY_LEVELS } from "../../../constants";
+import type { SeverityCounts } from "../../../helpers";
 import { activePillStyle, s } from "./styles";
 
 export interface SeverityCountersProps {

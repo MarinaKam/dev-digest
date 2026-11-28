@@ -10,7 +10,7 @@ import { FindingCard } from "../FindingCard";
 import { SeverityCounters } from "../SeverityCounters";
 import { useFindingAction } from "@/lib/hooks/reviews";
 import { KEY_TO_ACTION } from "./constants";
-import { countBySeverity, visibleFindings } from "./helpers";
+import { countBySeverity, visibleFindings } from "../../../helpers";
 import { s } from "./styles";
 
 export function FindingsPanel({

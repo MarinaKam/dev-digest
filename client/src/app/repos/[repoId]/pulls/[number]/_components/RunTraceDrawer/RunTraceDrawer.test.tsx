@@ -28,7 +28,7 @@ vi.mock("@/lib/hooks/reviews", () => ({
   useRunEvents: () => ({ events: [], running: false }),
 }));
 
-import RunTraceDrawer from "./RunTraceDrawer";
+import { RunTraceDrawer } from "./RunTraceDrawer";
 
 afterEach(() => {
   cleanup();

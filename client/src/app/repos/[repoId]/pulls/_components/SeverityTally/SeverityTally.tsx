@@ -6,8 +6,8 @@ import type React from "react";
 import { useTranslations } from "next-intl";
 import { Icon, SEV } from "@devdigest/ui";
 import type { Severity } from "@devdigest/shared";
+import { SEVERITY_LEVELS } from "../../constants";
 
-const LEVELS = ["CRITICAL", "WARNING", "SUGGESTION"] as const satisfies readonly Severity[];
 
 const rowStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 12 };
 
@@ -33,7 +33,7 @@ export interface SeverityTallyProps {
 
 export function SeverityTally({ counts }: SeverityTallyProps) {
   const t = useTranslations("prReview");
-  const shown = LEVELS.filter((level) => counts[level] > 0);
+  const shown = SEVERITY_LEVELS.filter((level) => counts[level] > 0);
   if (shown.length === 0) return null;
   return (
     <span style={rowStyle}>

@@ -41,6 +41,9 @@ export const s = {
   timelineSection: {
     marginBottom: 18,
   } satisfies CSSProperties,
+  spinnerIcon: { color: "var(--accent)", animation: "ddspin 1s linear infinite" } satisfies CSSProperties,
+  shieldIcon: { color: "var(--crit)" } satisfies CSSProperties,
+  sectionNote: { fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
   cancelActions: {
     display: "flex",
     gap: 8,

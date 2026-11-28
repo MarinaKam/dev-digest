@@ -1,1 +1,2 @@
-export { ReviewRunAccordion, default } from "./ReviewRunAccordion";
+export { ReviewRunAccordion } from "./ReviewRunAccordion";
+export type { ScrollTarget } from "./ReviewRunAccordion";
