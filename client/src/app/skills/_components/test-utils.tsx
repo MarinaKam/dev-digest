@@ -15,6 +15,7 @@ export const SKILL: Skill = {
   body: "# Rule\nCheck the branches.",
   enabled: true,
   version: 1,
+  injection_flags: [],
   used_by: [
     { id: "ag1", name: "Test Quality" },
     { id: "ag2", name: "General" },

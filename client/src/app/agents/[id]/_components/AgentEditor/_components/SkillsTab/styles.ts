@@ -26,7 +26,6 @@ export const s = {
     cursor: draggable ? "grab" : "default",
     visibility: draggable ? "visible" : "hidden",
   }),
-  checkbox: { cursor: "pointer", accentColor: "var(--accent)" } satisfies CSSProperties,
   name: { fontSize: 13, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" } satisfies CSSProperties,
   off: { fontSize: 11, color: "var(--warn)" } satisfies CSSProperties,
   skeletons: { display: "flex", flexDirection: "column", gap: 6 } satisfies CSSProperties,

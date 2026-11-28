@@ -8,9 +8,11 @@ const push = vi.hoisted(() => vi.fn());
 const replace = vi.hoisted(() => vi.fn());
 const refetch = vi.hoisted(() => vi.fn());
 const useRepos = vi.hoisted(() => vi.fn());
+const active = vi.hoisted(() => ({ activeRepo: null as { id: string; full_name: string } | null, ready: true }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace }) }));
 vi.mock("@/lib/hooks/repos", () => ({ useRepos }));
+vi.mock("@/lib/repo-context", () => ({ useActiveRepo: () => active }));
 vi.mock("@/components/app-shell", () => ({
   AppShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
@@ -22,6 +24,8 @@ beforeEach(() => {
   replace.mockClear();
   refetch.mockClear();
   useRepos.mockReset();
+  active.activeRepo = null;
+  active.ready = true;
 });
 afterEach(cleanup);
 
@@ -62,15 +66,20 @@ describe("HomeView", () => {
     expect(push).toHaveBeenCalledWith("/onboarding");
   });
 
-  it("sends the user to the first repository's pull requests", () => {
-    useRepos.mockReturnValue({
-      data: [{ id: "repo-1", full_name: "acme/api" }],
-      isLoading: false,
-      error: null,
-      refetch,
-    });
+  it("sends the user to the active repository's pull requests", () => {
+    useRepos.mockReturnValue({ data: [{ id: "repo-1" }, { id: "repo-2" }], isLoading: false, error: null, refetch });
+    active.activeRepo = { id: "repo-2", full_name: "acme/web" };
     renderView();
 
-    expect(replace).toHaveBeenCalledWith("/repos/repo-1/pulls");
+    expect(replace).toHaveBeenCalledWith("/repos/repo-2/pulls");
+  });
+
+  it("does not redirect before the stored repo choice was read", () => {
+    useRepos.mockReturnValue({ data: [{ id: "repo-1" }], isLoading: false, error: null, refetch });
+    active.activeRepo = { id: "repo-1", full_name: "acme/api" };
+    active.ready = false;
+    renderView();
+
+    expect(replace).not.toHaveBeenCalled();
   });
 });

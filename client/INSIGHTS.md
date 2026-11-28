@@ -16,6 +16,7 @@ only if it is not obvious from reading the code.
 
 ## What Works
 <!-- Approaches and solutions that proved effective here. -->
+- **2026-11-28** — A mutation that shows its own error inline opts out of the global error toast with `meta: { toastErrors: false }`; `MutationCache.onError` checks it. Evidence: `client/src/lib/providers.tsx:49`.
 
 ## What Doesn't Work
 <!-- Failed approaches, dead ends and antipatterns, each with the reason it failed. -->
@@ -24,6 +25,8 @@ only if it is not obvious from reading the code.
 - **2026-11-27** — An effect that reports "finished" through a callback prop must clear its own "was running" ref before it calls the callback. `RunStatus` did not, and its `onDone` prop was a new function on every parent render, so each re-render after the stream closed called `onDone` again (three calls in the test where one was expected). Evidence: `client/src/app/repos/[repoId]/pulls/[number]/_components/RunStatus/RunStatus.tsx:31`.
 - **2026-11-27** — A `// biome-ignore lint/correctness/useExhaustiveDependencies` placed on the dependency-array line does nothing: Biome reports the rule on the line of the hook call, so the comment goes directly above `React.useEffect(`. An `eslint-disable` comment does nothing at all here; ESLint is not installed. Evidence: `client/src/lib/hooks/reviews.ts:229`.
 - **2026-11-27** — Do not import a value (a Zod schema, a constant) from `@devdigest/shared` in the web app; only `import type`. The first value import (the skills page's `SkillName`, `SKILL_BODY_MAX`) made Next's webpack bundle `src/vendor/shared/index.ts`, whose `./contracts/x.js` specifiers it cannot resolve, and every page answered 500 "Module not found" — while `pnpm typecheck` and `pnpm test` stayed green. Mirror the value in the route's `constants.ts`; `src/lib/shared-imports.test.ts` fails on a new value import. Evidence: `client/src/app/skills/_components/constants.ts:44`.
+- **2026-11-28** — `useFormatter().relativeTime(date)` without a `now` logs next-intl `ENVIRONMENT_FALLBACK` on every render; pass `useNow({ updateInterval })`. Clamp the date to `now` too: the Postgres container's clock ran about a minute ahead and the page said "last scan in 55 seconds". Evidence: `client/src/app/conventions/_components/ConventionsView/ConventionsView.tsx:79`.
+- **2026-11-28** — A `title` on a disabled `<button>` shows no tooltip (a disabled element gets no hover events); put the `title` on a wrapping `<span>`. Evidence: `client/src/app/conventions/_components/ConventionsView/ConventionsView.tsx:103`.
 
 ## Codebase Patterns
 <!-- Conventions and architecture decisions specific to this module. -->
@@ -48,6 +51,7 @@ only if it is not obvious from reading the code.
 - **2026-11-27** — Query keys are built only by the key factory in the domain's hook file (`reviewKeys`, `pullKeys`, `agentKeys`). The PR page used to repeat `["pr-runs", prId]` as a literal in four places; a renamed key would have broken its invalidation without a type error. Cache upkeep that follows the in-flight runs is `useLiveRuns`, called once by the view. Evidence: `client/src/lib/hooks/reviews.ts:21`.
 - **2026-11-27** — A tab or view calls the data hooks it needs itself instead of taking the data as props. `FindingsTab` went from thirteen props (with a `UseMutationResult<any, …>` among them) to seven; two components calling `usePrReviews(prId)` share one cache entry and one request. Evidence: `client/src/app/repos/[repoId]/pulls/[number]/_components/FindingsTab/FindingsTab.tsx:43`.
 - **2026-11-27** — A form that edits a server record keeps one state object and is reset by `key={record.id}` on the form component, not by an effect that copies props into state. The key resets on another record and keeps unsaved edits when the same record is refetched; both cases are tested. Evidence: `client/src/app/agents/[id]/_components/AgentEditor/AgentEditor.tsx:29`.
+- **2026-11-28** — A page without a repo id in its URL (`/conventions`) works on `useActiveRepo()`; the repo switcher stays on such a page (`followsActiveRepo`), and the repo opened last by URL becomes the active one. Anything that redirects on the active repo waits for `ready` (repos loaded and `localStorage` read), or the first repo wins the race. Evidence: `client/src/lib/repo-context.tsx:73`.
 
 ## Tool & Library Notes
 <!-- Quirks and gotchas of dependencies and tooling. -->
@@ -58,6 +62,7 @@ only if it is not obvious from reading the code.
 - **2026-11-27** — jsdom's `File` has no `arrayBuffer()`; a helper that reads an upload with it works in the browser and throws in Vitest. Read bytes with `FileReader.readAsArrayBuffer`, which both have. Evidence: `client/src/lib/hooks/skills.ts:43`.
 - **2026-11-27** — The CSS reset strips heading sizes and list markers, so the UI kit's `Markdown` renders headings and lists as plain text. Skill bodies use the route-local `MarkdownBody` (react-markdown with explicit heading, list and code styles, `skipHtml`). Evidence: `client/src/app/skills/_components/MarkdownBody/MarkdownBody.tsx:1`.
 - **2026-11-27** — next-intl has no global `timeZone` here, and `useFormatter().dateTime` logs an error for every date formatted without one. The versions tab passes the browser's zone; a global `timeZone` in `src/i18n/request.ts` would fix it for every screen. Evidence: `client/src/app/skills/_components/SkillVersions/helpers.ts:60`.
+- **2026-11-28** — After a route folder is deleted, `pnpm typecheck` keeps failing on `.next/types/app/<old route>/page.ts` until the dev server regenerates its types (restart `pnpm dev`); the error is in generated files, not in `src/`.
 
 ## Recurring Errors & Fixes
 <!-- Errors seen more than once, with the fix. -->

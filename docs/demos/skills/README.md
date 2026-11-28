@@ -5,6 +5,10 @@ Skill folders used to demonstrate importing a skill into DevDigest.
 ## Contents
 
 - `test-naming-clarity/`: a rubric skill (`SKILL.md`) plus `scripts/check.sh`.
+- `api-contract/`: the four skills of the API Contract Reviewer (L02 homework,
+  spec `server/specs/004-conventions-extractor.md`) and the agent's setup in
+  `agent-prompt.md`. Each skill is one `.md` file with `name` and
+  `description` in its front matter, so the file itself can be imported.
 
 ## Packaging for import
 

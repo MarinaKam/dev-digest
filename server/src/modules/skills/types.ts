@@ -41,6 +41,8 @@ export interface InsertSkill {
   source: SkillSource;
   body: string;
   enabled: boolean;
+  /** Files the skill's rules were found in (extracted skills only). */
+  evidenceFiles?: string[] | null;
 }
 
 export interface SkillPatch {
@@ -49,4 +51,15 @@ export interface SkillPatch {
   type?: SkillType;
   body?: string;
   enabled?: boolean;
+}
+
+/** A skill made from accepted conventions; saved as `convention` / `extracted`. */
+export interface ExtractedSkillInput {
+  name: string;
+  description: string;
+  body: string;
+  enabled: boolean;
+  evidenceFiles: string[];
+  /** Note of version 1, e.g. "Extracted from acme/api". */
+  note: string;
 }

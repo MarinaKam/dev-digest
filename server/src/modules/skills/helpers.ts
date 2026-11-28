@@ -1,4 +1,5 @@
 import type { Skill, SkillVersion } from '@devdigest/shared';
+import { findInjectionFlags } from './injection.js';
 import type { SkillPatch, SkillRecord, SkillUserRecord, SkillVersionRecord } from './types.js';
 
 /** Map a stored skill and the agents linking it to the public `Skill` DTO. */
@@ -13,6 +14,7 @@ export function toSkillDto(row: SkillRecord, usedBy: SkillUserRecord[] = []): Sk
     enabled: row.enabled,
     version: row.version,
     evidence_files: row.evidenceFiles,
+    injection_flags: findInjectionFlags(row.body),
     used_by: usedBy.map((u) => ({ id: u.id, name: u.name })),
     created_at: row.createdAt.toISOString(),
   };

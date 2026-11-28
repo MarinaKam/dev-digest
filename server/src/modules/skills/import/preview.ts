@@ -5,6 +5,10 @@ import { ValidationError } from '../../../platform/errors.js';
 import { IMPORTED_SKILL_TYPE } from '../constants.js';
 import { readSkillArchive, type SkippedFile } from './archive.js';
 import { parseFrontMatter } from './front-matter.js';
+import { findInjectionFlags } from '../injection.js';
+
+/** Where an imported draft came from; it becomes the saved skill's `source`. */
+export type ImportSource = SkillImportPreview['draft']['source'];
 
 export function buildImportPreview(filename: string, bytes: Uint8Array): SkillImportPreview {
   const lower = filename.toLowerCase();
@@ -21,7 +25,23 @@ export function buildImportPreview(filename: string, bytes: Uint8Array): SkillIm
   } else {
     throw new ValidationError('Import a .md file or a .zip archive');
   }
+  return previewFromText(text, { corePath, filename, skipped, source: 'imported_file' });
+}
 
+/** A draft from markdown text that was downloaded, not uploaded (URL import). */
+export function buildTextPreview(filename: string, text: string): SkillImportPreview {
+  return previewFromText(text, { corePath: filename, filename, skipped: [], source: 'imported_url' });
+}
+
+interface TextOrigin {
+  corePath: string;
+  filename: string;
+  skipped: SkippedFile[];
+  source: ImportSource;
+}
+
+function previewFromText(text: string, origin: TextOrigin): SkillImportPreview {
+  const { corePath, filename, skipped, source } = origin;
   const fm = parseFrontMatter(text);
   const body = fm.body.trim();
   const warnings =
@@ -36,13 +56,14 @@ export function buildImportPreview(filename: string, bytes: Uint8Array): SkillIm
       description: fm.fields.description?.trim() ?? '',
       type: IMPORTED_SKILL_TYPE,
       body,
-      source: 'imported_file',
+      source,
     },
     core_path: corePath,
     skipped_files: skipped,
     ignored_keys: fm.ignoredKeys,
     unreadable_keys: fm.unreadable,
     warnings,
+    injection_flags: findInjectionFlags(body),
   };
 }
 

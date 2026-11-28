@@ -15,12 +15,60 @@
       "body": "Scan the repo to surface house-rules — naming, error handling, structure — each backed by evidence you can turn into a Skill.",
       "cta": "Run extraction"
     },
-    "candidateCount": "{count, plural, one {# candidate} other {# candidates}} · grounded against sampled files"
+    "candidateCount": "{count, plural, one {# candidate} other {# candidates}} · grounded against sampled files",
+    "lastScan": "Detected from {files, plural, one {# sample file} other {# sample files}} · last scan {when} · {model}",
+    "scanResult": "The model proposed {proposed}; {kept} had evidence in the code, {added} new.",
+    "nothingFound": "The last scan found no convention with evidence in the code. Run it again or pick another model in Settings → Feature Models.",
+    "acceptedCount": "{accepted} of {total} accepted",
+    "acceptAll": "Accept all",
+    "deselectAll": "Deselect all",
+    "createSkill": "Create skill",
+    "noRepo": {
+      "title": "No repository selected",
+      "body": "Add a repository in the sidebar; the extractor scans the active one."
+    },
+    "runningTitle": "Extraction running",
+    "runningStarted": "started {when}",
+    "runningFiles": "{files, plural, one {# file} other {# files}}",
+    "runningHint": "An extraction is running for this repository. The page updates when it finishes."
   },
   "card": {
     "confidence": "Confidence",
     "accepted": "Accepted",
     "accepting": "Accepting…",
-    "acceptAsSkill": "Accept as Skill"
+    "acceptAsSkill": "Accept as Skill",
+    "accept": "Accept",
+    "reject": "Reject",
+    "github": "GitHub",
+    "openOnGithub": "Open {path} on GitHub",
+    "copySnippet": "Copy the snippet",
+    "copied": "Snippet copied",
+    "editRule": "Edit the rule",
+    "ruleLabel": "Rule",
+    "save": "Save",
+    "cancel": "Cancel",
+    "rejected": "Rejected",
+    "undo": "Click to undo the decision"
+  },
+  "modal": {
+    "title": "Create skill from conventions",
+    "merged": "Merged from {count, plural, one {# accepted convention} other {# accepted conventions}} in {repo}. Everything below is editable before you save.",
+    "include": "Conventions in this skill",
+    "includeHint": "Unchecked conventions stay accepted; save them as another skill.",
+    "name": "Name",
+    "nameRule": "Use lowercase letters, digits and single dashes (at most 64).",
+    "description": "Description",
+    "descriptionHint": "One line: what the skill checks.",
+    "type": "Type",
+    "enabled": "Enabled",
+    "enabledHint": "Whether this block is added to agents' prompts.",
+    "body": "Skill body",
+    "bodyHint": "The only text sent to the model. Merged from the accepted rules + evidence — edit freely.",
+    "savedAs": "Saved as {version} · added to Skills Lab",
+    "cancel": "Cancel",
+    "submit": "Create skill",
+    "creating": "Creating…",
+    "created": "Skill {name} created.",
+    "openSkill": "Open skill"
   }
 }

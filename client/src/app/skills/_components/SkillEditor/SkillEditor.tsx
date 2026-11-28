@@ -39,6 +39,21 @@ export function SkillEditor({ skillId, tab, onTab, onDeleted }: SkillEditorProps
 
   return (
     <div style={s.main}>
+      {skill.injection_flags.length > 0 && (
+        <div role="alert" style={s.injection}>
+          <Icon.AlertTriangle size={14} style={s.injectionIcon} />
+          <div>
+            <strong style={s.injectionTitle}>{t("editor.injectionTitle")}</strong> {t("editor.injectionBody")}
+            <ul style={s.injectionList}>
+              {skill.injection_flags.map((flag) => (
+                <li key={flag} className="mono">
+                  {flag}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
       <div style={s.header}>
         <div style={s.iconBox(typeColor(skill.type))}>
           <Icon.Sparkles size={15} />

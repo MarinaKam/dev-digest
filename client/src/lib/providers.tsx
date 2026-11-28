@@ -42,8 +42,13 @@ export function Providers({ children }: ProvidersProps) {
             if (status === 0 || status >= 500) notify.error(errorMessage(err));
           },
         }),
+        // A mutation that shows its own error inline opts out with
+        // `meta: { toastErrors: false }`.
         mutationCache: new MutationCache({
-          onError: (err) => notify.error(errorMessage(err)),
+          onError: (err, _vars, _ctx, mutation) => {
+            if (mutation.meta?.toastErrors === false) return;
+            notify.error(errorMessage(err));
+          },
         }),
       })
   );

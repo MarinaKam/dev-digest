@@ -1,5 +1,10 @@
 // Pure helpers of the demo-video skill: no I/O, so they are unit-tested (lib.test.mjs).
 
+/** agent-browser's wait timeout when a flow sets none; also a step's when it sets none. */
+export const DEFAULT_TIMEOUT_MS = 15_000;
+
+/** Commands that must run exactly once: never repeated after a failure. */
+const RUN_ONCE = ['open', 'record', 'back', 'forward', 'reload', 'close'];
 const MAX_CAPTION = 90;
 const HEADING = /^## (Video (\d+)\b.*)$/;
 const STATUS = /^\*\*Status:\*\*\s*/;
@@ -70,6 +75,32 @@ export function holdAfter(step, pace) {
   if (step.hold !== undefined) return step.hold;
   if (step.caption !== undefined) return pace.caption;
   return step.cmd?.[0] === 'wait' ? 0 : pace.afterAction;
+}
+
+/**
+ * How long a step may take: its own `timeout`, else the flow's. In a dry run a
+ * step after a skipped data change can only be reported as not verified (it may
+ * wait for a model run that never started), so it is capped at the flow's
+ * timeout and reported as fast as before. Steps before any skipped change keep
+ * their own timeout, as in a recording.
+ */
+export function stepTimeout(step, flowTimeout, afterSkippedChange) {
+  const own = step.timeout ?? flowTimeout;
+  return afterSkippedChange ? Math.min(own, flowTimeout) : own;
+}
+
+/**
+ * Whether a failed attempt of `cmd` is tried again until the step's deadline.
+ * Commands that run exactly once never are. A `wait` gives up at agent-browser's
+ * default timeout, which is the flow's `timeout`; it is repeated only when the
+ * step allows more than that (a model run), so a normal wait fails as fast as
+ * before.
+ */
+export function retriesUntilDeadline(cmd, stepTimeout, flowTimeout) {
+  const name = cmd[0];
+  if (RUN_ONCE.includes(name)) return false;
+  if (name === 'wait') return stepTimeout > flowTimeout;
+  return true;
 }
 
 /**

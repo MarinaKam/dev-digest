@@ -17,7 +17,17 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { holdAfter, hoverArgs, probeArgs, resolveArgs, sheetLayout, validateFlow } from './lib.mjs';
+import {
+  DEFAULT_TIMEOUT_MS,
+  holdAfter,
+  hoverArgs,
+  probeArgs,
+  resolveArgs,
+  retriesUntilDeadline,
+  sheetLayout,
+  stepTimeout,
+  validateFlow,
+} from './lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BIN = process.env.AGENT_BROWSER_BIN ?? 'agent-browser';
@@ -27,7 +37,6 @@ const DEFAULT_VIEWPORT = [1440, 900];
 // 2 would record twice the pixels, but agent-browser 0.45.0 halves the mouse coordinates
 // while it records at an emulated scale, so every click misses. Keep 1 until that is fixed.
 const DEFAULT_SCALE = 1;
-const DEFAULT_TIMEOUT_MS = 15_000;
 const APP_CHECK_TIMEOUT_MS = 10_000;
 const DEFAULT_PACE = { afterAction: 500, beforeClick: 300, caption: 1800 };
 const DRY_RUN_PAUSE_MS = 100;
@@ -36,8 +45,6 @@ const SHEET_EVERY_SECONDS = 3;
 const SHEET_FRAME_WIDTH = 720;
 const SHEET_COLUMNS = 3;
 const SIZE_WARNING_MB = 10;
-/** Commands that already wait on their own, or must run exactly once. */
-const NO_RETRY = ['open', 'wait', 'record', 'back', 'forward', 'reload', 'close'];
 const FLAGS = ['--dry-run', '--headed', '--keep-open'];
 
 const args = process.argv.slice(2);
@@ -91,25 +98,30 @@ async function requireApp(baseUrl) {
   }
 }
 
+/** The flow's timeout: agent-browser's own wait timeout and every step's default. */
+const flowTimeoutOf = (flow) => flow.timeout ?? DEFAULT_TIMEOUT_MS;
+
 function createBrowser(flow) {
   const env = {
     ...process.env,
     AGENT_BROWSER_SESSION: SESSION,
     AGENT_BROWSER_INIT_SCRIPTS: join(HERE, 'overlay.js'),
     // Let agent-browser's own waits give up first, so a failed step reports its reason.
-    AGENT_BROWSER_DEFAULT_TIMEOUT: String(flow.timeout ?? DEFAULT_TIMEOUT_MS),
+    AGENT_BROWSER_DEFAULT_TIMEOUT: String(flowTimeoutOf(flow)),
     ...(flow.colorScheme ? { AGENT_BROWSER_COLOR_SCHEME: flow.colorScheme } : {}),
     ...(args.includes('--headed') ? { AGENT_BROWSER_HEADED: '1' } : {}),
   };
   const ab = (commandArgs, timeout) => run(BIN, commandArgs, { env, timeout });
   /** `find` and the direct actions do not wait for their target, so retry until the timeout. */
+  const flowTimeout = flowTimeoutOf(flow);
   const abRetry = async (commandArgs, timeout) => {
     const deadline = Date.now() + timeout;
+    const retry = retriesUntilDeadline(commandArgs, timeout, flowTimeout);
     for (;;) {
       try {
         return ab(commandArgs, timeout + 5000);
       } catch (error) {
-        if (NO_RETRY.includes(commandArgs[0]) || Date.now() > deadline) throw error;
+        if (!retry || Date.now() > deadline) throw error;
         await sleep(RETRY_EVERY_MS);
       }
     }
@@ -158,9 +170,9 @@ function createRecorder(browser, output) {
   };
 }
 
-async function playStep(step, context) {
-  const { browser, flow, baseUrl, pace } = context;
-  const timeout = step.timeout ?? flow.timeout ?? DEFAULT_TIMEOUT_MS;
+async function playStep(step, context, afterSkippedChange) {
+  const { browser, baseUrl, pace, flowTimeout } = context;
+  const timeout = stepTimeout(step, flowTimeout, DRY && afterSkippedChange);
   if (step.caption !== undefined) {
     browser.script(`window.__demoVideo && window.__demoVideo.caption(${JSON.stringify(step.caption)})`);
     await pause(holdAfter(step, pace));
@@ -196,7 +208,7 @@ async function playSteps(context, recorder) {
     const label = `${String(index + 1).padStart(2)}/${steps.length} ${describe(step)}`;
     try {
       if (step.offCamera) recorder.stop();
-      const outcome = await playStep(step, context);
+      const outcome = await playStep(step, context, report.firstSkipped > 0);
       if (step.offCamera) recorder.start();
       if (outcome === 'played') {
         if (step.changesData) report.changed.push(describe(step));
@@ -252,7 +264,7 @@ async function main() {
 
   const browser = createBrowser(flow);
   const recorder = createRecorder(browser, output);
-  const context = { browser, flow, baseUrl, pace: { ...DEFAULT_PACE, ...flow.pace } };
+  const context = { browser, flow, baseUrl, pace: { ...DEFAULT_PACE, ...flow.pace }, flowTimeout: flowTimeoutOf(flow) };
   const [width, height] = flow.viewport ?? DEFAULT_VIEWPORT;
 
   try {
@@ -267,7 +279,7 @@ async function main() {
   try {
     browser.ab(['set', 'viewport', String(width), String(height), String(flow.scale ?? DEFAULT_SCALE)]);
     browser.ab(['open', `${baseUrl}${flow.start ?? '/'}`]);
-    const timeout = flow.timeout ?? DEFAULT_TIMEOUT_MS;
+    const timeout = context.flowTimeout;
     if (flow.startWait) await browser.abRetry(resolveArgs(flow.startWait, baseUrl), timeout);
     // Setup commands shape the first frame (a filter, a scroll) and are never filmed.
     for (const command of flow.setup ?? []) await browser.abRetry(resolveArgs(command, baseUrl), timeout);

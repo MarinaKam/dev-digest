@@ -14,8 +14,8 @@
  * invalidated and re-rendered. Option B: rank = PageRank, hotness=0.
  */
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import { extname, join } from 'node:path';
+import { readCloneFile } from '../../../platform/clone-files.js';
+import { extname } from 'node:path';
 import type { RepoRef } from '@devdigest/shared';
 import type { Container } from '../../../platform/container.js';
 import { withTimeout } from '../../../platform/resilience.js';
@@ -149,7 +149,7 @@ export async function runIncremental(
     }
     let source: string;
     try {
-      source = await readFile(join(repo.clonePath, relPath), 'utf8');
+      source = await readCloneFile(repo.clonePath, relPath);
     } catch (err) {
       // File was deleted between the diff and the read — count as skipped
       // (its old rows still get cleared below).

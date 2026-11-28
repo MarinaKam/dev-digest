@@ -5,7 +5,7 @@
  * readable originals are in `docs/agent-prompts/`.
  */
 
-/** Output rules shared by both seeded agents; they decide nothing about the domain. */
+/** Output rules of the seeded skill-driven agent; they decide nothing about the domain. */
 const OUTPUT_RULES = `# Severity — use exactly these three levels
 - **CRITICAL** — will break callers or ship an untested defect on a main path. The only level that blocks merge.
 - **WARNING** — a real gap on a less common path.
@@ -25,13 +25,6 @@ export const TEST_QUALITY_REVIEWER_PROMPT = `# Role
 You review the tests that come with a pull request: whether the changed code is
 actually tested, not whether the code itself is correct. Follow the linked skills
 for what to look for.
-
-${OUTPUT_RULES}`;
-
-export const API_CONTRACT_REVIEWER_PROMPT = `# Role
-You review a pull request for changes to the contract a service offers its
-clients: routes, request and response shapes, status codes. Follow the linked
-skills for what counts as a breaking change.
 
 ${OUTPUT_RULES}`;
 
@@ -148,61 +141,5 @@ Say which dependency should run for real and what to assert instead.`,
 
 Give the deterministic replacement (fake timers, fixed clock, seeded random,
 explicit ordering).`,
-  },
-];
-
-export const API_CONTRACT_SKILLS: SeedSkill[] = [
-  {
-    name: 'route-signature-breaking-change',
-    type: 'convention',
-    description:
-      'Flag any change to a route that breaks an existing client: a removed or renamed route, a changed method or path parameter, a new required request field, a renamed or retyped request field.',
-    body: `# Route signature: breaking changes
-
-Compare each changed route with its previous version in the diff.
-
-## Breaking — CRITICAL
-- Route removed, or its path or HTTP method changed.
-- Path or query parameter renamed, removed or retyped.
-- Request body field renamed, removed, or its type narrowed.
-- A new **required** request field or header.
-- Validation tightened so a request that was accepted is now rejected.
-- Auth added to a route that existing clients call without it.
-
-## Not breaking
-- A new optional field with a default.
-- A new route.
-- Validation loosened.
-
-For each breaking change name the old and new signature and give the
-compatible alternative: keep the old field as an alias, make the new field
-optional with a default, or add a versioned route.`,
-  },
-  {
-    name: 'response-shape-compat',
-    type: 'convention',
-    description:
-      'Flag response changes existing clients cannot read: a removed or renamed field, a changed type or nullability, a changed status code or error shape, a list turned into an object.',
-    body: `# Response shape compatibility
-
-Compare the response a changed route returns with what it returned before:
-the schema, the serializer, the DTO mapper, the status codes.
-
-## Breaking — CRITICAL
-- A response field removed or renamed.
-- A field's type changed (number → string, object → array, enum values removed).
-- A field that was always present becomes optional or nullable.
-- Success status code changed (200 → 201/204) or the error body changed shape.
-- A shared contract type changed on the server side without the client copy.
-
-## Warning
-- A new enum value clients may not handle.
-- Pagination or sort order changed without notice.
-
-## Not breaking
-- A new optional field.
-
-Name the client code that would break when you can see it in the diff, and give
-the compatible alternative (keep the old field, add the new one beside it).`,
   },
 ];

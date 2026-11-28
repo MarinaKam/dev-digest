@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { FormField, SelectInput, TextInput } from "@devdigest/ui";
-import { BodyEditor } from "../BodyEditor";
+import { BodyEditor } from "@/components/skill-body-editor";
 import { SKILL_BODY_MAX, SKILL_DESCRIPTION_MAX, SKILL_TYPES } from "../constants";
 import { isSkillType, validateSkillForm, type SkillFormValues } from "../helpers";
 import { s } from "./styles";

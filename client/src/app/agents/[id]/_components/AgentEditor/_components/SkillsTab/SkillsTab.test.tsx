@@ -52,6 +52,7 @@ function skill(id: string, enabled = true): Skill {
     body: "b",
     enabled,
     version: 1,
+    injection_flags: [],
     used_by: [],
   };
 }
@@ -107,13 +108,13 @@ describe("SkillsTab", () => {
 
   it("checking an unlinked skill appends it to the full ordered list", () => {
     renderTab();
-    fireEvent.click(screen.getByRole("checkbox", { name: /skill-d/ }));
+    fireEvent.click(screen.getByRole("switch", { name: /skill-d/ }));
     expect(hooks.mutate).toHaveBeenCalledWith({ agentId: "ag1", skillIds: ["a", "b", "c", "d"] });
   });
 
   it("unchecking a linked skill removes it", () => {
     renderTab();
-    fireEvent.click(screen.getByRole("checkbox", { name: /skill-a/ }));
+    fireEvent.click(screen.getByRole("switch", { name: /skill-a/ }));
     expect(hooks.mutate).toHaveBeenCalledWith({ agentId: "ag1", skillIds: ["b", "c"] });
   });
 
@@ -165,7 +166,7 @@ describe("SkillsTab", () => {
     fireEvent.change(screen.getByPlaceholderText("Filter skills…"), { target: { value: "skill-d" } });
     expect(hooks.setParam).toHaveBeenCalledWith("skillsQ", "skill-d");
     expect(screen.queryByTestId("skill-row-skill-a")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("checkbox", { name: /skill-d/ }));
+    fireEvent.click(screen.getByRole("switch", { name: /skill-d/ }));
     expect(hooks.mutate).toHaveBeenCalledWith({ agentId: "ag1", skillIds: ["a", "b", "c", "d"] });
   });
 
@@ -188,7 +189,7 @@ describe("SkillsTab", () => {
     renderTab();
     fireEvent.keyDown(screen.getByTestId("skill-row-skill-a"), { key: "ArrowDown", altKey: true });
     expect(hooks.mutate).toHaveBeenLastCalledWith({ agentId: "ag1", skillIds: ["b", "a", "c"] });
-    fireEvent.click(screen.getByRole("checkbox", { name: /skill-d/ }));
+    fireEvent.click(screen.getByRole("switch", { name: /skill-d/ }));
     expect(hooks.mutate).toHaveBeenLastCalledWith({ agentId: "ag1", skillIds: ["a", "b", "c", "d"] });
   });
 

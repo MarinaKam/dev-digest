@@ -2,8 +2,6 @@ import { describe, it, expect } from "vitest";
 import { SKILL } from "./test-utils";
 import {
   changedFields,
-  countLines,
-  estimateTokens,
   filterSkills,
   isSkillType,
   toFormValues,
@@ -16,21 +14,6 @@ describe("isSkillType", () => {
     expect(isSkillType("")).toBe(false);
     expect(isSkillType("Rubric")).toBe(false);
     expect(isSkillType("other")).toBe(false);
-  });
-});
-
-describe("estimateTokens", () => {
-  it("is the character count over four, rounded up", () => {
-    expect(estimateTokens("")).toBe(0);
-    expect(estimateTokens("abcd")).toBe(1);
-    expect(estimateTokens("abcde")).toBe(2);
-  });
-});
-
-describe("countLines", () => {
-  it("counts an empty text as one line", () => {
-    expect(countLines("")).toBe(1);
-    expect(countLines("a\nb\nc")).toBe(3);
   });
 });
 

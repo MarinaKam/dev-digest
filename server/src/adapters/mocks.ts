@@ -39,6 +39,8 @@ import type {
   ParsedSymbol,
   SourceParser,
 } from '../modules/repo-intel/ports.js';
+import type { FetchedText, TextFetcher, TextFetchLimits } from '../modules/skills/ports.js';
+import { ExternalServiceError, PayloadTooLargeError } from '../platform/errors.js';
 import { parseUnifiedDiff } from './git/diff-parser.js';
 
 /**
@@ -53,9 +55,10 @@ export interface MockLLMOptions {
   /** Fixture returned by completeStructured (validated against the schema). */
   structured?: unknown;
   /**
-   * Per-schemaName fixtures for multi-call flows (e.g. the conventions 2-step
-   * dialogue: 'ConventionFileSelection' then 'ConventionExtraction'). Looked up
-   * by req.schemaName; falls back to `structured` when no entry matches.
+   * Per-schemaName fixtures, for tests where one app makes structured calls of
+   * several kinds (e.g. a review and the conventions extractor's
+   * 'ConventionExtraction'). Looked up by req.schemaName; falls back to
+   * `structured` when no entry matches.
    */
   structuredBySchema?: Record<string, unknown>;
   completionText?: string;
@@ -393,5 +396,21 @@ export class MockSourceParser implements SourceParser {
 
   extractCrons(_source: string): string[] {
     return this.opts.crons ?? [];
+  }
+}
+
+// ---------- Mock text fetcher (skill import from a URL) ----------
+/** Serves fixed texts by URL; an unknown URL fails like a 404. Records every call. */
+export class MockTextFetcher implements TextFetcher {
+  public calls: string[] = [];
+  constructor(private texts: Record<string, string> = {}) {}
+  async fetchText(url: string, limits: TextFetchLimits): Promise<FetchedText> {
+    this.calls.push(url);
+    const text = this.texts[url];
+    if (text === undefined) throw new ExternalServiceError(`The server answered 404 for ${url}`);
+    if (Buffer.byteLength(text) > limits.maxBytes) {
+      throw new PayloadTooLargeError(`The file is larger than ${limits.maxBytes} bytes`);
+    }
+    return { text, finalUrl: url, contentType: 'text/plain' };
   }
 }

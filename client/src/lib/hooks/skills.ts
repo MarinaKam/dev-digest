@@ -122,6 +122,13 @@ export function useImportPreview() {
   });
 }
 
+/** Download a public https Markdown file into a draft. Saves nothing. */
+export function useImportUrlPreview() {
+  return useMutation({
+    mutationFn: (url: string) => api.post<SkillImportPreview>("/skills/import/url/preview", { url }),
+  });
+}
+
 /** The agent's linked skills, in order. */
 export function useAgentSkillLinks(agentId: string | null | undefined) {
   return useQuery({

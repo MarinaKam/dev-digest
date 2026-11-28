@@ -1,5 +1,6 @@
-/* HomeView — / . Sends the user to the first repo's PR list, or offers to add
-   a repository when there is none. */
+/* HomeView — / . Sends the user to the active repo's PR list (the one last
+   opened or picked, else the first), or offers to add a repository when there
+   is none. */
 "use client";
 
 import React from "react";
@@ -10,20 +11,23 @@ import { AppShell } from "@/components/app-shell";
 import { PageContainer } from "@/components/page-shell";
 import { ApiError } from "@/lib/api";
 import { useRepos } from "@/lib/hooks/repos";
+import { useActiveRepo } from "@/lib/repo-context";
 import { s } from "./styles";
 
 export function HomeView() {
   const t = useTranslations("home");
   const router = useRouter();
-  const { data: repos, isLoading, error, refetch } = useRepos();
-  const firstRepo = repos?.[0];
-  const firstRepoHref = firstRepo ? `/repos/${firstRepo.id}/pulls` : null;
+  const { isLoading, error, refetch } = useRepos();
+  const { activeRepo, ready } = useActiveRepo();
+  // Wait until the stored choice was read, or the first repo would win the race.
+  const target = ready ? activeRepo : null;
+  const targetHref = target ? `/repos/${target.id}/pulls` : null;
 
   // Navigation is the side effect here: the start page has no content of its
   // own once a repository exists.
   React.useEffect(() => {
-    if (firstRepoHref) router.replace(firstRepoHref);
-  }, [firstRepoHref, router]);
+    if (targetHref) router.replace(targetHref);
+  }, [targetHref, router]);
 
   return (
     <AppShell crumb={[{ label: t("breadcrumb") }]}>
@@ -31,9 +35,9 @@ export function HomeView() {
         <HomeBody
           loading={isLoading}
           error={error}
-          repoName={firstRepo?.full_name}
+          repoName={target?.full_name}
           onRetry={() => refetch()}
-          onOpenRepo={() => firstRepoHref && router.push(firstRepoHref)}
+          onOpenRepo={() => targetHref && router.push(targetHref)}
           onAddRepo={() => router.push("/onboarding")}
         />
       </PageContainer>

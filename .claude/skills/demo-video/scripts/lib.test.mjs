@@ -7,10 +7,12 @@ import {
   listStatuses,
   probeArgs,
   resolveArgs,
+  retriesUntilDeadline,
   scenarioSlug,
   setStatus,
   sheetLayout,
   statusLine,
+  stepTimeout,
   validateFlow,
 } from './lib.mjs';
 
@@ -172,4 +174,41 @@ test('hoverArgs points at the target of a click, and at nothing else', () => {
   assert.equal(hoverArgs(['find', 'label', 'Name', 'fill', 'x']), null);
   assert.equal(hoverArgs(['find', 'text', 'Row', 'hover']), null);
   assert.equal(hoverArgs(['wait', '--text', 'click']), null);
+});
+
+test('retriesUntilDeadline repeats a wait only when the step allows more than the flow', () => {
+  // A model run: the step waits up to 4 minutes, one agent-browser wait gives up at 20 s.
+  assert.equal(retriesUntilDeadline(['wait', '--fn', 'x'], 240_000, 20_000), true);
+  // A normal wait fails as fast as before.
+  assert.equal(retriesUntilDeadline(['wait', '--text', 'x'], 20_000, 20_000), false);
+  assert.equal(retriesUntilDeadline(['wait', '#save'], 15_000, 20_000), false);
+  // find does not wait on its own: always retried.
+  assert.equal(retriesUntilDeadline(['find', 'text', 'Save', 'click'], 20_000, 20_000), true);
+  // Commands that run exactly once are never repeated.
+  for (const name of ['open', 'record', 'back', 'forward', 'reload', 'close']) {
+    assert.equal(retriesUntilDeadline([name, 'x'], 240_000, 20_000), false);
+  }
+});
+
+test('stepTimeout: the step\'s own timeout, capped only after a skipped data change', () => {
+  // A recording, and a dry run before any skipped change: the step's own timeout.
+  assert.equal(stepTimeout({ timeout: 240_000 }, 20_000, false), 240_000);
+  assert.equal(stepTimeout({}, 20_000, false), 20_000);
+  // After a skipped change the step can only be "not verified": fail as fast as before.
+  assert.equal(stepTimeout({ timeout: 240_000 }, 20_000, true), 20_000);
+  assert.equal(stepTimeout({ timeout: 5_000 }, 20_000, true), 5_000);
+  assert.equal(stepTimeout({}, 20_000, true), 20_000);
+  // With the cap a wait after a skipped change is never retried past one attempt.
+  assert.equal(retriesUntilDeadline(['wait', '--fn', 'x'], stepTimeout({ timeout: 240_000 }, 20_000, true), 20_000), false);
+});
+
+test('retriesUntilDeadline: direct actions, dry-run probes and setup waits', () => {
+  for (const name of ['click', 'fill', 'hover']) {
+    assert.equal(retriesUntilDeadline([name, '#save'], 20_000, 20_000), true);
+  }
+  // A dry-run probe of a click is `wait <selector>`: retried only with a longer step timeout.
+  assert.equal(retriesUntilDeadline(['wait', '#save'], 20_000, 20_000), false);
+  assert.equal(retriesUntilDeadline(['wait', '#save'], 60_000, 20_000), true);
+  // startWait and setup run with exactly the flow's timeout: one attempt, as before.
+  assert.equal(retriesUntilDeadline(['wait', '--text', 'Ready'], 20_000, 20_000), false);
 });

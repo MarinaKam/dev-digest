@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { CreateSkill, SkillImportRequest, UpdateSkill } from '@devdigest/shared';
+import { CreateSkill, SkillImportRequest, SkillImportUrlRequest, UpdateSkill } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { IMPORT_BODY_LIMIT } from './constants.js';
@@ -15,6 +15,7 @@ import { SkillsService } from './service.js';
  *   DELETE /skills/:id              → delete (unlinks it from every agent)
  *   GET    /skills/:id/versions     → body snapshots, newest first
  *   POST   /skills/import/preview   → parse an upload into a draft; writes nothing
+ *   POST   /skills/import/url/preview → download a public https file into a draft; writes nothing
  */
 export default async function skillsRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
@@ -60,4 +61,9 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
       return service.previewImport(req.body);
     },
   );
+
+  app.post('/skills/import/url/preview', { schema: { body: SkillImportUrlRequest } }, async (req) => {
+    await getContext(app.container, req);
+    return service.previewImportFromUrl(req.body);
+  });
 }

@@ -3,7 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Icon } from "@devdigest/ui";
-import { countLines, estimateTokens } from "../helpers";
+import { countLines, estimateTokens } from "./helpers";
 import { s } from "./styles";
 
 interface BodyEditorProps {
@@ -17,7 +17,10 @@ interface BodyEditorProps {
   invalid?: boolean;
 }
 
-/** Monospace Markdown editor with a line-number gutter and a token estimate. */
+/**
+ * Monospace Markdown editor for a skill body, with a line-number gutter and a
+ * token estimate. Used by the Skills page and the Conventions page.
+ */
 export function BodyEditor({ name, value, onChange, unsaved, invalid }: BodyEditorProps) {
   const t = useTranslations("skills");
   const gutterRef = React.useRef<HTMLDivElement>(null);

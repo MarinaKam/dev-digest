@@ -1,4 +1,15 @@
-import { pgTable, uuid, text, jsonb, timestamp, doublePrecision, boolean, vector, index } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  text,
+  jsonb,
+  timestamp,
+  doublePrecision,
+  boolean,
+  integer,
+  vector,
+  index,
+} from 'drizzle-orm/pg-core';
 import { now } from './_shared';
 import { workspaces } from './core';
 import { repos } from './repos';
@@ -28,15 +39,55 @@ export const memory = pgTable(
   (t) => ({ wsIdx: index('memory_ws_idx').on(t.workspaceId) }),
 );
 
-export const conventions = pgTable('conventions', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  workspaceId: uuid('workspace_id')
-    .notNull()
-    .references(() => workspaces.id, { onDelete: 'cascade' }),
-  repoId: uuid('repo_id').references(() => repos.id, { onDelete: 'cascade' }),
-  rule: text('rule').notNull(),
-  evidencePath: text('evidence_path'),
-  evidenceSnippet: text('evidence_snippet'),
-  confidence: doublePrecision('confidence'),
-  accepted: boolean('accepted').notNull().default(false),
-});
+export const conventions = pgTable(
+  'conventions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    repoId: uuid('repo_id').references(() => repos.id, { onDelete: 'cascade' }),
+    rule: text('rule').notNull(),
+    // The model's wording, kept when the user edits `rule`: a re-scan matches
+    // new rules against both, so an edited accepted rule is not proposed again.
+    extractedRule: text('extracted_rule'),
+    evidencePath: text('evidence_path'),
+    evidenceSnippet: text('evidence_snippet'),
+    evidenceLineStart: integer('evidence_line_start'),
+    evidenceLineEnd: integer('evidence_line_end'),
+    // Commit of the clone the evidence was read at: the GitHub link pins to it.
+    evidenceSha: text('evidence_sha'),
+    confidence: doublePrecision('confidence'),
+    // `status` is the state; `accepted` is written with it (status = 'accepted').
+    status: text('status', { enum: ['pending', 'accepted', 'rejected'] })
+      .notNull()
+      .default('pending'),
+    accepted: boolean('accepted').notNull().default(false),
+    createdAt: now(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ wsRepoIdx: index('conventions_ws_repo_idx').on(t.workspaceId, t.repoId) }),
+);
+
+/** One extraction run of a repo: what it read, what it kept, what it cost (spec 004). */
+export const conventionScans = pgTable(
+  'convention_scans',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    repoId: uuid('repo_id')
+      .notNull()
+      .references(() => repos.id, { onDelete: 'cascade' }),
+    sampling: text('sampling', { enum: ['top', 'spread'] }).notNull(),
+    filesSampled: integer('files_sampled').notNull(),
+    proposed: integer('proposed').notNull(),
+    kept: integer('kept').notNull(),
+    added: integer('added').notNull(),
+    model: text('model').notNull(),
+    costUsd: doublePrecision('cost_usd'),
+    createdAt: now(),
+  },
+  (t) => ({ wsRepoIdx: index('convention_scans_ws_repo_idx').on(t.workspaceId, t.repoId, t.createdAt) }),
+);

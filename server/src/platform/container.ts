@@ -6,6 +6,8 @@ import type {
   CodeIndex,
   Embedder,
   LLMProvider,
+  FeatureModelChoice,
+  FeatureModelId,
 } from '@devdigest/shared';
 import type { AppConfig } from './config.js';
 import type { Db } from '../db/client.js';
@@ -28,6 +30,8 @@ import { AgentsRepository } from '../modules/agents/repository.js';
 import { ReviewRepository } from '../modules/reviews/repository.js';
 import { PullsRepository } from '../modules/pulls/repository.js';
 import { RepoRepository } from '../modules/repos/repository.js';
+import { SkillsService } from '../modules/skills/service.js';
+import { getFeatureModelOverride } from '../modules/settings/feature-models.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import type { DepGraph, SourceParser, Tokenizer } from '../modules/repo-intel/ports.js';
@@ -35,6 +39,8 @@ import { SUPPORTED_EXT } from '../modules/repo-intel/constants.js';
 import { DepCruiseGraph } from '../adapters/depgraph/index.js';
 import { TiktokenTokenizer } from '../adapters/tokenizer/index.js';
 import { AstGrepSourceParser } from '../adapters/astgrep/source-parser.js';
+import { SafeTextFetcher } from '../adapters/http/safe-text-fetcher.js';
+import type { TextFetcher } from '../modules/skills/ports.js';
 
 /**
  * DI container. One per app instance. Holds config, db, the JobRunner,
@@ -58,6 +64,8 @@ export interface ContainerOverrides {
   depgraph?: DepGraph;
   tokenizer?: Tokenizer;
   sourceParser?: SourceParser;
+  /** Downloads for the skill import from a URL — tests inject a stub. */
+  textFetcher?: TextFetcher;
 }
 
 /** The repositories one unit of work may write through (see `Container.unitOfWork`). */
@@ -88,6 +96,8 @@ export class Container {
   private _reviewRepo?: ReviewRepository;
   private _pullsRepo?: PullsRepository;
   private _reposRepo?: RepoRepository;
+  private _skills?: SkillsService;
+  private _textFetcher?: TextFetcher;
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
@@ -125,6 +135,23 @@ export class Container {
   get reposRepo(): RepoRepository {
     this._reposRepo ??= new RepoRepository(this.db);
     return this._reposRepo;
+  }
+
+  /** Skills use cases for other modules (the conventions extractor saves its skill here). */
+  get skills(): SkillsService {
+    this._skills ??= new SkillsService(this);
+    return this._skills;
+  }
+
+  /** Public-https text downloads with the SSRF guard (skill import from a URL). */
+  get textFetcher(): TextFetcher {
+    this._textFetcher ??= this.overrides.textFetcher ?? new SafeTextFetcher();
+    return this._textFetcher;
+  }
+
+  /** The workspace's model choice for a system feature, or `undefined` when unset. */
+  featureModelOverride(workspaceId: string, id: FeatureModelId): Promise<FeatureModelChoice | undefined> {
+    return getFeatureModelOverride(this, workspaceId, id);
   }
 
   /**

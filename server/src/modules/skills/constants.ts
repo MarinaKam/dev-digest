@@ -26,3 +26,7 @@ export const INITIAL_SKILL_VERSION = 1;
 
 /** Note of version 1 when the creator gave none. */
 export const CREATED_VERSION_NOTE = 'Created';
+
+/** Download limits of the import from a URL (spec 004). */
+export const URL_IMPORT_TIMEOUT_MS = 10_000;
+export const URL_IMPORT_MAX_REDIRECTS = 3;
