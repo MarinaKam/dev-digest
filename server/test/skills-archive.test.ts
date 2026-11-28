@@ -65,6 +65,19 @@ describe('readSkillArchive', () => {
     expect(status(() => readSkillArchive(zip({ 'SKILL.md': 'x'.repeat(MAX_CORE_BYTES + 1) })))).toBe(413);
   });
 
+  it('is 422 when two entries share a name', () => {
+    // A small SKILL.md first, then a second entry renamed to the same name.
+    const dup = zipSync({ 'SKILL.md': strToU8('small'), 'SKILL.mx': strToU8('x'.repeat(10)) });
+    renameEntry(dup, 'SKILL.mx', 'SKILL.md');
+    expect(status(() => readSkillArchive(dup))).toBe(422);
+  });
+
+  it('is 413 when the core is bigger than its header claims', () => {
+    const lying = zipSync({ 'SKILL.md': strToU8('x'.repeat(MAX_CORE_BYTES * 3)) });
+    setDeclaredSize(lying, 'SKILL.md', 10);
+    expect(status(() => readSkillArchive(lying))).toBe(413);
+  });
+
   it('is 422 for bytes that are not a zip', () => {
     expect(status(() => readSkillArchive(strToU8('not a zip')))).toBe(422);
   });
@@ -117,6 +130,40 @@ describe('buildImportPreview', () => {
     expect(status(() => buildImportPreview('x.exe', md('x')))).toBe(422);
   });
 });
+
+/** Offsets of the local (`PK\x03\x04`) and central (`PK\x01\x02`) headers of an entry. */
+function headersOf(bytes: Uint8Array, name: string): { local: number[]; central: number[] } {
+  const target = strToU8(name);
+  const local: number[] = [];
+  const central: number[] = [];
+  const nameAt = (start: number, len: number) => {
+    const e = bytes.subarray(start, start + len);
+    return e.length === target.length && e.every((b, k) => b === target[k]);
+  };
+  const u16 = (at: number) => (bytes[at] ?? 0) | ((bytes[at + 1] ?? 0) << 8);
+  for (let i = 0; i < bytes.length - 46; i++) {
+    if (bytes[i] !== 0x50 || bytes[i + 1] !== 0x4b) continue;
+    if (bytes[i + 2] === 0x03 && bytes[i + 3] === 0x04 && nameAt(i + 30, u16(i + 26))) local.push(i);
+    if (bytes[i + 2] === 0x01 && bytes[i + 3] === 0x02 && nameAt(i + 46, u16(i + 28))) central.push(i);
+  }
+  return { local, central };
+}
+
+/** Rename an entry in place (same length), in both headers. */
+function renameEntry(bytes: Uint8Array, from: string, to: string): void {
+  const { local, central } = headersOf(bytes, from);
+  const next = strToU8(to);
+  for (const at of local) bytes.set(next, at + 30);
+  for (const at of central) bytes.set(next, at + 46);
+}
+
+/** Make both headers claim `size` uncompressed bytes. */
+function setDeclaredSize(bytes: Uint8Array, name: string, size: number): void {
+  const { local, central } = headersOf(bytes, name);
+  const le = [size & 0xff, (size >> 8) & 0xff, (size >> 16) & 0xff, (size >>> 24) & 0xff];
+  for (const at of local) bytes.set(le, at + 22);
+  for (const at of central) bytes.set(le, at + 24);
+}
 
 /** Overwrite the stored data of one entry with garbage, keeping the zip readable. */
 function corruptEntryData(bytes: Uint8Array, name: string): Uint8Array {

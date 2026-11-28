@@ -1,9 +1,11 @@
 /**
  * Reads the core of a skill archive in memory. Nothing is written to disk and
- * nothing is run: every entry is listed by name first, and only the chosen
- * markdown core is ever decompressed.
+ * nothing is run: one pass lists every entry by name, and a second pass
+ * decompresses only the chosen markdown core, counting the bytes it actually
+ * produces, so a header that lies about its size cannot get past the limit.
+ * Both passes read the same local headers, in the same order.
  */
-import { strFromU8, unzipSync } from 'fflate';
+import { strFromU8, Unzip, UnzipInflate, type UnzipFile } from 'fflate';
 import { PayloadTooLargeError, ValidationError } from '../../../platform/errors.js';
 import { MAX_CORE_BYTES, MAX_ZIP_ENTRIES, SKILL_CORE_FILE } from '../constants.js';
 
@@ -19,57 +21,95 @@ export interface SkillArchive {
 }
 
 interface EntryInfo {
+  index: number;
   name: string;
-  originalSize: number;
 }
 
 /** Pick and decompress the skill core of a `.zip`; throw 422 / 413 on a bad archive. */
 export function readSkillArchive(bytes: Uint8Array): SkillArchive {
   const entries = listEntries(bytes);
-  if (entries.length > MAX_ZIP_ENTRIES) {
-    throw new ValidationError(`The archive has more than ${MAX_ZIP_ENTRIES} entries`);
-  }
-  for (const e of entries) assertSafePath(e.name);
   const files = entries.filter((e) => !e.name.endsWith('/'));
   const core = pickCore(files);
-  if (core.originalSize > MAX_CORE_BYTES) {
-    throw new PayloadTooLargeError(`${core.name} is larger than ${MAX_CORE_BYTES} bytes`);
-  }
-  const inflated = unzipOnly(bytes, core.name);
-  if (inflated.length > MAX_CORE_BYTES) {
-    throw new PayloadTooLargeError(`${core.name} is larger than ${MAX_CORE_BYTES} bytes`);
-  }
+  const inflated = inflateEntry(bytes, core);
   const skipped = files
-    .filter((f) => f.name !== core.name)
+    .filter((f) => f.index !== core.index)
     .map((f): SkippedFile => ({ path: f.name, reason: isMarkdown(f.name) ? 'extra_markdown' : 'not_markdown' }));
   return { corePath: core.name, core: strFromU8(inflated), skipped };
 }
 
-/** Every entry's name and declared size, without decompressing any of them. */
-function listEntries(bytes: Uint8Array): EntryInfo[] {
-  const entries: EntryInfo[] = [];
+/** Run one streaming pass; `onEntry` sees each entry in order and may start it. */
+function streamEntries(bytes: Uint8Array, onEntry: (file: UnzipFile, index: number) => void): void {
+  let index = 0;
+  const unzip = new Unzip((file) => {
+    onEntry(file, index);
+    index++;
+  });
+  unzip.register(UnzipInflate);
   try {
-    unzipSync(bytes, {
-      filter: (file) => {
-        entries.push({ name: file.name, originalSize: file.originalSize });
-        return false;
-      },
-    });
+    unzip.push(bytes, true);
   } catch (err) {
+    if (err instanceof ValidationError || err instanceof PayloadTooLargeError) throw err;
     throw new ValidationError('The file is not a readable zip archive', { cause: (err as Error).message });
   }
+}
+
+/** Every entry's name, without decompressing any; stops at the entry limit. */
+function listEntries(bytes: Uint8Array): EntryInfo[] {
+  const entries: EntryInfo[] = [];
+  const seen = new Set<string>();
+  streamEntries(bytes, (file, index) => {
+    if (index >= MAX_ZIP_ENTRIES) {
+      throw new ValidationError(`The archive has more than ${MAX_ZIP_ENTRIES} entries`);
+    }
+    assertSafePath(file.name);
+    if (seen.has(file.name)) throw new ValidationError(`The archive lists ${file.name} twice`);
+    seen.add(file.name);
+    entries.push({ index, name: file.name });
+  });
+  if (entries.length === 0) throw new ValidationError('The file is not a readable zip archive');
   return entries;
 }
 
-function unzipOnly(bytes: Uint8Array, name: string): Uint8Array {
-  try {
-    const out = unzipSync(bytes, { filter: (file) => file.name === name });
-    const data = out[name];
-    if (!data) throw new Error('entry missing after decompression');
-    return data;
-  } catch (err) {
-    throw new ValidationError(`Could not decompress ${name}`, { cause: (err as Error).message });
+/** Decompress only the entry at `target.index`, aborting past `MAX_CORE_BYTES`. */
+function inflateEntry(bytes: Uint8Array, target: EntryInfo): Uint8Array {
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  let done = false;
+  let failure: Error | undefined;
+  streamEntries(bytes, (file, index) => {
+    if (index !== target.index) return;
+    if (file.name !== target.name) throw new ValidationError('The archive changed between reads');
+    if ((file.originalSize ?? 0) > MAX_CORE_BYTES) throw tooLarge(target.name);
+    file.ondata = (err, chunk, final) => {
+      if (failure) return;
+      if (err) {
+        failure = new ValidationError(`Could not decompress ${target.name}`, { cause: err.message });
+        return;
+      }
+      total += chunk.length;
+      if (total > MAX_CORE_BYTES) {
+        failure = tooLarge(target.name);
+        file.terminate();
+        return;
+      }
+      chunks.push(chunk);
+      if (final) done = true;
+    };
+    file.start();
+  });
+  if (failure) throw failure;
+  if (!done) throw new ValidationError(`Could not decompress ${target.name}`);
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const c of chunks) {
+    out.set(c, at);
+    at += c.length;
   }
+  return out;
+}
+
+function tooLarge(name: string): PayloadTooLargeError {
+  return new PayloadTooLargeError(`${name} is larger than ${MAX_CORE_BYTES} bytes`);
 }
 
 function assertSafePath(name: string): void {
