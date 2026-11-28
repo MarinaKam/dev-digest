@@ -175,21 +175,35 @@ empty change pass without a review.
 
 The command is recognised wherever it stands in the line: after `cd x &&`,
 after assignments, behind `env`, `sudo`, `timeout` or any other prefix, inside
-`( )`, `$( )`, backticks, `sh -c "..."` and `eval`, with a path in front of the
-program, and with quotes around its words. The body of a here-document is
-data, not a command.
+`( )`, `$( )`, backticks, `sh -c "..."`, `eval` and `trap`, with a path in
+front of the program, and with quotes around its words. A git command that
+could rename a subcommand on the spot (`-c alias.x=...`, `GIT_CONFIG_*`) and
+`git send-pack` count as a push. A comment and the body of a here-document are
+data, not commands; a `<<WORD` inside quotes or a comment is not a
+here-document.
 
 Once such a command is recognised, every doubt closes the gate:
 
-- the folder it would run in cannot be worked out (a variable in `cd` or in
-  `-C`, `--git-dir`, `--work-tree`);
+- the folder it would run in is not settled by the text. A folder change is
+  believed only as `cd <literal path> &&` at the top level, with nothing but
+  `&&` between it and the command. A `cd` inside `( )` or `{ }`, behind `;`,
+  `||`, `|` or `&`, under `if` or a loop, with a variable, `~`, `-` or an
+  escaped character in the path, a `popd`, a relative `cd` while `CDPATH` is
+  set, `GIT_DIR` or `GIT_WORK_TREE`, `--git-dir` or `--work-tree`, and a
+  prefix program told to change folder (`env -C`) all leave it unsettled;
 - that folder is not a git repository;
 - the change, the config or the verdict cannot be read;
 - the tool call itself cannot be parsed and its text mentions a push or a
   pull-request command.
 
 A command that targets a different repository than the project is let through:
-the gate guards this project. A worktree of the project is the project.
+the gate guards this project. A worktree of the project is the project. `gh`
+with `--repo`, `-R` or `GH_REPO` acts on the named repository from any folder,
+so it is always judged as the project.
+
+In practice: run the command from the repository, or as `cd <path> && <command>`
+with a literal path. The gate's message says so when it refuses for this
+reason.
 
 `node scripts/gate.mjs check` prints the same decision for the current folder
 without running anything.

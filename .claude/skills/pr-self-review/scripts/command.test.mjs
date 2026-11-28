@@ -91,9 +91,119 @@ test('guardedAction lets everyday commands that mention a guarded word through',
   }
 });
 
-test('findGuarded keeps tracking the folder through shell keywords', () => {
-  assert.equal(findGuarded('if true; then cd api; fi; git push', '/repo').directory, '/repo/api');
+const UNTRUSTED_FOLDER_CHANGES = [
+  '(cd /other); git push',
+  '(cd /other && true); git push',
+  'cd /other; git push',
+  'cd /other\ngit push',
+  'cd /other || true; git push',
+  'true || cd /other && git push',
+  'cd /other & git push',
+  'cd /other | git push',
+  '{ cd /other; }; git push',
+  'f() { cd /other && true; }; git push',
+  'if false; then cd /other && true; fi; git push',
+  'while false; do cd /other && true; done; git push',
+  'pushd /other && popd && git push',
+  'pushd /other && popd; git push',
+  'cd /other && npm test; git push',
+  'cd /other && false || git push',
+  'cd /other && true | git push',
+  'cd /other && true\ngit push',
+  'cd /other\\ repo && git push',
+  'cd /other && cd - && git push',
+  'cd /other && env -C /repo git push',
+  'cd /other && sudo --chdir=/repo git push',
+  'CDPATH=/elsewhere cd api && git push',
+];
+
+test('a command handed to a program that runs scripts is read as a script', () => {
+  assert.equal(guardedAction('trap "git push" EXIT'), 'git push');
+  assert.equal(guardedAction('su deploy -c "git push"'), 'git push');
+  assert.equal(guardedAction('watch -n 5 "gh pr create --fill"'), 'gh pr create');
+  assert.equal(findGuarded('cd /other && trap "git -C /repo push" EXIT', '/repo').directory, '/repo');
+});
+
+test('an option glued to its folder is not guessed at', () => {
+  assert.deepEqual(findGuarded('cd /other && git -C/repo push', '/repo'), { action: 'git push', directory: null });
+});
+
+test('a relative folder change is not trusted while CDPATH is in effect', () => {
+  assert.equal(findGuarded('cd api && git push', '/repo', { cdpath: true }).directory, null);
+  assert.equal(findGuarded('cd /other && git push', '/repo', { cdpath: true }).directory, '/other');
+  assert.equal(findGuarded('git -C api push', '/repo', { cdpath: true }).directory, '/repo/api');
+});
+
+test('a folder change is trusted only as a top-level "cd x &&"', () => {
+  for (const command of UNTRUSTED_FOLDER_CHANGES) {
+    const found = findGuarded(command, '/repo');
+    assert.equal(found?.action, 'git push', command);
+    assert.equal(found.directory, null, command);
+  }
+  assert.equal(findGuarded('cd /other && git push', '/repo').directory, '/other');
+  assert.equal(findGuarded('ls; cd a && cd b && git push', '/repo').directory, '/repo/a/b');
   assert.equal(findGuarded('pushd api && git push', '/repo').directory, '/repo/api');
+});
+
+test('an environment variable that moves the repository makes the folder unknown', () => {
+  for (const command of [
+    'GIT_DIR=/repo/.git git -C /other push',
+    'export GIT_WORK_TREE=/repo; cd /other && git push',
+    'env GIT_COMMON_DIR=/repo/.git git -C /other push',
+    'cd /other && GIT_DIR="/repo/.git" git push',
+  ]) {
+    assert.deepEqual(findGuarded(command, '/repo'), { action: 'git push', directory: null }, command);
+  }
+});
+
+test('gh with an explicit repository is judged in the session folder', () => {
+  for (const command of [
+    'cd /other && gh pr create -R me/project --fill',
+    'cd /other && gh pr create --repo me/project',
+    'cd /other && gh pr merge 3 --repo=me/project',
+    'cd /other && gh -R me/project pr create',
+    'cd /other && GH_REPO=me/project gh pr create',
+  ]) {
+    assert.equal(findGuarded(command, '/repo').directory, '/repo', command);
+  }
+  assert.equal(findGuarded('cd /other && gh pr create --fill', '/repo').directory, '/other');
+});
+
+test('a here-document counts only where the shell would see one', () => {
+  const hidden = [
+    ['echo "<<EOF"', 'git push', 'EOF'],
+    ["echo '<<EOF'", 'git push', 'EOF'],
+    ['# <<EOF', 'git push', 'EOF'],
+    ['echo x # <<EOF', 'git push', 'EOF'],
+    ['cat <<< "<<EOF"', 'git push', 'EOF'],
+  ];
+  for (const lines of hidden) {
+    assert.equal(guardedAction(lines.join('\n')), 'git push', lines[0]);
+  }
+  const commit = ['git commit -m "$(cat <<\'EOF\'', 'fix: push notifications', 'git push is gated now', 'EOF', ')"'];
+  assert.equal(guardedAction(commit.join('\n')), null);
+  assert.equal(guardedAction(['cat <<A <<B', 'git push', 'A', 'gh pr create', 'B', 'ls'].join('\n')), null);
+});
+
+test('a comment is not a command', () => {
+  assert.equal(guardedAction('ls # git push'), null);
+  assert.equal(guardedAction('# gh pr create\nls'), null);
+  assert.equal(guardedAction('echo a#b && git push'), 'git push');
+});
+
+test('git configuration that can rename a subcommand is treated as a push', () => {
+  for (const command of [
+    'git -c alias.p=push p',
+    'git -c "alias.x=push" x origin',
+    'git -c ALIAS.x=push x',
+    'git send-pack origin HEAD',
+    'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.p GIT_CONFIG_VALUE_0=push git p',
+    'git --config-env=alias.p=VALUE p',
+  ]) {
+    assert.equal(guardedAction(command), 'git push', command);
+  }
+  assert.equal(guardedAction('git -c color.ui=false status'), null);
+  assert.equal(guardedAction('git -c user.name=x commit -m y'), null);
 });
 
 test('guardedAction sees a push behind separators, substitutions, wrappers and paths', () => {
@@ -150,7 +260,7 @@ test('findGuarded resolves the folder the command would run in', () => {
   assert.deepEqual(findGuarded('git push', '/repo'), { action: 'git push', directory: '/repo' });
   assert.deepEqual(findGuarded('cd api && git push', '/repo'), { action: 'git push', directory: '/repo/api' });
   assert.deepEqual(findGuarded('git -C ../other push', '/repo'), { action: 'git push', directory: '/other' });
-  assert.deepEqual(findGuarded('cd /a; sh -c "cd b && gh pr create"', '/repo'), {
+  assert.deepEqual(findGuarded('cd /a && sh -c "cd b && gh pr create"', '/repo'), {
     action: 'gh pr create',
     directory: '/a/b',
   });

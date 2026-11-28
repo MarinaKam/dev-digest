@@ -310,7 +310,7 @@ function runHook(stdin) {
   const command = call?.tool_input?.command;
   if (typeof command !== 'string') return 0;
   const sessionDirectory = call.cwd || process.cwd();
-  const guarded = findGuarded(command, sessionDirectory);
+  const guarded = findGuarded(command, sessionDirectory, { cdpath: Boolean(process.env.CDPATH) });
   if (!guarded) return 0;
   try {
     const decision = decideGuarded(guarded, sessionDirectory);

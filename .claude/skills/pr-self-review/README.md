@@ -7,13 +7,14 @@ its shape. The agent does not load this file; the procedure is in
 
 ## Version
 
-**1.0.1** (2026-11-27). The version is recorded in the `metadata.version`
+**1.0.2** (2026-11-27). The version is recorded in the `metadata.version`
 field of `SKILL.md` and in the changelog below.
 
 | Version | Date | Change |
 |---|---|---|
 | 1.0.0 | 2026-11-27 | First version: scope, cheap checks, review by bucket, refutation of criticals, recorded verdict, `PreToolUse` gate |
 | 1.0.1 | 2026-11-27 | Gate hardening after a security review: positional command detection instead of a first-word match, override read only from the hook's environment, the gate closes when the folder, the repository or the tool call cannot be read |
+| 1.0.2 | 2026-11-27 | Second hardening pass: a folder change is trusted only as a top-level `cd <literal> &&`, repository-moving variables and options make the folder unknown, `gh --repo` is judged as the project, here-documents and comments are read as the shell reads them, on-the-spot aliases count as a push |
 
 ## Need
 
@@ -141,9 +142,10 @@ Changes made after these runs, **not re-run**:
 
 ### The gate script
 
-`scripts/command.mjs` (finding a guarded command in a shell line),
-`scripts/lib.mjs` (verdict logic) and `scripts/gate.mjs` (git and file access)
-are covered by `scripts/*.test.mjs`: 45 tests, the integration ones each in a
+`scripts/shell-text.mjs` (reading a shell line as text), `scripts/command.mjs`
+(finding a guarded command and its folder), `scripts/lib.mjs` (verdict logic)
+and `scripts/gate.mjs` (git and file access) are covered by
+`scripts/*.test.mjs`: 53 tests, the integration ones each in a
 throwaway git repository.
 
 ```bash
@@ -158,10 +160,15 @@ Checked in a live session: with the hook registered and no verdict recorded,
 - The review itself was never run end to end on a real working tree with
   subagents; the fixture runs were single-agent.
 - Command detection reads the command text. A probe of 41 further forms, not
-  taken from the tests, left 11 unrecognised, all indirect: an alias, a
-  variable holding the whole command, text piped into a shell, an
-  interpreter's `-e`/`-c`, a script, a `make` target, `gh api`, `hub`,
-  `git send-pack`. `gate.md` lists them as bypasses and names the git
+  taken from the tests, leaves 9 unrecognised, all indirect: a persistent
+  alias, a variable holding the whole command, text piped into a shell, an
+  interpreter's `-e`/`-c`, a script, a `make` target, `gh api`, `hub`. A
+  second probe of 29 forms that try to make the gate believe the command runs
+  in another repository found none that does.
+- The gate was hardened twice after an automated security review, each time
+  by a wider rule and not by the reported example. Text analysis of a shell
+  line has no proof of completeness; the two probes are evidence, not a
+  guarantee. `gate.md` lists them as bypasses and names the git
   `pre-push` hook as the layer that closes them for pushes; that hook is not
   installed by the skill.
 - The override is read from the environment of the hook process only. An agent
