@@ -2,9 +2,9 @@
  * Import rules for the server's dependency direction (inner rings never import
  * outer rings). The ring map is in AGENTS.md, "Dependency direction".
  *
- * Run: `pnpm lint:arch`. Violations that existed when the rules were added are
- * listed in `.dependency-cruiser-known-violations.json` and are not reported;
- * that file should only shrink.
+ * Run: `pnpm lint:arch`. `.dependency-cruiser-known-violations.json` is the list
+ * of violations that are not reported. It is empty and stays empty: fix the
+ * import, never add an entry.
  */
 
 const PERSISTENCE = '(^|/)repository(\\.ts$|/)';
@@ -67,6 +67,20 @@ module.exports = {
       severity: 'error',
       from: { path: '^src/modules/([^/]+)/' },
       to: { path: '^src/modules/[^/]+/', pathNot: '^src/modules/($1|_shared)/' },
+    },
+    {
+      name: 'pure-module-files-stay-inside',
+      comment:
+        'helpers.ts, constants.ts, status.ts, types.ts and ports.ts hold pure rules, values ' +
+        'and types. They do not import a repository, a service, routes or the container: ' +
+        'a rule takes a domain type from types.ts, not a row type re-exported by a repository.',
+      severity: 'error',
+      from: { path: '^src/modules/[^/]+/(helpers|constants|status|types|ports)\\.ts$' },
+      to: {
+        path:
+          `${PERSISTENCE}|^src/db/|^src/adapters/|^src/platform/container\\.ts$|` +
+          '^src/modules/[^/]+/(service|routes)\\.ts$',
+      },
     },
     {
       name: 'review-engine-stays-pure',

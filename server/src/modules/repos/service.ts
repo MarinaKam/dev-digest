@@ -1,17 +1,14 @@
 import type { Container } from '../../platform/container.js';
 import { type Repo } from '@devdigest/shared';
 import { NotFoundError } from '../../platform/errors.js';
-import { RepoRepository } from './repository.js';
+import type { RepoRepository } from './repository.js';
 import { parseRepoUrl, withGitHubToken, toRepoDto } from './helpers.js';
 import {
   CLONE_JOB_KIND,
   CLONE_DEPTH,
   GITHUB_TOKEN_SECRET,
 } from './constants.js';
-import {
-  INDEX_JOB_KIND,
-  REFRESH_JOB_KIND,
-} from '../repo-intel/constants.js';
+import { INDEX_JOB_KIND, REFRESH_JOB_KIND } from '../_shared/job-kinds.js';
 
 /**
  * F1 — repos service. Business logic for the Repositories feature:
@@ -34,7 +31,7 @@ export class RepoService {
   private repo: RepoRepository;
 
   constructor(private container: Container) {
-    this.repo = new RepoRepository(container.db);
+    this.repo = container.reposRepo;
   }
 
   /**

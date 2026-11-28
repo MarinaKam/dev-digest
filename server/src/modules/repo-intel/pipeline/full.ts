@@ -26,8 +26,6 @@ import PQueue from 'p-queue';
 import type { RepoRef } from '@devdigest/shared';
 import type { Container } from '../../../platform/container.js';
 import { withTimeout } from '../../../platform/resilience.js';
-import { parseSymbols, parseReferences, langForFile } from '../../../adapters/astgrep/index.js';
-import { extractEndpoints, extractCrons } from '../../../adapters/codeindex/extract.js';
 import {
   DEFAULT_REPO_MAP_TOKEN_BUDGET,
   INDEX_SOFT_BUDGET_MS,
@@ -134,8 +132,8 @@ export async function runFullIndex(
     }
 
     void parseQ.add(async () => {
-      const lang = langForFile(relPath);
-      if (!lang) {
+      const supported = container.sourceParser.supports(relPath);
+      if (!supported) {
         filesSkipped += 1;
         return;
       }
@@ -154,8 +152,8 @@ export async function runFullIndex(
       try {
         const parsed = await withTimeout(
           Promise.resolve().then(() => ({
-            symbols: parseSymbols(relPath, source),
-            references: parseReferences(relPath, source),
+            symbols: container.sourceParser.parseSymbols(relPath, source),
+            references: container.sourceParser.parseReferences(relPath, source),
           })),
           MAX_PARSE_MS_PER_FILE,
         );
@@ -183,8 +181,8 @@ export async function runFullIndex(
         }
         // Per-file facts (endpoints/crons) so blast reads from file_facts
         // instead of re-parsing the clone (T3 blast migration).
-        const endpoints = extractEndpoints(source);
-        const crons = extractCrons(source);
+        const endpoints = container.sourceParser.extractEndpoints(source);
+        const crons = container.sourceParser.extractCrons(source);
         if (endpoints.length > 0 || crons.length > 0) {
           factsBuf.push({ filePath: relPath, endpoints, crons });
         }

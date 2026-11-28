@@ -1,5 +1,5 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
-import type { Db } from '../../db/client.js';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import type { DbExecutor } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import type { CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
 import { DEFAULT_AGENT_DESCRIPTION, INITIAL_AGENT_VERSION } from './constants.js';
@@ -11,8 +11,7 @@ import { isConfigChange } from './helpers.js';
  * agent side: link/reorder/list for an agent). Workspace-scoped throughout.
  */
 
-import type { AgentRow, AgentVersionRow } from '../../db/rows.js';
-export type { AgentRow, AgentVersionRow };
+import type { AgentRecord, AgentVersionRecord, LinkedSkill } from './types.js';
 
 export interface InsertAgent {
   workspaceId: string;
@@ -42,27 +41,29 @@ export interface UpdateAgent {
   enabled?: boolean;
 }
 
-/** A skill linked to an agent (with its order), joined from agent_skills. */
-export interface LinkedSkillRow {
-  skill: typeof t.skills.$inferSelect;
-  order: number;
-}
-
 export class AgentsRepository {
-  constructor(private db: Db) {}
+  constructor(private db: DbExecutor) {}
 
-  async list(workspaceId: string): Promise<AgentRow[]> {
+  /**
+   * Run `fn` as one unit of work: every write made through the repository it
+   * receives is committed together, or none is when `fn` throws.
+   */
+  inTransaction<T>(fn: (repo: AgentsRepository) => Promise<T>): Promise<T> {
+    return this.db.transaction((tx) => fn(new AgentsRepository(tx)));
+  }
+
+  async list(workspaceId: string): Promise<AgentRecord[]> {
     return this.db.select().from(t.agents).where(eq(t.agents.workspaceId, workspaceId));
   }
 
-  async listEnabled(workspaceId: string): Promise<AgentRow[]> {
+  async listEnabled(workspaceId: string): Promise<AgentRecord[]> {
     return this.db
       .select()
       .from(t.agents)
       .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.enabled, true)));
   }
 
-  async getById(workspaceId: string, id: string): Promise<AgentRow | undefined> {
+  async getById(workspaceId: string, id: string): Promise<AgentRecord | undefined> {
     const [row] = await this.db
       .select()
       .from(t.agents)
@@ -81,8 +82,15 @@ export class AgentsRepository {
     return rows.length > 0;
   }
 
-  /** Insert an agent AND record version 1 in agent_versions (immutable snapshot). */
-  async insert(values: InsertAgent): Promise<AgentRow> {
+  /**
+   * Insert an agent AND record version 1 in agent_versions (immutable
+   * snapshot), as one transaction: an agent never exists without its version.
+   */
+  insert(values: InsertAgent): Promise<AgentRecord> {
+    return this.inTransaction((repo) => repo.insertWithVersion(values));
+  }
+
+  private async insertWithVersion(values: InsertAgent): Promise<AgentRecord> {
     const [row] = await this.db
       .insert(t.agents)
       .values({
@@ -101,20 +109,32 @@ export class AgentsRepository {
         createdBy: values.createdBy ?? null,
       })
       .returning();
-    await this.snapshotVersion(row!, INITIAL_AGENT_VERSION);
-    return row!;
+    if (!row) throw new Error('Agent insert returned no row');
+    await this.snapshotVersion(row, INITIAL_AGENT_VERSION);
+    return row;
   }
 
   /**
    * Update an agent. Any config change bumps the version and snapshots the new
-   * config into agent_versions (reproducibility for eval).
+   * config into agent_versions (reproducibility for eval). The update and the
+   * snapshot are one transaction: a version number always has its snapshot.
    */
-  async update(
+  update(workspaceId: string, id: string, patch: UpdateAgent): Promise<AgentRecord | undefined> {
+    return this.inTransaction((repo) => repo.updateWithVersion(workspaceId, id, patch));
+  }
+
+  private async updateWithVersion(
     workspaceId: string,
     id: string,
     patch: UpdateAgent,
-  ): Promise<AgentRow | undefined> {
-    const existing = await this.getById(workspaceId, id);
+  ): Promise<AgentRecord | undefined> {
+    // Row lock: two edits of one agent run one after the other, so each reads
+    // the version the other wrote and gets its own number and snapshot.
+    const [existing] = await this.db
+      .select()
+      .from(t.agents)
+      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.id, id)))
+      .for('update');
     if (!existing) return undefined;
 
     // A config-affecting change (anything except just toggling enabled) bumps version.
@@ -145,7 +165,7 @@ export class AgentsRepository {
     return row;
   }
 
-  private async snapshotVersion(row: AgentRow, version: number): Promise<void> {
+  private async snapshotVersion(row: AgentRecord, version: number): Promise<void> {
     const skills = await this.skillIdsForAgent(row.id);
     await this.db
       .insert(t.agentVersions)
@@ -169,7 +189,7 @@ export class AgentsRepository {
   // ---- agent_versions (immutable config snapshots) ------------------------
 
   /** All config snapshots for an agent, newest version first. */
-  async listVersions(agentId: string): Promise<AgentVersionRow[]> {
+  async listVersions(agentId: string): Promise<AgentVersionRecord[]> {
     return this.db
       .select()
       .from(t.agentVersions)
@@ -178,7 +198,7 @@ export class AgentsRepository {
   }
 
   /** A single config snapshot, or undefined if that version was never recorded. */
-  async getVersion(agentId: string, version: number): Promise<AgentVersionRow | undefined> {
+  async getVersion(agentId: string, version: number): Promise<AgentVersionRecord | undefined> {
     const [row] = await this.db
       .select()
       .from(t.agentVersions)
@@ -189,7 +209,7 @@ export class AgentsRepository {
   // ---- agent_skills link table (A2 owns the agent side) -------------------
 
   /** Skills linked to an agent, in `order` ascending. */
-  async linkedSkills(agentId: string): Promise<LinkedSkillRow[]> {
+  async linkedSkills(agentId: string): Promise<LinkedSkill[]> {
     const rows = await this.db
       .select({ skill: t.skills, order: t.agentSkills.order })
       .from(t.agentSkills)
@@ -197,6 +217,16 @@ export class AgentsRepository {
       .where(eq(t.agentSkills.agentId, agentId))
       .orderBy(asc(t.agentSkills.order));
     return rows.map((r) => ({ skill: r.skill, order: r.order }));
+  }
+
+  /** How many of the given skill ids exist in the workspace. */
+  async countSkillsInWorkspace(workspaceId: string, skillIds: string[]): Promise<number> {
+    if (skillIds.length === 0) return 0;
+    const rows = await this.db
+      .select({ id: t.skills.id })
+      .from(t.skills)
+      .where(and(eq(t.skills.workspaceId, workspaceId), inArray(t.skills.id, skillIds)));
+    return rows.length;
   }
 
   async skillIdsForAgent(agentId: string): Promise<string[]> {
@@ -224,13 +254,16 @@ export class AgentsRepository {
   /**
    * Replace the full set of linked skills for an agent with `skillIds`, assigning
    * order = index. Used by the "Skills" editor tab (attach/reorder). Skills not in
-   * the list are unlinked.
+   * the list are unlinked. One transaction: when the new set cannot be stored,
+   * the old links stay.
    */
-  async setSkills(agentId: string, skillIds: string[]): Promise<void> {
-    await this.db.delete(t.agentSkills).where(eq(t.agentSkills.agentId, agentId));
-    if (skillIds.length === 0) return;
-    await this.db
-      .insert(t.agentSkills)
-      .values(skillIds.map((skillId, i) => ({ agentId, skillId, order: i })));
+  setSkills(agentId: string, skillIds: string[]): Promise<void> {
+    return this.db.transaction(async (tx) => {
+      await tx.delete(t.agentSkills).where(eq(t.agentSkills.agentId, agentId));
+      if (skillIds.length === 0) return;
+      await tx
+        .insert(t.agentSkills)
+        .values(skillIds.map((skillId, i) => ({ agentId, skillId, order: i })));
+    });
   }
 }

@@ -2,12 +2,18 @@ import type { Container } from '../../platform/container.js';
 import type { Provider, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
 import { reviewPullRequest, countBlockers } from '@devdigest/reviewer-core';
 import { RunLogger } from '../../platform/run-logger.js';
-import * as schema from '../../db/schema.js';
-import type { AgentRow } from '../../db/rows.js';
-import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './repository.js';
+import type { ReviewRepository } from './repository.js';
+import type {
+  FindingRecord,
+  ReviewAgent,
+  ReviewRecord,
+  ReviewedPull,
+  ReviewedRepo,
+} from './types.js';
 import { REVIEW_STRATEGY } from './constants.js';
 import { taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
+import type { Logger } from '../_shared/logger.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
 export class RunCancelledError extends Error {
@@ -17,19 +23,13 @@ export class RunCancelledError extends Error {
   }
 }
 
-/** Minimal structured logger (pino-compatible: (obj, msg)) for runtime logs. */
-export type Logger = {
-  info: (obj: unknown, msg?: string) => void;
-  warn: (obj: unknown, msg?: string) => void;
-  error: (obj: unknown, msg?: string) => void;
-  debug: (obj: unknown, msg?: string) => void;
-};
+export type { Logger } from '../_shared/logger.js';
 
 // A reduced "Review per file" — same schema as Review (the model returns a small
 // Review per file; we merge findings + take the worst verdict / mean score).
 export type RunOutcome = {
-  review: ReviewRow;
-  findings: FindingRow[];
+  review: ReviewRecord;
+  findings: FindingRecord[];
   grounding: string;
   raw: Review;
 };
@@ -54,9 +54,9 @@ export class ReviewRunExecutor {
    */
   async executeRuns(
     workspaceId: string,
-    pull: PullRow,
-    repo: typeof schema.repos.$inferSelect,
-    jobs: { agent: AgentRow; runId: string }[],
+    pull: ReviewedPull,
+    repo: ReviewedRepo,
+    jobs: { agent: ReviewAgent; runId: string }[],
     logger?: Logger,
   ): Promise<void> {
     // ONE logger fanned out over every queued run: shared pre-work (diff +
@@ -137,10 +137,10 @@ export class ReviewRunExecutor {
   /** Execute a single agent's review against a PR, streaming progress. */
   private async runOneAgent(
     workspaceId: string,
-    pull: PullRow,
-    repo: typeof schema.repos.$inferSelect,
+    pull: ReviewedPull,
+    repo: ReviewedRepo,
     diff: UnifiedDiff,
-    agent: AgentRow,
+    agent: ReviewAgent,
     runId: string,
     parentLog: RunLogger,
   ): Promise<RunOutcome> {
@@ -152,6 +152,8 @@ export class ReviewRunExecutor {
 
     runLog.info(`Starting review with agent "${agent.name}" (${agent.provider}/${agent.model})`);
 
+    // Set once the outcome is committed; from then on the run is `done`.
+    let committed: RunOutcome | undefined;
     try {
       // Resolve the agent's LLM provider. (container.llm throws if the provider
       // key is missing — caught below and persisted as a failed run.)
@@ -219,45 +221,56 @@ export class ReviewRunExecutor {
 
       const keptFindings = outcome.review.findings;
 
-      // ---- Persist review + findings ----------------------------------------
-      const review = await this.repo.insertReview({
-        workspaceId,
-        prId: pull.id,
-        agentId: agent.id,
-        runId,
-        kind: 'review',
-        verdict: outcome.review.verdict,
-        summary: outcome.review.summary,
-        score: outcome.review.score,
-        model: agent.model,
-      });
-      const findingRows = await this.repo.insertFindings(review.id, keptFindings);
-      runLog.result(`Persisted review ${review.id} with ${findingRows.length} finding(s)`);
-
-      // Mark the commit this review ran against so the PR list can tell
-      // reviewed / needs-review (head moved) / stale apart.
-      await this.repo.markReviewed(pull.id, pull.headSha);
-
       const durationMs = Date.now() - start;
 
       // Deterministic blocker count (severity ≥ the agent's gate) — the signal
       // the timeline colors on, NOT the model's self-reported verdict.
       const blockers = countBlockers(keptFindings, agent.ciFailOn);
 
-      // ---- Observability: agent_runs + ONE run_traces document --------------
-      await this.repo.completeAgentRun(runId, {
-        status: 'done',
-        durationMs,
-        tokensIn,
-        tokensOut,
-        costUsd,
-        findingsCount: findingRows.length,
-        grounding,
-        score: outcome.review.score,
-        blockers,
-        error: null,
+      // ---- Persist the outcome as ONE unit ----------------------------------
+      // The review, its findings, the reviewed commit and the run's `done`
+      // status are committed together. If any of them cannot be stored, none
+      // is, and the catch below records the run as failed.
+      const stored = await this.container.unitOfWork(async (work) => {
+        const review = await work.reviews.insertReview({
+          workspaceId,
+          prId: pull.id,
+          agentId: agent.id,
+          runId,
+          kind: 'review',
+          verdict: outcome.review.verdict,
+          summary: outcome.review.summary,
+          score: outcome.review.score,
+          model: agent.model,
+        });
+        const findingRows = await work.reviews.insertFindings(review.id, keptFindings);
+        // Mark the commit this review ran against so the PR list can tell
+        // reviewed / needs-review (head moved) / stale apart.
+        await work.pulls.markReviewed(pull.id, pull.headSha);
+        // Observability: the agent_runs row. `done` is written only over a
+        // run that is still running; otherwise the unit is rolled back.
+        const completed = await work.reviews.completeAgentRun(runId, {
+          status: 'done',
+          durationMs,
+          tokensIn,
+          tokensOut,
+          costUsd,
+          findingsCount: findingRows.length,
+          grounding,
+          score: outcome.review.score,
+          blockers,
+          error: null,
+        });
+        // Cancelled, reaped or deleted while the model was answering: its
+        // review must not be stored.
+        if (!completed) throw new RunCancelledError();
+        return { review, findingRows };
       });
+      const { review, findingRows } = stored;
+      committed = { review, findings: findingRows, grounding, raw: outcome.review };
+      runLog.result(`Persisted review ${review.id} with ${findingRows.length} finding(s)`);
 
+      // ---- Observability: ONE run_traces document ---------------------------
       const trace: RunTrace = {
         config: {
           agent: agent.name,
@@ -292,9 +305,19 @@ export class ReviewRunExecutor {
       runLog.info('Run complete; trace persisted');
       await this.repo.saveRunTrace(runId, trace);
       this.container.runBus.complete(runId);
-
-      return { review, findings: findingRows, grounding, raw: outcome.review };
+      return committed;
     } catch (err) {
+      if (committed) {
+        // The outcome is stored as `done`. Whatever failed after the commit
+        // (the trace, a log subscriber) must not mark the run failed while its
+        // review exists.
+        try {
+          runLog.error(`Run is stored, but a later step failed: ${(err as Error).message}`);
+        } finally {
+          this.container.runBus.complete(runId);
+        }
+        return committed;
+      }
       // Failure/cancel: persist status + the error text + the log-so-far so the
       // run (and WHY it failed) is visible on the UI after a reload.
       const cancelled = err instanceof RunCancelledError;
@@ -414,8 +437,8 @@ export class ReviewRunExecutor {
    */
   private traceFromBuffer(
     runId: string,
-    pull: PullRow,
-    agent: AgentRow,
+    pull: ReviewedPull,
+    agent: ReviewAgent,
     grounding: string,
     durationMs = 0,
   ): RunTrace {

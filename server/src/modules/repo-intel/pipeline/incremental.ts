@@ -19,8 +19,6 @@ import { extname, join } from 'node:path';
 import type { RepoRef } from '@devdigest/shared';
 import type { Container } from '../../../platform/container.js';
 import { withTimeout } from '../../../platform/resilience.js';
-import { parseSymbols, parseReferences, langForFile } from '../../../adapters/astgrep/index.js';
-import { extractEndpoints, extractCrons } from '../../../adapters/codeindex/extract.js';
 import {
   DEFAULT_REPO_MAP_TOKEN_BUDGET,
   INDEXER_VERSION,
@@ -144,8 +142,8 @@ export async function runIncremental(
   const parseDegraded: Array<{ file: string; reason: string }> = [];
 
   for (const relPath of changed) {
-    const lang = langForFile(relPath);
-    if (!lang) {
+    const supported = container.sourceParser.supports(relPath);
+    if (!supported) {
       filesSkipped += 1;
       continue;
     }
@@ -163,8 +161,8 @@ export async function runIncremental(
     try {
       const parsed = await withTimeout(
         Promise.resolve().then(() => ({
-          symbols: parseSymbols(relPath, source),
-          references: parseReferences(relPath, source),
+          symbols: container.sourceParser.parseSymbols(relPath, source),
+          references: container.sourceParser.parseReferences(relPath, source),
         })),
         MAX_PARSE_MS_PER_FILE,
       );
@@ -190,8 +188,8 @@ export async function runIncremental(
           contentHash,
         });
       }
-      const endpoints = extractEndpoints(source);
-      const crons = extractCrons(source);
+      const endpoints = container.sourceParser.extractEndpoints(source);
+      const crons = container.sourceParser.extractCrons(source);
       if (endpoints.length > 0 || crons.length > 0) {
         factsBuf.push({ filePath: relPath, endpoints, crons });
       }

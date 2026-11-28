@@ -15,6 +15,7 @@
  *
  * Full-DB persistence is covered by integration.test.ts (Docker-gated).
  */
+import { AstGrepSourceParser } from '../src/adapters/astgrep/source-parser.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -134,6 +135,8 @@ function makeContainer(git: MiniGit): Container {
     // T3 adapters — stubbed: empty graph (rank degrades to flat) + char/4 tokens.
     depgraph: { buildEdges: async () => [] },
     tokenizer: { count: (text: string) => Math.ceil(text.length / 4) },
+    // The real parser: these tests assert on what the pipeline parses.
+    sourceParser: new AstGrepSourceParser(),
   } as unknown as Container;
 }
 

@@ -23,6 +23,9 @@ The pure review engine: diff -> prompt -> LLM -> structured findings -> groundin
 ## Conventions
 - No I/O. No database, GitHub, filesystem or environment access. The only
   outside call is the `LLMProvider` passed in by the caller.
+- One accepted exception: `src/llm/openrouter.ts` is a provider implementation
+  (the `openai` SDK and `fetch`). It lives here because the server and the CI
+  runner share it. Nothing outside `src/llm/` imports an SDK or calls `fetch`.
 - Everything the caller may use is exported from `src/index.ts`.
 - Contracts come from `@devdigest/shared`, which resolves to
   `../server/src/vendor/shared`. Do not redefine those types here.

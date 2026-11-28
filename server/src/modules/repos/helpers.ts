@@ -1,11 +1,11 @@
 import { type Repo } from '@devdigest/shared';
-import * as t from '../../db/schema.js';
 import { AppError } from '../../platform/errors.js';
 import {
   GITHUB_URL_REGEX,
   GIT_TOKEN_USERNAME,
   GITHUB_HTTPS_HOST,
 } from './constants.js';
+import type { RepoRecord } from './types.js';
 
 /**
  * F1 — repos pure helpers (extracted from routes.ts; no behaviour change).
@@ -40,8 +40,8 @@ export function withGitHubToken(url: string, token: string): string {
   return url;
 }
 
-/** Map a persisted repo row to the API `Repo` DTO. */
-export function toRepoDto(row: typeof t.repos.$inferSelect): Repo {
+/** Map a stored repo to the API `Repo` DTO. */
+export function toRepoDto(row: RepoRecord): Repo {
   return {
     id: row.id,
     workspace_id: row.workspaceId,
