@@ -9,6 +9,8 @@ Fastify API over Postgres. Imports repos and PRs, indexes them, runs reviews.
 
 ## Verify a change
 - `pnpm typecheck` and `pnpm lint` after every change.
+- `pnpm lint:arch` after every change that adds or changes an import. It checks
+  the dependency direction below (`.dependency-cruiser.cjs`).
 - Unit tests after every change:
   `pnpm exec vitest run --exclude '**/*.it.test.ts'`.
 - Integration tests when you touch a route, a query or the schema:
@@ -36,6 +38,30 @@ Fastify API over Postgres. Imports repos and PRs, indexes them, runs reviews.
   (`src/platform/container.ts`), never by constructing an adapter directly.
 - Every query scopes by `workspace_id`; get it from `getContext()`.
 - A test that touches the database must be named `*.it.test.ts`.
+
+## Dependency direction
+Use the `onion-architecture` skill before you add a port, an adapter, a business
+rule, a transaction, or an import that crosses one of these rings. Imports point
+inward only, `import type` included.
+
+| Ring | Here |
+|---|---|
+| Domain | `../reviewer-core/`, contracts and ports in `src/vendor/shared`, pure rules in a module's `helpers.ts`, `constants.ts`, `status.ts` |
+| Application | a module's `service.ts` and use-case files (`run-executor.ts`) |
+| Infrastructure | a module's `repository.ts` or `repository/`, `src/db/`, `src/adapters/`, `src/platform/` |
+| Edge | a module's `routes.ts`, `src/modules/index.ts`, `src/platform/container.ts` (composition root), `src/app.ts`, `src/server.ts` |
+
+- A new port goes to `src/vendor/shared` when the client or `reviewer-core`
+  also needs the type, otherwise to `ports.ts` of the module that calls it. Not
+  to the adapter's file. `ports.ts` holds only interfaces and plain types; it is
+  the one module file an adapter may import, so the adapter can `implements` it.
+- `pnpm lint:arch` enforces the import part. Violations that existed on
+  2026-11-27 are in `.dependency-cruiser-known-violations.json`. Never add an
+  entry; remove one in the change that fixes it.
+- Accepted deviations, follow them in new code:
+  - Errors extend `AppError` in `src/platform/errors.ts` and carry the HTTP
+    status. Services throw them; there is no separate mapping at the edge.
+  - Services receive the `Container`. Do not narrow one service on its own.
 
 ## Gotchas
 - Secrets are read only through `SecretsProvider`. They are not in `AppConfig`
