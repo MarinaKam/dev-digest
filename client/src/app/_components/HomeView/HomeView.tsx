@@ -5,16 +5,17 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, EmptyState, Skeleton } from "@devdigest/ui";
+import { Button, EmptyState, ErrorState, Skeleton } from "@devdigest/ui";
 import { AppShell } from "@/components/app-shell";
 import { PageContainer } from "@/components/page-shell";
+import { ApiError } from "@/lib/api";
 import { useRepos } from "@/lib/hooks/repos";
 import { s } from "./styles";
 
 export function HomeView() {
   const t = useTranslations("home");
   const router = useRouter();
-  const { data: repos, isLoading } = useRepos();
+  const { data: repos, isLoading, error, refetch } = useRepos();
   const firstRepo = repos?.[0];
   const firstRepoHref = firstRepo ? `/repos/${firstRepo.id}/pulls` : null;
 
@@ -29,7 +30,9 @@ export function HomeView() {
       <PageContainer title={t("title")} subtitle={t("subtitle")}>
         <HomeBody
           loading={isLoading}
+          error={error}
           repoName={firstRepo?.full_name}
+          onRetry={() => refetch()}
           onOpenRepo={() => firstRepoHref && router.push(firstRepoHref)}
           onAddRepo={() => router.push("/onboarding")}
         />
@@ -40,13 +43,16 @@ export function HomeView() {
 
 interface HomeBodyProps {
   loading: boolean;
+  /** The load error, or null when the repositories loaded. */
+  error: unknown;
   /** Name of the repo the user is being sent to; undefined when there is none. */
   repoName: string | undefined;
+  onRetry: () => void;
   onOpenRepo: () => void;
   onAddRepo: () => void;
 }
 
-function HomeBody({ loading, repoName, onOpenRepo, onAddRepo }: HomeBodyProps) {
+function HomeBody({ loading, error, repoName, onRetry, onOpenRepo, onAddRepo }: HomeBodyProps) {
   const t = useTranslations("home");
 
   if (loading) {
@@ -59,7 +65,16 @@ function HomeBody({ loading, repoName, onOpenRepo, onAddRepo }: HomeBodyProps) {
     );
   }
 
-  // A failed load reads the same as "no repositories": the way out is the same.
+  if (error) {
+    return (
+      <ErrorState
+        title={t("errorTitle")}
+        body={error instanceof ApiError ? error.message : t("errorBody")}
+        onRetry={onRetry}
+      />
+    );
+  }
+
   if (!repoName) {
     return (
       <EmptyState

@@ -10,7 +10,7 @@ import { ApiError } from "@/lib/api";
 import { useAgent } from "@/lib/hooks/agents";
 import { useQueryParams } from "@/lib/query-params";
 import { AgentEditor } from "../AgentEditor";
-import { TABS } from "../AgentEditor/constants";
+import { TABS } from "../constants";
 import { AgentSidebar } from "./_components/AgentSidebar";
 import { DEFAULT_TAB, TAB_PARAM } from "./constants";
 import { s } from "./styles";

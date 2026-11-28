@@ -33,17 +33,18 @@ function finding(id: string, severity: FindingRecord["severity"]): FindingRecord
     start_line: 1,
     end_line: 1,
     rationale: "because",
-    suggested_fix: null,
+    suggestion: null,
     confidence: 0.9,
     kind: "finding",
     accepted_at: null,
     dismissed_at: null,
-  } as unknown as FindingRecord;
+  };
 }
 
 function review(findings: FindingRecord[], o: Partial<ReviewRecord> = {}): ReviewRecord {
   return {
     id: "rev-1",
+    pr_id: "pr-1",
     run_id: "run-1",
     agent_id: "a1",
     agent_name: "Security Reviewer",
@@ -51,10 +52,11 @@ function review(findings: FindingRecord[], o: Partial<ReviewRecord> = {}): Revie
     verdict: null,
     summary: null,
     score: null,
+    model: null,
     created_at: "2026-06-11T18:44:34.000Z",
     findings,
     ...o,
-  } as unknown as ReviewRecord;
+  };
 }
 
 function renderAccordion(props: Partial<React.ComponentProps<typeof ReviewRunAccordion>> = {}) {

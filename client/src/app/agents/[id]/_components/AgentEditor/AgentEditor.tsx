@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { Tabs } from "@devdigest/ui";
 import type { Agent } from "@devdigest/shared";
 import { ConfigTab } from "./_components/ConfigTab";
-import { TABS } from "./constants";
+import { TABS } from "../constants";
 import { s } from "./styles";
 
 interface AgentEditorProps {

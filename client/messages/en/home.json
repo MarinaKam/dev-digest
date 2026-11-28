@@ -5,6 +5,8 @@
   "emptyTitle": "No repositories yet",
   "emptyBody": "Add a repository to start reviewing pull requests. Set your API keys once in Settings → API Keys.",
   "emptyCta": "Add repository",
+  "errorTitle": "Couldn’t load repositories",
+  "errorBody": "The engine returned an error.",
   "redirecting": "Taking you to your repository…",
   "openRepo": "Open {name}"
 }

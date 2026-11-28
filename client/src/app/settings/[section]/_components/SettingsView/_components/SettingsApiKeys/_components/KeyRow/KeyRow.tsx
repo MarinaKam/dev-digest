@@ -6,7 +6,7 @@ import { Button, Icon, FormField, TextInput } from "@devdigest/ui";
 import type { ConnTestProvider } from "@devdigest/shared";
 import { ApiError } from "@/lib/api";
 import { useTestConnection } from "@/lib/hooks/settings";
-import { s } from "../../styles";
+import { s } from "./styles";
 
 interface StatusBadgeProps {
   /** `undefined` while the status is still loading. */
