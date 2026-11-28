@@ -8,10 +8,11 @@ import type {
 } from '@devdigest/shared';
 import type { Container } from '../../platform/container.js';
 import { ConflictError, NotFoundError, PayloadTooLargeError } from '../../platform/errors.js';
-import { CREATED_VERSION_NOTE, MAX_UPLOAD_BYTES, UNIQUE_VIOLATION } from './constants.js';
+import { CREATED_VERSION_NOTE, MAX_UPLOAD_BYTES } from './constants.js';
 import { bodyChanged, toSkillDto, toSkillVersionDto } from './helpers.js';
 import { buildImportPreview } from './import/preview.js';
-import { SkillsRepository } from './repository.js';
+import { type NameTaken, SkillsRepository } from './repository.js';
+import type { SkillRecord } from './types.js';
 
 /**
  * Skills: reusable, text-only review rules that agents link in order. A skill
@@ -35,14 +36,15 @@ export class SkillsService {
 
   async get(workspaceId: string, id: string): Promise<Skill> {
     const row = await this.requireSkill(workspaceId, id);
-    const usedBy = await this.repo.usedBy(workspaceId);
+    const usedBy = await this.repo.usedBy(workspaceId, row.id);
     return toSkillDto(row, usedBy.get(row.id));
   }
 
   async create(workspaceId: string, input: CreateSkill): Promise<Skill> {
     await this.assertNameFree(workspaceId, input.name);
-    const row = await this.withNameConflict(input.name, () =>
-      this.repo.create(
+    const row = this.orConflict(
+      input.name,
+      await this.repo.create(
         workspaceId,
         {
           name: input.name,
@@ -64,11 +66,10 @@ export class SkillsService {
       await this.assertNameFree(workspaceId, patch.name);
     }
     const { version_note: note, ...fields } = patch;
-    const row = await this.withNameConflict(patch.name ?? current.name, () =>
-      this.repo.update(workspaceId, id, fields, bodyChanged(current, fields), note || null),
-    );
-    if (!row) throw new NotFoundError('Skill not found');
-    const usedBy = await this.repo.usedBy(workspaceId);
+    const updated = await this.repo.update(workspaceId, id, fields, bodyChanged(current, fields), note || null);
+    if (!updated) throw new NotFoundError('Skill not found');
+    const row = this.orConflict(patch.name ?? current.name, updated);
+    const usedBy = await this.repo.usedBy(workspaceId, row.id);
     return toSkillDto(row, usedBy.get(row.id));
   }
 
@@ -79,7 +80,7 @@ export class SkillsService {
 
   async versions(workspaceId: string, id: string): Promise<SkillVersion[]> {
     await this.requireSkill(workspaceId, id);
-    const rows = await this.repo.versions(id);
+    const rows = await this.repo.versions(workspaceId, id);
     return rows.map(toSkillVersionDto);
   }
 
@@ -98,17 +99,10 @@ export class SkillsService {
     return row;
   }
 
-  /**
-   * A concurrent write can pass `assertNameFree`; the unique index on
-   * (workspace_id, name) then rejects it, and that is a 409 too.
-   */
-  private async withNameConflict<T>(name: string, write: () => Promise<T>): Promise<T> {
-    try {
-      return await write();
-    } catch (err) {
-      if (isUniqueViolation(err)) throw new ConflictError(`A skill named "${name}" already exists`);
-      throw err;
-    }
+  /** A write the unique index refused (a concurrent create or rename) is a 409. */
+  private orConflict(name: string, result: SkillRecord | NameTaken): SkillRecord {
+    if (result === 'name_taken') throw new ConflictError(`A skill named "${name}" already exists`);
+    return result;
   }
 
   /** Clear 409 before writing; the unique index backs it up under concurrency. */
@@ -118,8 +112,3 @@ export class SkillsService {
   }
 }
 
-/** postgres-js puts the SQLSTATE on the error; Drizzle may wrap it in `cause`. */
-function isUniqueViolation(err: unknown): boolean {
-  const code = (e: unknown) => (e as { code?: unknown } | null)?.code;
-  return code(err) === UNIQUE_VIOLATION || code((err as { cause?: unknown } | null)?.cause) === UNIQUE_VIOLATION;
-}

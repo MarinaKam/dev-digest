@@ -7,6 +7,8 @@ import { seed } from '../src/db/seed.js';
 import * as t from '../src/db/schema.js';
 import { MockGitClient, MockGitHubClient } from '../src/adapters/mocks.js';
 import { MAX_UPLOAD_BYTES } from '../src/modules/skills/constants.js';
+import { SkillsRepository } from '../src/modules/skills/repository.js';
+import { AgentsRepository } from '../src/modules/agents/repository.js';
 
 const hasDocker = await dockerAvailable();
 const d = hasDocker ? describe : describe.skip;
@@ -208,6 +210,64 @@ d('skills routes', () => {
       url: '/skills/import/preview',
       payload: { filename, content_base64: bytes.toString('base64') },
     });
+
+  it('an upload that is not base64 is a 422 on the field', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/skills/import/preview',
+      payload: { filename: 'x.md', content_base64: 'not base64 at all!' },
+    });
+    expect(res.statusCode).toBe(422);
+    expect(res.json()).toMatchObject({ error: { code: 'validation_error' } });
+  });
+
+  describe('every query is scoped to the workspace in the query itself', () => {
+    async function foreign() {
+      const db = pg.handle.db;
+      const [ws] = await db.insert(t.workspaces).values({ name: `scoped-${Date.now()}-${Math.random()}` }).returning();
+      if (!ws) throw new Error('no workspace');
+      const [skill] = await db
+        .insert(t.skills)
+        .values({ workspaceId: ws.id, name: 'foreign-skill', description: 'd', type: 'custom', source: 'manual', body: 'FOREIGN BODY' })
+        .returning();
+      if (!skill) throw new Error('no skill');
+      await db.insert(t.skillVersions).values({ skillId: skill.id, version: 1, body: 'FOREIGN BODY' });
+      return { ws, skill };
+    }
+    const homeWorkspace = async () => {
+      const [ws] = await pg.handle.db.select().from(t.workspaces).where(eq(t.workspaces.name, 'default'));
+      if (!ws) throw new Error('no default workspace');
+      return ws.id;
+    };
+
+    it("versions of another workspace's skill are not read", async () => {
+      const { skill } = await foreign();
+      const repo = new SkillsRepository(pg.handle.db);
+      expect(await repo.versions(await homeWorkspace(), skill.id)).toEqual([]);
+    });
+
+    it("a link to another workspace's skill never reaches the prompt", async () => {
+      const { skill } = await foreign();
+      const [agent] = await agentIds();
+      if (!agent) throw new Error('no agent');
+      // A link written outside the API, the only way such a link could exist.
+      await pg.handle.db.insert(t.agentSkills).values({ agentId: agent.id, skillId: skill.id, order: 99 });
+      const repo = new AgentsRepository(pg.handle.db);
+      const prompt = await repo.promptSkills(await homeWorkspace(), agent.id);
+      expect(prompt.some((p) => p.body === 'FOREIGN BODY')).toBe(false);
+      await pg.handle.db.delete(t.agentSkills).where(eq(t.agentSkills.skillId, skill.id));
+    });
+
+    it("replacing links of another workspace's agent changes nothing", async () => {
+      const { ws } = await foreign();
+      const [agent] = await agentIds();
+      if (!agent) throw new Error('no agent');
+      const before = (await app.inject({ method: 'GET', url: `/agents/${agent.id}/skills` })).json();
+      const repo = new AgentsRepository(pg.handle.db);
+      expect(await repo.setSkills(ws.id, agent.id, [])).toBe(false);
+      expect((await app.inject({ method: 'GET', url: `/agents/${agent.id}/skills` })).json()).toEqual(before);
+    });
+  });
 
   it('import preview writes nothing', async () => {
     const before = await pg.handle.db.select().from(t.skills);

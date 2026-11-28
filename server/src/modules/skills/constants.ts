@@ -26,6 +26,3 @@ export const INITIAL_SKILL_VERSION = 1;
 
 /** Note of version 1 when the creator gave none. */
 export const CREATED_VERSION_NOTE = 'Created';
-
-/** Postgres SQLSTATE for a unique-index violation. */
-export const UNIQUE_VIOLATION = '23505';

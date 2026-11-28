@@ -43,9 +43,12 @@ export class SkillsRepository {
     return row ? toRecord(row) : undefined;
   }
 
-  /** Insert a skill and its version 1 (with `note`) together. */
-  create(workspaceId: string, input: InsertSkill, note: string): Promise<SkillRecord> {
-    return this.db.transaction(async (tx) => {
+  /**
+   * Insert a skill and its version 1 (with `note`) together. `'name_taken'`
+   * when the unique index on (workspace_id, name) rejects the name.
+   */
+  create(workspaceId: string, input: InsertSkill, note: string): Promise<SkillRecord | NameTaken> {
+    return nameTaken(() => this.db.transaction(async (tx) => {
       const [row] = await tx
         .insert(t.skills)
         .values({ workspaceId, ...input, version: INITIAL_SKILL_VERSION })
@@ -55,7 +58,7 @@ export class SkillsRepository {
         .insert(t.skillVersions)
         .values({ skillId: row.id, version: INITIAL_SKILL_VERSION, body: row.body, note });
       return toRecord(row);
-    });
+    }));
   }
 
   /**
@@ -68,8 +71,8 @@ export class SkillsRepository {
     patch: SkillPatch,
     newVersion: boolean,
     note: string | null = null,
-  ): Promise<SkillRecord | undefined> {
-    return this.db.transaction(async (tx) => {
+  ): Promise<SkillRecord | NameTaken | undefined> {
+    return nameTaken(() => this.db.transaction(async (tx) => {
       const [current] = await tx
         .select()
         .from(t.skills)
@@ -87,7 +90,7 @@ export class SkillsRepository {
         await tx.insert(t.skillVersions).values({ skillId: id, version, body: row.body, note });
       }
       return toRecord(row);
-    });
+    }));
   }
 
   /** Delete a skill; its versions and agent links go with it (cascade). */
@@ -99,21 +102,27 @@ export class SkillsRepository {
     return rows.length > 0;
   }
 
-  async versions(skillId: string): Promise<SkillVersionRecord[]> {
-    return this.db
-      .select()
+  async versions(workspaceId: string, skillId: string): Promise<SkillVersionRecord[]> {
+    const rows = await this.db
+      .select({ version: t.skillVersions })
       .from(t.skillVersions)
-      .where(eq(t.skillVersions.skillId, skillId))
+      .innerJoin(t.skills, eq(t.skillVersions.skillId, t.skills.id))
+      .where(and(eq(t.skillVersions.skillId, skillId), eq(t.skills.workspaceId, workspaceId)))
       .orderBy(desc(t.skillVersions.version));
+    return rows.map((r) => r.version);
   }
 
-  /** Agents linking each skill of the workspace, in one grouped read. */
-  async usedBy(workspaceId: string): Promise<Map<string, SkillUserRecord[]>> {
+  /** Agents linking each skill of the workspace (or one skill), in one grouped read. */
+  async usedBy(workspaceId: string, skillId?: string): Promise<Map<string, SkillUserRecord[]>> {
     const rows = await this.db
       .select({ skillId: t.agentSkills.skillId, id: t.agents.id, name: t.agents.name })
       .from(t.agentSkills)
       .innerJoin(t.agents, eq(t.agentSkills.agentId, t.agents.id))
-      .where(eq(t.agents.workspaceId, workspaceId))
+      .where(
+        skillId
+          ? and(eq(t.agents.workspaceId, workspaceId), eq(t.agentSkills.skillId, skillId))
+          : eq(t.agents.workspaceId, workspaceId),
+      )
       .orderBy(asc(t.agents.name));
     const map = new Map<string, SkillUserRecord[]>();
     for (const r of rows) {
@@ -137,4 +146,23 @@ function toRecord(row: typeof t.skills.$inferSelect): SkillRecord {
     evidenceFiles: row.evidenceFiles ?? null,
     createdAt: row.createdAt,
   };
+}
+
+/** The write hit the unique index on skills (workspace_id, name). */
+export type NameTaken = 'name_taken';
+
+/** Postgres SQLSTATE of a unique-index violation. */
+const UNIQUE_VIOLATION = '23505';
+
+/** Run `write`; a unique violation becomes `'name_taken'`, any other error is rethrown. */
+async function nameTaken<T>(write: () => Promise<T>): Promise<T | NameTaken> {
+  try {
+    return await write();
+  } catch (err) {
+    const code = (e: unknown) => (e as { code?: unknown } | null)?.code;
+    if (code(err) === UNIQUE_VIOLATION || code((err as { cause?: unknown } | null)?.cause) === UNIQUE_VIOLATION) {
+      return 'name_taken';
+    }
+    throw err;
+  }
 }

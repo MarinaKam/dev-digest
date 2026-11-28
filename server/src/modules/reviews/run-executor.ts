@@ -187,7 +187,7 @@ export class ReviewRunExecutor {
 
       // Skills: the agent's enabled linked skills, in link order. Empty → the
       // prompt is exactly what it was before skills existed.
-      const skills = await this.agents.promptSkills(agent.id);
+      const skills = await this.agents.promptSkills(workspaceId, agent.id);
 
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with

@@ -154,7 +154,8 @@ export class AgentsService {
     const agent = await this.repo.getById(workspaceId, agentId);
     if (!agent) return undefined;
     await this.assertSkillsInWorkspace(workspaceId, skillIds);
-    await this.repo.setSkills(agentId, skillIds);
+    const replaced = await this.repo.setSkills(workspaceId, agentId, skillIds);
+    if (!replaced) return undefined;
     return this.skillLinks(agentId);
   }
 
