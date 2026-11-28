@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  holdAfter,
   listStatuses,
   probeArgs,
   resolveArgs,
@@ -140,4 +141,19 @@ test('statusLine formats each state', () => {
 test('sheetLayout sizes the contact sheet from the video length', () => {
   assert.deepEqual(sheetLayout(47), { frames: 16, cols: 4, rows: 4 });
   assert.deepEqual(sheetLayout(2), { frames: 1, cols: 1, rows: 1 });
+});
+
+test('validateFlow checks the optional setup commands', () => {
+  const steps = [{ pause: 1 }];
+  assert.deepEqual(validateFlow({ name: 'n', setup: [['find', 'text', 'All', 'click']], steps }), []);
+  assert.match(validateFlow({ name: 'n', setup: [['chat', 'x']], steps })[0], /^setup 1:.*chat/);
+  assert.match(validateFlow({ name: 'n', setup: 'open', steps })[0], /"setup" must be an array/);
+});
+
+test('holdAfter gives no default pause to a command that only waits', () => {
+  const pace = { afterAction: 1200, caption: 2500 };
+  assert.equal(holdAfter({ cmd: ['wait', '--text', 'x'] }, pace), 0);
+  assert.equal(holdAfter({ cmd: ['find', 'text', 'x', 'click'] }, pace), 1200);
+  assert.equal(holdAfter({ cmd: ['wait', '--text', 'x'], hold: 3000 }, pace), 3000);
+  assert.equal(holdAfter({ caption: 'c' }, pace), 2500);
 });

@@ -17,7 +17,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { probeArgs, resolveArgs, sheetLayout, validateFlow } from './lib.mjs';
+import { holdAfter, probeArgs, resolveArgs, sheetLayout, validateFlow } from './lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BIN = process.env.AGENT_BROWSER_BIN ?? 'agent-browser';
@@ -90,6 +90,8 @@ function createBrowser(flow) {
     ...process.env,
     AGENT_BROWSER_SESSION: SESSION,
     AGENT_BROWSER_INIT_SCRIPTS: join(HERE, 'overlay.js'),
+    // Let agent-browser's own waits give up first, so a failed step reports its reason.
+    AGENT_BROWSER_DEFAULT_TIMEOUT: String(flow.timeout ?? DEFAULT_TIMEOUT_MS),
     ...(flow.colorScheme ? { AGENT_BROWSER_COLOR_SCHEME: flow.colorScheme } : {}),
     ...(args.includes('--headed') ? { AGENT_BROWSER_HEADED: '1' } : {}),
   };
@@ -154,7 +156,7 @@ async function playStep(step, context) {
   const timeout = step.timeout ?? flow.timeout ?? DEFAULT_TIMEOUT_MS;
   if (step.caption !== undefined) {
     browser.script(`window.__demoVideo && window.__demoVideo.caption(${JSON.stringify(step.caption)})`);
-    await pause(step.hold ?? pace.caption);
+    await pause(holdAfter(step, pace));
     return 'played';
   }
   if (step.pause !== undefined) {
@@ -168,7 +170,7 @@ async function playStep(step, context) {
     return probe ? 'probed' : 'skipped';
   }
   await browser.abRetry(command, timeout);
-  await pause(step.hold ?? pace.afterAction);
+  await pause(holdAfter(step, pace));
   return 'played';
 }
 
@@ -246,7 +248,10 @@ async function main() {
   try {
     browser.ab(['set', 'viewport', String(width), String(height)]);
     browser.ab(['open', `${baseUrl}${flow.start ?? '/'}`]);
-    if (flow.startWait) await browser.abRetry(resolveArgs(flow.startWait, baseUrl), flow.timeout ?? DEFAULT_TIMEOUT_MS);
+    const timeout = flow.timeout ?? DEFAULT_TIMEOUT_MS;
+    if (flow.startWait) await browser.abRetry(resolveArgs(flow.startWait, baseUrl), timeout);
+    // Setup commands shape the first frame (a filter, a scroll) and are never filmed.
+    for (const command of flow.setup ?? []) await browser.abRetry(resolveArgs(command, baseUrl), timeout);
     say(`${DRY ? 'DRY RUN' : 'RECORDING'}  ${flow.name}  (${baseUrl})`);
     recorder.start();
     const report = await playSteps(context, recorder);

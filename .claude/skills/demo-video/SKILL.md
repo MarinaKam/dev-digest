@@ -80,9 +80,15 @@ Skip this section when the scenario file exists and the user asked to record it.
   `AGENT_BROWSER_SESSION=demo-video agent-browser close` before running `record.mjs`.
 - Prefer `find role <role> click --name "<name>"`, then `find text "<text>" click`. When a
   label appears twice (a sidebar link and a tab), add `--exact` or use the role that differs.
-- `start` plus `startWait` put a ready page on screen before the first frame. The first step
-  is a caption with the video's title.
+- `start` plus `startWait` put a ready page on screen before the first frame. If that page
+  opens on an empty or default state (a filter that hides the data), fix it in `setup`, which
+  runs before the first frame. The first step is a caption with the video's title.
+- Order a screen change as click, `wait`, caption. Give the click `"hold": 400`, so the
+  caption of the previous screen does not linger over the new one.
 - After a click that loads data, add a `wait --text` or `wait --url` step.
+- The caption bar covers the bottom of the page. When the thing a caption describes is low on
+  the screen, scroll it to the middle first (the `eval` line in
+  [references/flow.md](references/flow.md)).
 - Copy every **(changes data)** marker into `"changesData": true`. A missed marker makes the
   dry run perform the change, and the recording performs it a second time.
 - Copy every *(off camera)* marker into `"offCamera": true` with a long enough `"timeout"`,

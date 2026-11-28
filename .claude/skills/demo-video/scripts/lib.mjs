@@ -43,14 +43,33 @@ function stepErrors(step, index) {
   return [];
 }
 
+function setupErrors(setup) {
+  if (setup === undefined) return [];
+  if (!Array.isArray(setup)) return ['flow: "setup" must be an array of commands'];
+  return setup.flatMap((cmd, index) =>
+    stepErrors({ cmd }, index).map((error) => error.replace(/^step /, 'setup ')),
+  );
+}
+
 /** Returns a list of problems; an empty list means the flow can be run. */
 export function validateFlow(flow) {
   const errors = [];
   if (typeof flow?.name !== 'string' || !flow.name) errors.push('flow: "name" is required');
+  errors.push(...setupErrors(flow?.setup));
   if (!Array.isArray(flow?.steps) || flow.steps.length === 0) {
     return [...errors, 'flow: "steps" must be a non-empty array'];
   }
   return [...errors, ...flow.steps.flatMap(stepErrors)];
+}
+
+/**
+ * Milliseconds to hold the screen after a step. A `wait` command shows nothing
+ * new by itself, so it gets no default pause: the next caption follows at once.
+ */
+export function holdAfter(step, pace) {
+  if (step.hold !== undefined) return step.hold;
+  if (step.caption !== undefined) return pace.caption;
+  return step.cmd?.[0] === 'wait' ? 0 : pace.afterAction;
 }
 
 /**

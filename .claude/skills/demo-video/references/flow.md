@@ -14,6 +14,7 @@ kinds exist only here: `caption` and `pause`.
   "colorScheme": "dark",
   "start": "/",
   "startWait": ["wait", "--url", "/pulls"],
+  "setup": [["find", "role", "button", "click", "--name", "All", "--exact"]],
   "timeout": 15000,
   "pace": { "afterAction": 1200, "caption": 2500 },
   "steps": [
@@ -33,8 +34,9 @@ kinds exist only here: `caption` and `pause`.
 | `colorScheme` | app default | `dark` or `light` |
 | `start` | `/` | path opened before the recording starts |
 | `startWait` | none | a `wait` command that must pass before the first frame |
+| `setup` | none | commands run after `startWait` and before the first frame, never filmed: a filter or a scroll that shapes the opening screen. They also run in a dry run, so they must not change data |
 | `timeout` | `15000` | ms a step may take to find its target |
-| `pace.afterAction` | `1200` | ms held after each `cmd` step |
+| `pace.afterAction` | `1200` | ms held after each `cmd` step; a `wait` command gets no default hold |
 | `pace.caption` | `2500` | ms a caption step holds the screen |
 
 The video is written next to the flow file: `NN-name.mp4`, with `NN-name.sheet.png` (one
@@ -73,6 +75,7 @@ A `cmd` step can also carry:
 | Wait for text | `["wait", "--text", "2 findings"]` |
 | Wait for a route | `["wait", "--url", "/pulls/482"]` |
 | Scroll | `["scroll", "down", "500"]` |
+| Centre an element found by its text | `["eval", "[...document.querySelectorAll('*')].find((el) => el.children.length === 0 && el.textContent.includes('<text>'))?.scrollIntoView({ block: 'center', behavior: 'smooth' })"]` |
 | Press a key | `["press", "Escape"]` |
 
 `find` locators: `role`, `text`, `label`, `placeholder`, `alt`, `title`, `testid`, `first`,

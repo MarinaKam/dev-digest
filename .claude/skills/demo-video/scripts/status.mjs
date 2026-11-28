@@ -46,7 +46,8 @@ if (!Number.isInteger(n) || n < 1) fail(`video number must be a positive integer
 if (!['recorded', 'failed', 'pending'].includes(state)) fail(USAGE, 2);
 if (state === 'recorded' && (!extra || !existsSync(extra))) fail(`video file not found: ${extra}`);
 
-const date = new Date().toISOString().slice(0, 10);
+// The en-CA locale formats a date as YYYY-MM-DD, in the local time zone.
+const date = new Date().toLocaleDateString('en-CA');
 const details =
   state === 'recorded'
     ? { date, name: basename(extra), link: relative(dirname(resolve(file)), resolve(extra)), seconds: videoSeconds(extra) }
