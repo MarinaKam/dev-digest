@@ -38,3 +38,4 @@ export const SKILL_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const SKILL_NAME_MAX = 64;
 export const SKILL_DESCRIPTION_MAX = 1024;
 export const SKILL_BODY_MAX = 20_000;
+export const SKILL_VERSION_NOTE_MAX = 200;

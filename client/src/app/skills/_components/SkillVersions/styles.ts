@@ -8,7 +8,9 @@ export const s = {
   list: { display: "flex", flexDirection: "column", gap: 10 } satisfies CSSProperties,
   row: { display: "flex", alignItems: "center", gap: 10 } satisfies CSSProperties,
   version: { fontSize: 14, fontWeight: 600 } satisfies CSSProperties,
-  date: { fontSize: 13, color: "var(--text-muted)", flex: 1 } satisfies CSSProperties,
+  meta: { display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 } satisfies CSSProperties,
+  noteText: { fontSize: 13, fontWeight: 500, color: "var(--text-primary)" } satisfies CSSProperties,
+  date: { fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
   diff: {
     margin: "12px 0 0",
     padding: "8px 0",

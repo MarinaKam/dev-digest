@@ -57,6 +57,18 @@ describe("SkillConfigForm", () => {
     });
   });
 
+  it("asks for a version note once the body changes, and sends it", () => {
+    renderWithIntl(<SkillConfigForm skill={SKILL} onDeleted={() => {}} />);
+    expect(screen.queryByLabelText("Version note")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Skill body (Markdown)"), { target: { value: "# Rule\nNew text." } });
+    fireEvent.change(screen.getByLabelText("Version note"), { target: { value: "Tightened scope rule" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/ }));
+    expect(updateMutate.mock.calls[0]?.[0]).toEqual({
+      id: "sk1",
+      patch: { body: "# Rule\nNew text.", version_note: "Tightened scope rule" },
+    });
+  });
+
   it("saves the Enabled toggle at once, like the card", () => {
     renderWithIntl(<SkillConfigForm skill={SKILL} onDeleted={() => {}} />);
     fireEvent.click(screen.getByRole("switch"));

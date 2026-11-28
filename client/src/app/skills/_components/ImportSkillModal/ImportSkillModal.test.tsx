@@ -95,6 +95,7 @@ describe("ImportSkillModal", () => {
       type: "custom",
       body: "# Rule\nCheck the branches.",
       source: "imported_file",
+      version_note: "Imported from SKILL.md",
     });
   });
 

@@ -2,12 +2,13 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Badge, Button, Toggle } from "@devdigest/ui";
+import { Badge, Button, FormField, TextInput, Toggle } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
 import { useDeleteSkill, useUpdateSkill } from "@/lib/hooks/skills";
 import { useToast } from "@/lib/toast";
 import { SkillFields } from "../SkillFields";
 import { changedFields, hasErrors, toFormValues, validateSkillForm, type SkillFormValues } from "../helpers";
+import { SKILL_VERSION_NOTE_MAX } from "../constants";
 import { s } from "./styles";
 
 interface SkillConfigFormProps {
@@ -25,6 +26,7 @@ export function SkillConfigForm({ skill, onDeleted }: SkillConfigFormProps) {
   const update = useUpdateSkill();
   const remove = useDeleteSkill();
   const [form, setForm] = React.useState<SkillFormValues>(() => toFormValues(skill));
+  const [versionNote, setVersionNote] = React.useState("");
 
   // Enabled is saved at once by its toggle (like the card's), never with the
   // form: a form copy could switch back on a skill turned off on its card.
@@ -37,9 +39,14 @@ export function SkillConfigForm({ skill, onDeleted }: SkillConfigFormProps) {
 
   const save = () =>
     update.mutate(
-      { id: skill.id, patch },
+      { id: skill.id, patch: bodyChanged && versionNote.trim() ? { ...patch, version_note: versionNote.trim() } : patch },
       // Failures (409 name taken, 422) reach the user through the global mutation error toast.
-      { onSuccess: (data) => toast.success(t("config.savedToast", { version: data.version })) },
+      {
+        onSuccess: (data) => {
+          setVersionNote("");
+          toast.success(t("config.savedToast", { version: data.version }));
+        },
+      },
     );
 
   const handleDelete = () => {
@@ -71,12 +78,30 @@ export function SkillConfigForm({ skill, onDeleted }: SkillConfigFormProps) {
       </div>
 
       <SkillFields values={form} onChange={change} unsaved={bodyChanged} />
+      {bodyChanged && (
+        <FormField label={t("config.versionNote")} hint={t("config.versionNoteHint")}>
+          <TextInput
+            aria-label={t("config.versionNote")}
+            value={versionNote}
+            onChange={setVersionNote}
+            maxLength={SKILL_VERSION_NOTE_MAX}
+            placeholder={t("config.versionNotePlaceholder")}
+          />
+        </FormField>
+      )}
 
       <div style={s.actions}>
         <Button kind="primary" icon="Check" onClick={save} disabled={!dirty || invalid || update.isPending}>
           {update.isPending ? t("config.saving") : t("config.save")}
         </Button>
-        <Button kind="secondary" onClick={() => setForm(toFormValues(skill))} disabled={!dirty || update.isPending}>
+        <Button
+          kind="secondary"
+          onClick={() => {
+            setForm(toFormValues(skill));
+            setVersionNote("");
+          }}
+          disabled={!dirty || update.isPending}
+        >
           {t("config.cancel")}
         </Button>
       </div>

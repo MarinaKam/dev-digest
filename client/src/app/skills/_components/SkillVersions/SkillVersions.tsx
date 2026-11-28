@@ -30,9 +30,9 @@ export function SkillVersions({ skill }: SkillVersionsProps) {
 
   const versions = [...data].sort((a, b) => b.version - a.version);
 
-  const restore = (body: string) =>
+  const restore = (version: number, body: string) =>
     update.mutate(
-      { id: skill.id, patch: { body } },
+      { id: skill.id, patch: { body, version_note: t("versions.restoredNote", { version }) } },
       { onSuccess: (saved) => toast.success(t("versions.restoredToast", { version: saved.version })) },
     );
 
@@ -54,18 +54,29 @@ export function SkillVersions({ skill }: SkillVersionsProps) {
                 <span className="mono" style={s.version}>
                   {t("versions.version", { version: version.version })}
                 </span>
+                <div style={s.meta}>
+                  {version.note && <span style={s.noteText}>{version.note}</span>}
+                  <span style={s.date}>{formatDate(version.created_at)}</span>
+                </div>
                 {current && <Badge color="var(--ok)">{t("versions.current")}</Badge>}
-                <span style={s.date}>{formatDate(version.created_at)}</span>
                 {!current && (
                   <>
                     <Button
                       kind="secondary"
                       size="sm"
+                      data-testid={`diff-v${version.version}`}
                       onClick={() => setDiffOf(diff ? null : version.version)}
                     >
                       {diff ? t("versions.hideDiff") : t("versions.diff")}
                     </Button>
-                    <Button kind="secondary" size="sm" onClick={() => restore(version.body)} disabled={update.isPending}>
+                    <Button
+                      kind="secondary"
+                      size="sm"
+                      data-testid={`restore-v${version.version}`}
+                      onClick={() => restore(version.version, version.body)}
+                      // Restoring the current body would save nothing new (spec rule 5b).
+                      disabled={update.isPending || version.body === skill.body}
+                    >
                       {t("versions.restore")}
                     </Button>
                   </>

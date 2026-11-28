@@ -37,6 +37,7 @@ export function ImportReview({ preview, onClose, onCreated }: ImportReviewProps)
         type: form.type,
         body: form.body,
         source: "imported_file",
+        version_note: t("import.versionNote", { file: preview.core_path }),
       },
       {
         onSuccess: (skill) => {

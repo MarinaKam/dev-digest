@@ -56,6 +56,9 @@
     "title": "Configuration",
     "enabled": "Enabled",
     "save": "Save",
+    "versionNote": "Version note",
+    "versionNoteHint": "Optional. What this version changes, shown in Version history.",
+    "versionNotePlaceholder": "Tightened scope rule",
     "saving": "Saving…",
     "cancel": "Cancel",
     "savedToast": "Skill saved (v{version})",
@@ -106,6 +109,7 @@
     "restore": "Restore",
     "restoring": "Restoring…",
     "restoredToast": "Restored as v{version}",
+    "restoredNote": "Restored v{version}",
     "diffEmpty": "No differences from the current body.",
     "loadError": "Could not load the versions."
   },
@@ -117,6 +121,7 @@
     "cancel": "Cancel"
   },
   "import": {
+    "versionNote": "Imported from {file}",
     "title": "Import a skill from a file",
     "subtitle": "A .md file or a .zip with a SKILL.md. Nothing is saved until you click Save skill.",
     "choose": "Choose file",
