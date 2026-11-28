@@ -13,7 +13,7 @@ freshly seeded database.
 
 ## Video 1 — From the PR list to a finding
 
-**Status:** ✅ recorded 2026-11-27 · [01-pr-tour.mp4](../../demo/feat-demo-video-skill/01-pr-tour.mp4) · 29 s
+**Status:** ✅ recorded 2026-11-27 · [01-pr-tour.mp4](../../demo/feat-demo-video-skill/01-pr-tour.mp4) · 31 s
 
 **Preconditions:** the seeded repo `acme/payments-api` is the first repo, with PR #482
 "Add rate limiting to public API endpoints" and its seeded review run (verdict

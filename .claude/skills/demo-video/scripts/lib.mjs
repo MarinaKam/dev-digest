@@ -89,6 +89,18 @@ export function probeArgs(cmd) {
   return null;
 }
 
+/**
+ * The command that moves the pointer onto the target of a click, so a viewer sees
+ * where the click is about to land. Returns null for anything that is not a click.
+ */
+export function hoverArgs(cmd) {
+  if (cmd[0] === 'click' && cmd.length > 1) return ['hover', cmd[1]];
+  if (cmd[0] !== 'find') return null;
+  const probe = probeArgs(cmd);
+  const actionAt = probe?.indexOf('hover') ?? -1;
+  return actionAt > 0 && cmd[actionAt] === 'click' ? probe : null;
+}
+
 /** Every `## Video N` of a scenario with its status text. */
 export function listStatuses(markdown) {
   const videos = [];

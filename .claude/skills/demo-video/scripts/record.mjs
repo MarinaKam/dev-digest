@@ -17,19 +17,23 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { holdAfter, probeArgs, resolveArgs, sheetLayout, validateFlow } from './lib.mjs';
+import { holdAfter, hoverArgs, probeArgs, resolveArgs, sheetLayout, validateFlow } from './lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BIN = process.env.AGENT_BROWSER_BIN ?? 'agent-browser';
 const SESSION = 'demo-video';
 const DEFAULT_BASE_URL = 'http://localhost:3000';
 const DEFAULT_VIEWPORT = [1440, 900];
+// 2 would record twice the pixels, but agent-browser 0.45.0 halves the mouse coordinates
+// while it records at an emulated scale, so every click misses. Keep 1 until that is fixed.
+const DEFAULT_SCALE = 1;
 const DEFAULT_TIMEOUT_MS = 15_000;
-const DEFAULT_PACE = { afterAction: 1200, caption: 2500 };
+const DEFAULT_PACE = { afterAction: 1200, beforeClick: 600, caption: 2500 };
 const DRY_RUN_PAUSE_MS = 100;
 const RETRY_EVERY_MS = 400;
 const SHEET_EVERY_SECONDS = 3;
-const SHEET_FRAME_WIDTH = 480;
+const SHEET_FRAME_WIDTH = 720;
+const SHEET_COLUMNS = 3;
 const SIZE_WARNING_MB = 10;
 /** Commands that already wait on their own, or must run exactly once. */
 const NO_RETRY = ['open', 'wait', 'record', 'back', 'forward', 'reload', 'close'];
@@ -124,7 +128,8 @@ function createRecorder(browser, output) {
     start() {
       if (DRY || recording) return;
       const segment = join(segmentsDir, `segment-${String(segments.length).padStart(3, '0')}.mp4`);
-      browser.ab(['record', 'start', segment, '--cursor']);
+      // No --cursor: overlay.js draws the pointer, with a glide between targets.
+      browser.ab(['record', 'start', segment]);
       segments.push(segment);
       recording = true;
     },
@@ -169,6 +174,12 @@ async function playStep(step, context) {
     if (probe) await browser.abRetry(probe, timeout);
     return probe ? 'probed' : 'skipped';
   }
+  const hover = hoverArgs(command);
+  if (hover) {
+    // Rest the pointer on the target first, so the viewer sees where the click lands.
+    await browser.abRetry(hover, timeout);
+    await pause(pace.beforeClick);
+  }
   await browser.abRetry(command, timeout);
   await pause(holdAfter(step, pace));
   return 'played';
@@ -204,7 +215,7 @@ async function playSteps(context, recorder) {
 
 function writeSheet(video) {
   const duration = Number(run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', video]));
-  const { cols, rows } = sheetLayout(duration, SHEET_EVERY_SECONDS);
+  const { cols, rows } = sheetLayout(duration, SHEET_EVERY_SECONDS, SHEET_COLUMNS);
   const sheet = video.replace(/\.mp4$/, '.sheet.png');
   const filter = `fps=1/${SHEET_EVERY_SECONDS},scale=${SHEET_FRAME_WIDTH}:-1,tile=${cols}x${rows}`;
   run('ffmpeg', ['-y', '-loglevel', 'error', '-i', video, '-vf', filter, '-frames:v', '1', sheet]);
@@ -246,7 +257,7 @@ async function main() {
 
   let failed = false;
   try {
-    browser.ab(['set', 'viewport', String(width), String(height)]);
+    browser.ab(['set', 'viewport', String(width), String(height), String(flow.scale ?? DEFAULT_SCALE)]);
     browser.ab(['open', `${baseUrl}${flow.start ?? '/'}`]);
     const timeout = flow.timeout ?? DEFAULT_TIMEOUT_MS;
     if (flow.startWait) await browser.abRetry(resolveArgs(flow.startWait, baseUrl), timeout);

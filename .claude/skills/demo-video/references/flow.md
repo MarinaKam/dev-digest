@@ -31,16 +31,22 @@ kinds exist only here: `caption` and `pause`.
 | `name` | required | title printed by the runner |
 | `baseUrl` | `http://localhost:3000` | web origin; the `DEMO_BASE_URL` environment variable wins over it |
 | `viewport` | `[1440, 900]` | video size in CSS pixels |
+| `scale` | `1` | device pixel ratio. Leave it at 1: with 2, agent-browser 0.45.0 halves the mouse coordinates while recording and every click misses |
 | `colorScheme` | app default | `dark` or `light` |
 | `start` | `/` | path opened before the recording starts |
 | `startWait` | none | a `wait` command that must pass before the first frame |
 | `setup` | none | commands run after `startWait` and before the first frame, never filmed: a filter or a scroll that shapes the opening screen. They also run in a dry run, so they must not change data |
 | `timeout` | `15000` | ms a step may take to find its target |
 | `pace.afterAction` | `1200` | ms held after each `cmd` step; a `wait` command gets no default hold |
+| `pace.beforeClick` | `600` | ms the pointer rests on a target before a click |
 | `pace.caption` | `2500` | ms a caption step holds the screen |
 
 The video is written next to the flow file: `NN-name.mp4`, with `NN-name.sheet.png` (one
-frame every 3 seconds) and, after a failure, `NN-name.failed.png`.
+small frame every 3 seconds, for a quick check; it is a thumbnail grid, not the video's
+quality) and, after a failure, `NN-name.failed.png`.
+
+The pointer and the ring on each click are drawn by `scripts/overlay.js`. Before a click
+the runner moves the pointer onto the target and rests there for `pace.beforeClick`.
 
 ## Steps
 

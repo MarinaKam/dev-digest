@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   holdAfter,
+  hoverArgs,
   listStatuses,
   probeArgs,
   resolveArgs,
@@ -156,4 +157,19 @@ test('holdAfter gives no default pause to a command that only waits', () => {
   assert.equal(holdAfter({ cmd: ['find', 'text', 'x', 'click'] }, pace), 1200);
   assert.equal(holdAfter({ cmd: ['wait', '--text', 'x'], hold: 3000 }, pace), 3000);
   assert.equal(holdAfter({ caption: 'c' }, pace), 2500);
+});
+
+test('hoverArgs points at the target of a click, and at nothing else', () => {
+  assert.deepEqual(hoverArgs(['find', 'role', 'button', 'click', '--name', 'Save']), [
+    'find',
+    'role',
+    'button',
+    'hover',
+    '--name',
+    'Save',
+  ]);
+  assert.deepEqual(hoverArgs(['click', '#save']), ['hover', '#save']);
+  assert.equal(hoverArgs(['find', 'label', 'Name', 'fill', 'x']), null);
+  assert.equal(hoverArgs(['find', 'text', 'Row', 'hover']), null);
+  assert.equal(hoverArgs(['wait', '--text', 'click']), null);
 });

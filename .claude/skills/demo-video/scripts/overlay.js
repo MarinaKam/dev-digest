@@ -10,6 +10,11 @@
   const KEY = '__demo_video_caption';
   const CAPTION_ID = '__demo_video_caption';
   const RING_MS = 650;
+  const CURSOR_ID = '__demo_video_cursor';
+  const GLIDE_MS = 350;
+  const CURSOR_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22" width="22" height="22">' +
+    '<path d="M3 2l15 8.5-6.6 1.4L8 18.5z" fill="#fff" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/></svg>';
   const CSS = `
     nextjs-portal { display: none !important; }
     #${CAPTION_ID} {
@@ -23,6 +28,11 @@
       position: fixed; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%;
       border: 3px solid #f5a524; background: rgba(245, 165, 36, 0.25); pointer-events: none;
       z-index: 2147483646; animation: __demo_video_ring ${RING_MS}ms ease-out forwards;
+    }
+    #${CURSOR_ID} {
+      position: fixed; left: 0; top: 0; width: 22px; height: 22px; pointer-events: none;
+      z-index: 2147483647; transition: transform ${GLIDE_MS}ms ease-out;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
     }
     @keyframes __demo_video_ring {
       from { transform: scale(0.4); opacity: 1; }
@@ -86,6 +96,19 @@
       if (text && !document.getElementById(CAPTION_ID)) render(text);
     }).observe(document.body, { childList: true });
   });
+
+  // The pointer: agent-browser moves the mouse in one jump, the transition turns it into a glide.
+  window.addEventListener(
+    'mousemove',
+    (event) => {
+      if (!document.body) return;
+      const cursor =
+        document.getElementById(CURSOR_ID) ??
+        document.body.appendChild(Object.assign(document.createElement('div'), { id: CURSOR_ID, innerHTML: CURSOR_SVG }));
+      cursor.style.transform = `translate(${event.clientX - 3}px, ${event.clientY - 2}px)`;
+    },
+    true,
+  );
 
   window.addEventListener(
     'pointerdown',
