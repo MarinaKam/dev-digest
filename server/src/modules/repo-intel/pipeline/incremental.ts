@@ -200,57 +200,21 @@ export async function runIncremental(
     }
   }
 
-  await repository.deleteForFiles(repoId, changed);
-  await repository.insertSymbols(symbolsBuf);
-  await repository.insertReferences(refsBuf);
-  await repository.patchFileFacts(repoId, changed, factsBuf);
-
-  // --- T3: rebuild graph + rank, re-resolve, invalidate the repo-map -----
-  // The symbol reparse above is sliced, but the graph + rank are global, so we
-  // rebuild them over the full file set (cheap vs. the avoided whole-tree AST
-  // parse). A future optimization could patch only the changed files' edges;
-  // v1 favours simple correctness.
+  // --- T3 inputs: the graph + rank are global, so they are rebuilt over the
+  // full file set (cheap vs. the avoided whole-tree AST parse), before
+  // anything is written. A future optimization could patch only the changed
+  // files' edges; v1 favours simple correctness.
   let graphFailed: string | undefined;
-  let edgeRows: IndexerEdgeRow[] = [];
+  let graph: { edgeRows: IndexerEdgeRow[]; rankRows: ReturnType<typeof computeFileRank> } | null =
+    null;
   try {
     const allFiles = (await walkClone(repo.clonePath)).files;
     const edges = await container.depgraph.buildEdges(repo.clonePath, allFiles);
-    edgeRows = edges.map((e) => ({ fromFile: e.from, toFile: e.to }));
-    await repository.replaceEdges(repoId, edgeRows);
-    // reset: a changed decl-file can invalidate a prior resolution.
-    await repository.resolveReferences(repoId, { reset: true });
-    const rankRows = computeFileRank(allFiles, edgeRows);
-    await repository.replaceFileRank(repoId, rankRows);
-    // The repo-map is keyed per commit_sha → prior entries are now stale.
-    const candidates = await repository.getRepoMapCandidates(repoId);
-    const map = renderRepoMap(candidates, container.tokenizer, DEFAULT_REPO_MAP_TOKEN_BUDGET);
-    await repository.deleteRepoMapCache(repoId);
-    await repository.putRepoMapCache(
-      repoId,
-      currentSha,
-      DEFAULT_REPO_MAP_TOKEN_BUDGET,
-      map.text,
-      map.tokens,
-    );
+    const edgeRows = edges.map((e) => ({ fromFile: e.from, toFile: e.to }));
+    graph = { edgeRows, rankRows: computeFileRank(allFiles, edgeRows) };
   } catch (err) {
     graphFailed = asMessage(err);
   }
-
-  // Keep 'full' only if the prior index was full AND this slice stayed clean.
-  const clean = parseDegraded.length === 0 && !graphFailed;
-  const status: IndexStatus = clean && state.status === 'full' ? 'full' : 'partial';
-
-  const stats: Record<string, unknown> = {
-    incremental: true,
-    changedFiles: changed.length,
-    symbolsWritten: symbolsBuf.length,
-    referencesWritten: refsBuf.length,
-    edgesWritten: edgeRows.length,
-    hotnessAvailable: false,
-    ...(graphFailed ? { graphFailed } : {}),
-    parseDegraded,
-    durationMs: Date.now() - startedAt,
-  };
 
   // The aggregate filesIndexed counter on `repo_index_state` is the prior
   // count + this slice. Symbols/references for unchanged files are still in
@@ -258,14 +222,69 @@ export async function runIncremental(
   const newFilesIndexed = state.filesIndexed + filesIndexed;
   const newFilesSkipped = state.filesSkipped + filesSkipped;
 
-  await repository.upsertIndexState({
-    repoId,
-    lastIndexedSha: currentSha,
-    indexerVersion: INDEXER_VERSION,
-    status,
-    filesIndexed: newFilesIndexed,
-    filesSkipped: newFilesSkipped,
-    stats,
+  // ONE unit of work: the reparsed slice, the graph part and the index state
+  // are committed together, or the previous index stays as it was.
+  const status = await repository.inTransaction(async (unit) => {
+    await unit.deleteForFiles(repoId, changed);
+    await unit.insertSymbols(symbolsBuf);
+    await unit.insertReferences(refsBuf);
+    await unit.patchFileFacts(repoId, changed, factsBuf);
+
+    // The graph part is a nested unit (a savepoint): when it cannot be stored
+    // it is dropped whole, the slice above is kept and the index is 'partial'.
+    if (graph) {
+      const { edgeRows, rankRows } = graph;
+      try {
+        await unit.inTransaction(async (inner) => {
+          await inner.replaceEdges(repoId, edgeRows);
+          // reset: a changed decl-file can invalidate a prior resolution.
+          await inner.resolveReferences(repoId, { reset: true });
+          await inner.replaceFileRank(repoId, rankRows);
+          // The repo-map is keyed per commit_sha → prior entries are now stale.
+          const candidates = await inner.getRepoMapCandidates(repoId);
+          const map = renderRepoMap(
+            candidates,
+            container.tokenizer,
+            DEFAULT_REPO_MAP_TOKEN_BUDGET,
+          );
+          await inner.deleteRepoMapCache(repoId);
+          await inner.putRepoMapCache(
+            repoId,
+            currentSha,
+            DEFAULT_REPO_MAP_TOKEN_BUDGET,
+            map.text,
+            map.tokens,
+          );
+        });
+      } catch (err) {
+        graphFailed = asMessage(err);
+      }
+    }
+
+    // Keep 'full' only if the prior index was full AND this slice stayed clean.
+    const clean = parseDegraded.length === 0 && !graphFailed;
+    const next: IndexStatus = clean && state.status === 'full' ? 'full' : 'partial';
+
+    await unit.upsertIndexState({
+      repoId,
+      lastIndexedSha: currentSha,
+      indexerVersion: INDEXER_VERSION,
+      status: next,
+      filesIndexed: newFilesIndexed,
+      filesSkipped: newFilesSkipped,
+      stats: {
+        incremental: true,
+        changedFiles: changed.length,
+        symbolsWritten: symbolsBuf.length,
+        referencesWritten: refsBuf.length,
+        edgesWritten: graphFailed ? 0 : (graph?.edgeRows.length ?? 0),
+        hotnessAvailable: false,
+        ...(graphFailed ? { graphFailed } : {}),
+        parseDegraded,
+        durationMs: Date.now() - startedAt,
+      },
+    });
+    return next;
   });
 
   return {

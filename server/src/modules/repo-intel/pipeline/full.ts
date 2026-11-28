@@ -196,19 +196,11 @@ export async function runFullIndex(
 
   await parseQ.onIdle();
 
-  // Persist phase -------------------------------------------------------
-  // Delete-then-insert is the idempotent shape blast already uses. Keeps
-  // the new UNIQUE index (symbols_repo_path_name_kind_line_uq) happy.
-  await repository.deleteAllForRepo(repoId);
-  await repository.insertSymbols(symbolsBuf);
-  await repository.insertReferences(refsBuf);
-
-  // --- T3: graph → resolve → rank → repo-map → facts -------------------
+  // --- T3 inputs: graph + rank, computed before anything is written -----
   // Skipped when the soft budget tripped: we're already over time, and the
   // graph build would blow past the hard cap. status then stays 'partial'.
   let graphFailed: string | undefined;
   let edgeRows: IndexerEdgeRow[] = [];
-  let rankCount = 0;
   if (!softBudgetReached) {
     try {
       const edges = await container.depgraph.buildEdges(repo.clonePath, walk.files);
@@ -216,62 +208,74 @@ export async function runFullIndex(
     } catch (err) {
       graphFailed = asMessage(err);
     }
-    await repository.replaceEdges(repoId, edgeRows);
-
-    // Resolve references.decl_file via the fresh graph. Full index inserts
-    // rows with NULL decl_file, so no reset is needed (step 5).
-    await repository.resolveReferences(repoId, { reset: false });
-
-    // Rank (PageRank only; hotness=0 — Option B).
-    const rankRows = computeFileRank(walk.files, edgeRows);
-    rankCount = rankRows.length;
-    await repository.replaceFileRank(repoId, rankRows);
-
-    // Repo-map render → cache. Drop stale entries (prior SHAs) first.
-    const candidates = await repository.getRepoMapCandidates(repoId);
-    const map = renderRepoMap(candidates, container.tokenizer, DEFAULT_REPO_MAP_TOKEN_BUDGET);
-    await repository.deleteRepoMapCache(repoId);
-    if (currentSha) {
-      await repository.putRepoMapCache(
-        repoId,
-        currentSha,
-        DEFAULT_REPO_MAP_TOKEN_BUDGET,
-        map.text,
-        map.tokens,
-      );
-    }
-
-    // Per-file facts (endpoints/crons) for the blast facade.
-    await repository.replaceFileFacts(repoId, factsBuf);
   }
+  // Rank (PageRank only; hotness=0 — Option B).
+  const rankRows = softBudgetReached ? [] : computeFileRank(walk.files, edgeRows);
 
   // Clean pass → 'full'. Any degradation (soft budget, graph failure, or a
   // parse error) keeps it honestly 'partial'.
   const clean = !softBudgetReached && !graphFailed && parseDegraded.length === 0;
   const status: IndexStatus = clean ? 'full' : 'partial';
-  const stats: Record<string, unknown> = {
-    ...walk.stats,
-    filesSeen: walk.files.length,
-    symbolsWritten: symbolsBuf.length,
-    referencesWritten: refsBuf.length,
-    edgesWritten: edgeRows.length,
-    ranked: rankCount,
-    factsWritten: factsBuf.length,
-    hotnessAvailable: false, // Option B — rank = pagerank only
-    ...(graphFailed ? { graphFailed } : {}),
-    softBudgetReached,
-    parseDegraded,
-    durationMs: Date.now() - startedAt,
-  };
 
-  await repository.upsertIndexState({
-    repoId,
-    lastIndexedSha: currentSha,
-    indexerVersion: INDEXER_VERSION,
-    status,
-    filesIndexed,
-    filesSkipped,
-    stats,
+  // Persist phase -------------------------------------------------------
+  // ONE unit of work: symbols, references, graph, rank, repo-map, facts and
+  // the index state are committed together. A reindex that fails part-way
+  // leaves the previous index, and the state row that describes it, intact.
+  await repository.inTransaction(async (unit) => {
+    // Delete-then-insert is the idempotent shape blast already uses. Keeps
+    // the new UNIQUE index (symbols_repo_path_name_kind_line_uq) happy.
+    await unit.deleteAllForRepo(repoId);
+    await unit.insertSymbols(symbolsBuf);
+    await unit.insertReferences(refsBuf);
+
+    if (!softBudgetReached) {
+      await unit.replaceEdges(repoId, edgeRows);
+
+      // Resolve references.decl_file via the fresh graph. Full index inserts
+      // rows with NULL decl_file, so no reset is needed (step 5).
+      await unit.resolveReferences(repoId, { reset: false });
+      await unit.replaceFileRank(repoId, rankRows);
+
+      // Repo-map render → cache. Drop stale entries (prior SHAs) first.
+      const candidates = await unit.getRepoMapCandidates(repoId);
+      const map = renderRepoMap(candidates, container.tokenizer, DEFAULT_REPO_MAP_TOKEN_BUDGET);
+      await unit.deleteRepoMapCache(repoId);
+      if (currentSha) {
+        await unit.putRepoMapCache(
+          repoId,
+          currentSha,
+          DEFAULT_REPO_MAP_TOKEN_BUDGET,
+          map.text,
+          map.tokens,
+        );
+      }
+
+      // Per-file facts (endpoints/crons) for the blast facade.
+      await unit.replaceFileFacts(repoId, factsBuf);
+    }
+
+    await unit.upsertIndexState({
+      repoId,
+      lastIndexedSha: currentSha,
+      indexerVersion: INDEXER_VERSION,
+      status,
+      filesIndexed,
+      filesSkipped,
+      stats: {
+        ...walk.stats,
+        filesSeen: walk.files.length,
+        symbolsWritten: symbolsBuf.length,
+        referencesWritten: refsBuf.length,
+        edgesWritten: edgeRows.length,
+        ranked: rankRows.length,
+        factsWritten: factsBuf.length,
+        hotnessAvailable: false, // Option B — rank = pagerank only
+        ...(graphFailed ? { graphFailed } : {}),
+        softBudgetReached,
+        parseDegraded,
+        durationMs: Date.now() - startedAt,
+      },
+    });
   });
 
   return {

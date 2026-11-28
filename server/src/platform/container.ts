@@ -64,6 +64,7 @@ export interface ContainerOverrides {
 export interface UnitOfWork {
   reviews: ReviewRepository;
   pulls: PullsRepository;
+  repos: RepoRepository;
 }
 
 export class Container {
@@ -133,7 +134,11 @@ export class Container {
    */
   unitOfWork<T>(fn: (work: UnitOfWork) => Promise<T>): Promise<T> {
     return this.db.transaction((tx) =>
-      fn({ reviews: new ReviewRepository(tx), pulls: new PullsRepository(tx) }),
+      fn({
+        reviews: new ReviewRepository(tx),
+        pulls: new PullsRepository(tx),
+        repos: new RepoRepository(tx),
+      }),
     );
   }
 

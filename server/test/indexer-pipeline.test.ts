@@ -49,6 +49,8 @@ function makeRepoStub(opts: {
   const stub = {
     getRepoBasics: async () => opts.basics,
     tryGetIndexState: async () => state,
+    // No real DB here: a unit of work over the stub is the stub itself.
+    inTransaction: async <T>(fn: (repo: unknown) => Promise<T>): Promise<T> => fn(stub),
     deleteAllForRepo: async () => {
       symbols.length = 0;
       references.length = 0;

@@ -133,6 +133,54 @@ d('pull request import and workspace scoping', () => {
     await app.close();
   });
 
+  it('a poll that cannot record the poll time imports no pull request', async () => {
+    const app = await makeApp();
+    const repo = await insertRepo();
+
+    await pg.handle.sql.unsafe(
+      `create function fault_repos_update() returns trigger language plpgsql as $$ ` +
+        `begin raise exception 'injected fault'; end $$; ` +
+        `create trigger fault_repos_update before update on repos ` +
+        `for each row execute function fault_repos_update();`,
+    );
+    let res: Awaited<ReturnType<typeof app.inject>>;
+    try {
+      res = await app.inject({ method: 'POST', url: `/repos/${repo.id}/poll` });
+    } finally {
+      await pg.handle.sql.unsafe(
+        'drop trigger fault_repos_update on repos; drop function fault_repos_update();',
+      );
+    }
+
+    expect(res.statusCode).toBe(500);
+    const stored = await pg.handle.db
+      .select()
+      .from(t.pullRequests)
+      .where(eq(t.pullRequests.repoId, repo.id));
+    expect(stored).toEqual([]);
+    await app.close();
+  });
+
+  it('the workspace summary uses the snake_case field names of the API contract', async () => {
+    const app = await makeApp();
+    const repo = await insertRepo();
+
+    const res = await app.inject({ method: 'GET', url: '/workspace' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(Object.keys(body).sort()).toEqual(['clone_dir', 'repos', 'workspace_id']);
+    expect(body.workspace_id).toBe(workspaceId);
+    expect(body.repos.find((r: { id: string }) => r.id === repo.id)).toEqual({
+      id: repo.id,
+      full_name: repo.fullName,
+      clone_path: null,
+      last_polled_at: null,
+      cloned: false,
+    });
+    await app.close();
+  });
+
   // ---- detail refresh is one unit -----------------------------------------
 
   it('a detail refresh that cannot store the commits keeps the stored files and commits', async () => {
@@ -353,6 +401,29 @@ d('pull request import and workspace scoping', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual([{ agent_id: agentId, skill_id: own, order: 0 }]);
+    await app.close();
+  });
+
+  it('deleting a run that is still running tells its runner to stop', async () => {
+    const app = await makeApp();
+    const run = await insertRun(workspaceId);
+
+    const res = await app.inject({ method: 'DELETE', url: `/runs/${run.id}` });
+
+    expect(res.json()).toEqual({ ok: true });
+    expect(app.container.runBus.isCancelled(run.id)).toBe(true);
+    await app.close();
+  });
+
+  it('deleting a run of another workspace deletes nothing and stops nothing', async () => {
+    const app = await makeApp();
+    const run = await insertRun(await otherWorkspace());
+
+    const res = await app.inject({ method: 'DELETE', url: `/runs/${run.id}` });
+
+    expect(res.json()).toEqual({ ok: false });
+    expect(await statusOf(run.id)).toBe('running');
+    expect(app.container.runBus.isCancelled(run.id)).toBe(false);
     await app.close();
   });
 

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import type { WorkspaceSummary } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { WorkspaceService } from './service.js';
 
@@ -13,7 +14,7 @@ export default async function workspaceRoutes(app: FastifyInstance) {
   const { container } = app;
   const service = new WorkspaceService(container);
 
-  app.get('/workspace', async (req) => {
+  app.get('/workspace', async (req): Promise<WorkspaceSummary> => {
     const { workspaceId } = await getContext(container, req);
     return service.summary(workspaceId);
   });

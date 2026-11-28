@@ -76,9 +76,12 @@ inward only, `import type` included.
   (`PullsRepository.rollupsFor`); never reuse it for a write.
 - Writes that must succeed or fail together are one transaction, opened in the
   repository: a method that runs more than one statement wraps them in
-  `db.transaction`. A unit across two modules goes through
-  `container.unitOfWork` (the review outcome: review, findings, reviewed commit,
-  run status). The transaction handle never appears in a service signature.
+  `db.transaction`. A unit a use case composes from several repository calls
+  goes through `repository.inTransaction` (one module: the index pipelines) or
+  `container.unitOfWork` (several modules: the review outcome, a poll). Inside
+  a unit a nested `inTransaction` is a savepoint: use it for a part that may
+  fail without failing the unit. Compute and call external systems before the
+  unit opens. The transaction handle never appears in a service signature.
 - An id that arrives in a request (URL or body) is resolved inside the caller's
   workspace before anything uses it, and an id of another workspace is a 404.
   This holds where the thing behind the id knows no workspace: the in-memory

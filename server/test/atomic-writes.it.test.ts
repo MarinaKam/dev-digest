@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { eq } from 'drizzle-orm';
 import type { Review } from '@devdigest/shared';
@@ -11,6 +14,9 @@ import * as t from '../src/db/schema.js';
 import { MockEmbedder, MockGitClient, MockLLMProvider } from '../src/adapters/mocks.js';
 import { AgentsRepository } from '../src/modules/agents/repository.js';
 import { RepoIntelRepository } from '../src/modules/repo-intel/repository.js';
+import { runFullIndex } from '../src/modules/repo-intel/pipeline/full.js';
+import { AstGrepSourceParser } from '../src/adapters/astgrep/source-parser.js';
+import type { Container } from '../src/platform/container.js';
 
 const hasDocker = await dockerAvailable();
 const d = hasDocker ? describe : describe.skip;
@@ -290,6 +296,45 @@ d('multi-statement writes are atomic', () => {
       .from(t.fileRank)
       .where(eq(t.fileRank.repoId, pull.repoId));
     expect(stored).toEqual([{ filePath: 'src/kept.ts' }]);
+  });
+
+  it('a full index that cannot store one part keeps the previous index whole', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'devdigest-index-'));
+    try {
+      const pull = await insertPull();
+      await pg.handle.db
+        .update(t.repos)
+        .set({ clonePath: root })
+        .where(eq(t.repos.id, pull.repoId));
+      const repository = new RepoIntelRepository(pg.handle.db);
+      const container = {
+        git: { currentHead: async () => 'sha-1' },
+        depgraph: { buildEdges: async () => [] },
+        tokenizer: { count: (text: string) => Math.ceil(text.length / 4) },
+        sourceParser: new AstGrepSourceParser(),
+      } as unknown as Container;
+      const symbolNames = async () =>
+        (
+          await pg.handle.db
+            .select({ name: t.symbols.name })
+            .from(t.symbols)
+            .where(eq(t.symbols.repoId, pull.repoId))
+        ).map((s) => s.name);
+
+      await writeFile(join(root, 'a.ts'), 'export function alpha() { return 1; }\n');
+      await runFullIndex(container, repository, { repoId: pull.repoId });
+      expect(await symbolNames()).toEqual(['alpha']);
+
+      // The source changes, and the reindex fails late, at the file ranks.
+      await writeFile(join(root, 'a.ts'), 'export function beta() { return 2; }\n');
+      await withFault('file_rank', 'insert', async () => {
+        await expect(runFullIndex(container, repository, { repoId: pull.repoId })).rejects.toThrow();
+      });
+
+      expect(await symbolNames()).toEqual(['alpha']);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   // ---- settings ------------------------------------------------------------

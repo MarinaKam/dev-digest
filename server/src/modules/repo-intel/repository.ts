@@ -133,6 +133,15 @@ export interface ResolvedCallerRow {
 export class RepoIntelRepository {
   constructor(private db: DbExecutor) {}
 
+  /**
+   * Run `fn` as one unit of work: every write made through the repository it
+   * receives is committed together, or none is when `fn` throws. Inside a unit
+   * a nested call is a savepoint, so a failed inner part can be dropped alone.
+   */
+  inTransaction<T>(fn: (repo: RepoIntelRepository) => Promise<T>): Promise<T> {
+    return this.db.transaction((tx) => fn(new RepoIntelRepository(tx)));
+  }
+
   async getRepoBasics(repoId: string): Promise<RepoBasics | null> {
     const [row] = await this.db
       .select({

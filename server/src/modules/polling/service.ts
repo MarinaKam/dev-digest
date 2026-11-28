@@ -15,8 +15,11 @@ export class PollingService {
 
     const gh = await this.container.github();
     const pulls = await gh.listPullRequests({ owner: repo.owner, name: repo.name });
-    await this.container.pullsRepo.upsertFromGitHub(workspaceId, repo.id, pulls);
-    await this.container.reposRepo.markPolled(repo.id);
+    // One unit: a poll either imports the list and records its time, or neither.
+    await this.container.unitOfWork(async (work) => {
+      await work.pulls.upsertFromGitHub(workspaceId, repo.id, pulls);
+      await work.repos.markPolled(repo.id);
+    });
     return { synced: pulls.length };
   }
 }

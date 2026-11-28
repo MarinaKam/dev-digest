@@ -71,8 +71,13 @@ export class ReviewService {
     return this.repo.listRunsForPull(workspaceId, prId);
   }
 
-  /** Delete one run from the history (+ its trace). */
+  /**
+   * Delete one run from the history (+ its trace). A run that is still in
+   * flight is told to stop first, so it makes no further model call.
+   */
   async deleteRun(workspaceId: string, runId: string): Promise<boolean> {
+    if (!(await this.repo.runExists(workspaceId, runId))) return false;
+    this.container.runBus.cancel(runId);
     return this.repo.deleteAgentRun(workspaceId, runId);
   }
 

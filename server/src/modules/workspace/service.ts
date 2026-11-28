@@ -1,16 +1,5 @@
+import type { WorkspaceSummary } from '@devdigest/shared';
 import type { Container } from '../../platform/container.js';
-
-export interface WorkspaceSummary {
-  workspaceId: string;
-  cloneDir: string;
-  repos: {
-    id: string;
-    full_name: string;
-    clone_path: string | null;
-    last_polled_at: string | null;
-    cloned: boolean;
-  }[];
-}
 
 /** Where clones live, plus a summary of the workspace's repos. Read-only. */
 export class WorkspaceService {
@@ -19,8 +8,8 @@ export class WorkspaceService {
   async summary(workspaceId: string): Promise<WorkspaceSummary> {
     const repos = await this.container.reposRepo.list(workspaceId);
     return {
-      workspaceId,
-      cloneDir: this.container.config.cloneDir,
+      workspace_id: workspaceId,
+      clone_dir: this.container.config.cloneDir,
       repos: repos.map((r) => ({
         id: r.id,
         full_name: r.fullName,

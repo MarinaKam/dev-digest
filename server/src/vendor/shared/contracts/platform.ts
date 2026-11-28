@@ -150,6 +150,23 @@ export const Repo = z.object({
 });
 export type Repo = z.infer<typeof Repo>;
 
+// ---- Workspace ----
+/** GET /workspace: where clones live and a summary of the workspace's repos. */
+export const WorkspaceSummary = z.object({
+  workspace_id: z.string(),
+  clone_dir: z.string(),
+  repos: z.array(
+    z.object({
+      id: z.string(),
+      full_name: z.string(),
+      clone_path: z.string().nullable(),
+      last_polled_at: z.string().nullable(),
+      cloned: z.boolean(),
+    }),
+  ),
+});
+export type WorkspaceSummary = z.infer<typeof WorkspaceSummary>;
+
 // ---- Pull requests ----
 export const PrStatus = z.enum(['needs_review', 'reviewed', 'stale', 'open', 'closed', 'merged']);
 export type PrStatus = z.infer<typeof PrStatus>;

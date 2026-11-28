@@ -302,7 +302,7 @@ export class ReviewRunExecutor {
         // diff load + intent), not just events recorded inside this method.
         log: runLog.logFor(runId),
       };
-      runLog.info('Run complete; trace persisted');
+      runLog.info('Run complete; storing the trace');
       await this.repo.saveRunTrace(runId, trace);
       this.container.runBus.complete(runId);
       return committed;
