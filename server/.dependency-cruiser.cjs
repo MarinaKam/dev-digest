@@ -83,6 +83,19 @@ module.exports = {
       },
     },
     {
+      name: 'review-engine-io-only-in-llm',
+      comment:
+        'Inside reviewer-core only src/llm/ talks to the outside (the provider shared with ' +
+        'the CI runner). The pipeline stages import no SDK and no filesystem, process or ' +
+        'network module.',
+      severity: 'error',
+      from: { path: 'reviewer-core/src/', pathNot: 'reviewer-core/src/llm/' },
+      to: {
+        path:
+          `${VENDOR_SDK}|^(node:)?(fs|child_process|net|http|https|dgram|tls)(/|$)`,
+      },
+    },
+    {
       name: 'review-engine-stays-pure',
       comment:
         'reviewer-core is the innermost ring: no server code, no HTTP framework, no ORM.',
@@ -93,7 +106,10 @@ module.exports = {
   ],
   options: {
     doNotFollow: { path: 'node_modules' },
-    exclude: { path: '^src/vendor/shared/|\\.d\\.ts$' },
+    // Only the server's own declaration files are left out. An npm package
+    // resolves to its `.d.ts` entry, so a blanket `\\.d\\.ts$` here hides every
+    // such package (drizzle-orm, openai, octokit, …) from the rules above.
+    exclude: { path: '^src/vendor/shared/|^src/.*\\.d\\.ts$' },
     // `import type` crosses a ring just like a value import does.
     tsPreCompilationDeps: true,
     tsConfig: { fileName: 'tsconfig.json' },

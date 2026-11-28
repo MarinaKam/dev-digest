@@ -59,12 +59,12 @@ inward only, `import type` included.
 - `pnpm lint:arch` enforces the import part.
   `.dependency-cruiser-known-violations.json` is empty and stays empty: fix the
   import, never add an entry.
-- The check reads import paths, not signatures. Two things it cannot see, check
-  them by hand:
-  - A repository returns the module's domain types from `types.ts`. A service,
-    a helper or a route never names a type inferred from a table
-    (`$inferSelect`), and a repository does not re-export one.
-  - `reviewer-core` imports a provider SDK only under `src/llm/`.
+- The check reads import paths, not signatures. One thing it cannot see, check
+  it by hand: a repository returns the module's domain types from `types.ts`. A
+  service, a helper or a route never names a type inferred from a table
+  (`$inferSelect`), and a repository does not re-export one.
+- The check follows the server's imports into `reviewer-core`: there, only
+  `src/llm/` may import an SDK or a filesystem, process or network module.
 - A table has one writer, the repository of the module that owns it:
   `pull_requests`, `pr_files`, `pr_commits` belong to `pulls`; `repos` to
   `repos`; `reviews`, `findings`, `pr_intent`, `agent_runs`, `run_traces` to
