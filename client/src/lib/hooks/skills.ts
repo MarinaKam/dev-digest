@@ -16,6 +16,7 @@ export const skillKeys = {
   all: ["skills"],
   detail: (id: string | null | undefined) => ["skill", id],
   versions: (id: string | null | undefined) => ["skill-versions", id],
+  agentLinksAll: ["agent-skills"],
   agentLinks: (agentId: string | null | undefined) => ["agent-skills", agentId],
 } as const;
 
@@ -105,7 +106,7 @@ export function useDeleteSkill() {
       qc.invalidateQueries({ queryKey: skillKeys.all });
       qc.removeQueries({ queryKey: skillKeys.detail(id) });
       // Deleting a skill unlinks it from every agent.
-      qc.invalidateQueries({ queryKey: ["agent-skills"] });
+      qc.invalidateQueries({ queryKey: skillKeys.agentLinksAll });
     },
   });
 }

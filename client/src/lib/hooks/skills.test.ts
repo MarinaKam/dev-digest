@@ -1,6 +1,13 @@
 import { describe, it, expect } from "vitest";
 import type { Skill } from "@devdigest/shared";
-import { fileToBase64, skillCountsByAgent } from "./skills";
+import { fileToBase64, skillCountsByAgent, skillKeys } from "./skills";
+
+describe("skillKeys", () => {
+  it("agentLinksAll is the prefix of every agent's links key", () => {
+    const prefix = [...skillKeys.agentLinksAll];
+    expect(skillKeys.agentLinks("a1").slice(0, prefix.length)).toEqual(prefix);
+  });
+});
 
 const skill = (id: string, usedBy: string[]): Skill => ({
   id,

@@ -8,9 +8,12 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Badge, EmptyState, ErrorState, Icon, Skeleton, TextInput } from "@devdigest/ui";
 import { SkillTypeBadge } from "@/components/skill-type";
+import { useQueryParams } from "@/lib/query-params";
 import { useAgentSkillLinks, useSetAgentSkills, useSkills } from "@/lib/hooks/skills";
 import { countEnabledLinked, matchesQuery, moveLinked, orderedRows } from "./helpers";
 import { s } from "./styles";
+
+const FILTER_PARAM = "skillsQ";
 
 interface SkillsTabProps {
   agentId: string;
@@ -21,13 +24,19 @@ export function SkillsTab({ agentId }: SkillsTabProps) {
   const skillsQuery = useSkills();
   const linksQuery = useAgentSkillLinks(agentId);
   const setSkills = useSetAgentSkills();
-  const [query, setQuery] = React.useState("");
+  const params = useQueryParams();
+  const query = params.get(FILTER_PARAM) ?? "";
+  const setQuery = (value: string) => params.set(FILTER_PARAM, value === "" ? null : value);
   const [dragFrom, setDragFrom] = React.useState<number | null>(null);
   const [dragOver, setDragOver] = React.useState<number | null>(null);
 
   const skills = skillsQuery.data ?? [];
-  const linkedIds = (linksQuery.data ?? []).map((l) => l.skill_id);
-  const rows = orderedRows(skills, linkedIds);
+  const rows = orderedRows(
+    skills,
+    (linksQuery.data ?? []).map((l) => l.skill_id),
+  );
+  // Ids of the rendered linked rows: a link whose skill is gone is neither moved nor sent.
+  const linkedIds = rows.filter((r) => r.linked).map((r) => r.skill.id);
   const visible = rows.filter((r) => matchesQuery(r.skill, query));
 
   // One change at a time: each builds the full ordered list from the links it
@@ -99,6 +108,11 @@ export function SkillsTab({ agentId }: SkillsTabProps) {
         <TextInput value={query} onChange={setQuery} placeholder={t("skills.filterPlaceholder")} />
       </div>
       <p style={s.hint}>{t("skills.orderHint")}</p>
+      {setSkills.isError && (
+        <p role="alert" style={s.error}>
+          {t("skills.saveError")}
+        </p>
+      )}
       {visible.length === 0 && <p style={s.hint}>{t("skills.noMatches", { q: query })}</p>}
       <div style={s.list}>
         {visible.map(({ skill, linked }) => {

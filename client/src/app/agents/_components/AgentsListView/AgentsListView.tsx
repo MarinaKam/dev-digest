@@ -8,7 +8,6 @@ import { useTranslations } from "next-intl";
 import { Button, Dropdown, EmptyState, ErrorState, Skeleton, Icon } from "@devdigest/ui";
 import { AppShell } from "@/components/app-shell";
 import { useAgents, useUpdateAgent } from "@/lib/hooks/agents";
-import { skillCountsByAgent, useSkills } from "@/lib/hooks/skills";
 import { AgentCard } from "../AgentCard";
 import { CreateAgentModal } from "./_components/CreateAgentModal";
 import { TEMPLATES } from "./constants";
@@ -20,8 +19,6 @@ export function AgentsListView() {
   const router = useRouter();
   const { data: agents, isLoading, isError, refetch } = useAgents();
   const update = useUpdateAgent();
-  const { data: skills } = useSkills();
-  const skillCounts = skillCountsByAgent(skills);
   const [creating, setCreating] = React.useState(false);
   const [search, setSearch] = React.useState("");
 
@@ -89,7 +86,6 @@ export function AgentsListView() {
               <AgentCard
                 key={a.id}
                 ag={a}
-                skillCount={skillCounts.get(a.id) ?? 0}
                 onClick={() => router.push(`/agents/${a.id}?tab=config`)}
                 onToggle={(enabled) => update.mutate({ id: a.id, patch: { enabled } })}
               />

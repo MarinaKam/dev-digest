@@ -7,6 +7,7 @@ export const s = {
   h2: { fontSize: 18, fontWeight: 700 } satisfies CSSProperties,
   filter: { marginBottom: 10 } satisfies CSSProperties,
   hint: { fontSize: 12, color: "var(--text-muted)", marginBottom: 12 } satisfies CSSProperties,
+  error: { fontSize: 12, color: "var(--crit)", marginBottom: 12 } satisfies CSSProperties,
   list: { display: "flex", flexDirection: "column", gap: 6 } satisfies CSSProperties,
   row: (linked: boolean, dimmed: boolean, dragOver: boolean): CSSProperties => ({
     display: "flex",

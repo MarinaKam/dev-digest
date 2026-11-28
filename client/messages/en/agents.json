@@ -99,6 +99,7 @@
     "toggleSkill": "Use {name} in this agent",
     "noMatches": "No skills match “{q}”.",
     "loadError": "The skills could not be loaded.",
+    "saveError": "Your change was not saved, so the list is unchanged. Try again.",
     "emptyTitle": "No skills yet",
     "emptyBody": "Create a skill in the Skills Lab, then attach it to this agent.",
     "emptyCta": "Open Skills Lab"

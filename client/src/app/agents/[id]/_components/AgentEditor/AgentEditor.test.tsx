@@ -11,6 +11,7 @@ vi.mock("@/lib/hooks/agents", () => ({
   useProviderModels: () => ({ data: [{ id: "gpt-4.1", provider: "openai" }] }),
 }));
 
+vi.mock("@/lib/query-params", () => ({ useQueryParams: () => ({ get: () => null, set: vi.fn() }) }));
 vi.mock("@/lib/hooks/skills", () => ({
   useSkills: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),
   useAgentSkillLinks: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),
