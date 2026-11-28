@@ -32,6 +32,13 @@ import type {
   SecretsProvider,
   SecretKey,
 } from '@devdigest/shared';
+import type {
+  ParsedImport,
+  ParsedInvocationHead,
+  ParsedReference,
+  ParsedSymbol,
+  SourceParser,
+} from '../modules/repo-intel/ports.js';
 import { parseUnifiedDiff } from './git/diff-parser.js';
 
 /**
@@ -336,5 +343,55 @@ export class MockSecretsProvider implements SecretsProvider {
   constructor(private secrets: Partial<Record<string, string>> = {}) {}
   async get(key: SecretKey): Promise<string | undefined> {
     return this.secrets[key as string];
+  }
+}
+
+// ---------- Mock source parser ----------
+export interface MockSourceParserOptions {
+  /** Which files the parser has a grammar for. Default: every file. */
+  supports?: (file: string) => boolean;
+  /** Returned for every parsed file. */
+  symbols?: ParsedSymbol[];
+  references?: ParsedReference[];
+  imports?: ParsedImport[];
+  invocationHeads?: ParsedInvocationHead[];
+  endpoints?: string[];
+  crons?: string[];
+}
+
+/**
+ * A SourceParser that parses nothing: every supported file yields the same
+ * caller-supplied facts. For tests of the indexer and the repo-intel facade
+ * that must not depend on ast-grep.
+ */
+export class MockSourceParser implements SourceParser {
+  constructor(private opts: MockSourceParserOptions = {}) {}
+
+  supports(file: string): boolean {
+    return this.opts.supports ? this.opts.supports(file) : true;
+  }
+
+  parseSymbols(_file: string, _source: string): ParsedSymbol[] {
+    return this.opts.symbols ?? [];
+  }
+
+  parseReferences(_file: string, _source: string): ParsedReference[] {
+    return this.opts.references ?? [];
+  }
+
+  parseImports(_file: string, _source: string): ParsedImport[] {
+    return this.opts.imports ?? [];
+  }
+
+  parseInvocationHeads(_file: string, _source: string): ParsedInvocationHead[] {
+    return this.opts.invocationHeads ?? [];
+  }
+
+  extractEndpoints(_source: string): string[] {
+    return this.opts.endpoints ?? [];
+  }
+
+  extractCrons(_source: string): string[] {
+    return this.opts.crons ?? [];
   }
 }

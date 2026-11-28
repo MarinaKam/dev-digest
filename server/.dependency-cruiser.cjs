@@ -16,6 +16,16 @@ const VENDOR_SDK =
 module.exports = {
   forbidden: [
     {
+      name: 'no-circular',
+      comment:
+        'A cycle means two files each sit inside the other, so neither is the inner one. ' +
+        'Cycles that pass through the composition root are left out: a service takes the ' +
+        'Container (accepted deviation) and the container constructs the repo-intel service.',
+      severity: 'error',
+      from: {},
+      to: { circular: true, viaOnly: { pathNot: '^src/platform/container\\.ts$' } },
+    },
+    {
       name: 'orm-only-in-persistence',
       comment:
         'Inside a module and in platform code, Drizzle and the table schema are imported ' +

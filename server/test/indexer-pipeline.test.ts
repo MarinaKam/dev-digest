@@ -16,6 +16,7 @@
  * Full-DB persistence is covered by integration.test.ts (Docker-gated).
  */
 import { AstGrepSourceParser } from '../src/adapters/astgrep/source-parser.js';
+import { MockSourceParser } from '../src/adapters/mocks.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -161,6 +162,31 @@ describe('runFullIndex', () => {
   });
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
+  });
+
+  it('indexes what the injected source parser returns, not what the files contain', async () => {
+    // The pipeline depends on the SourceParser port only: with a mock parser it
+    // stores the mock's symbols and skips the files the mock does not support.
+    await writeFileAt(root, 'src/a.ts', 'export function real() {}\n');
+    await writeFileAt(root, 'src/skipped.ts', 'export function ignored() {}\n');
+    const stub = makeRepoStub({
+      basics: { id: 'r-mock', owner: 'acme', name: 'app', clonePath: root },
+    });
+    const container = {
+      ...makeContainer({ currentHead: async () => 'sha-head', diffNameOnly: async () => [] }),
+      sourceParser: new MockSourceParser({
+        supports: (file) => file === 'src/a.ts',
+        symbols: [
+          { name: 'canned', kind: 'function', line: 1, endLine: 1, exported: true, signature: null },
+        ],
+      }),
+    } as unknown as Container;
+
+    const result = await runFullIndex(container, stub.repo, { repoId: 'r-mock' });
+
+    expect(stub.symbols.map((s) => (s as { name: string }).name)).toEqual(['canned']);
+    expect(result.filesIndexed).toBe(1);
+    expect(result.filesSkipped).toBe(1);
   });
 
   it('walks, parses, persists, and stamps status="full" with INDEXER_VERSION', async () => {

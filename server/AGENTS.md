@@ -56,6 +56,11 @@ inward only, `import type` included.
   also needs the type, otherwise to `ports.ts` of the module that calls it. Not
   to the adapter's file. `ports.ts` holds only interfaces and plain types; it is
   the one module file an adapter may import, so the adapter can `implements` it.
+- A new port also gets a mock in `src/adapters/mocks.ts` and a field in
+  `ContainerOverrides`, so a test can inject it.
+- No import cycles. The only cycles left are the ones through
+  `src/platform/container.ts` (a service takes the `Container`); `lint:arch`
+  leaves those out and fails on any other.
 - `pnpm lint:arch` enforces the import part.
   `.dependency-cruiser-known-violations.json` is empty and stays empty: fix the
   import, never add an entry.
