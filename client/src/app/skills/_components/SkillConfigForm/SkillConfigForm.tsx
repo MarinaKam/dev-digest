@@ -26,7 +26,9 @@ export function SkillConfigForm({ skill, onDeleted }: SkillConfigFormProps) {
   const remove = useDeleteSkill();
   const [form, setForm] = React.useState<SkillFormValues>(() => toFormValues(skill));
 
-  const patch = changedFields(skill, form);
+  // Enabled is saved at once by its toggle (like the card's), never with the
+  // form: a form copy could switch back on a skill turned off on its card.
+  const patch = changedFields(skill, { ...form, enabled: skill.enabled });
   const dirty = Object.keys(patch).length > 0;
   const bodyChanged = patch.body !== undefined;
   const invalid = hasErrors(validateSkillForm(form));
@@ -60,7 +62,11 @@ export function SkillConfigForm({ skill, onDeleted }: SkillConfigFormProps) {
         </Badge>
         <div style={s.enabledLabel}>
           {t("config.enabled")}
-          <Toggle on={form.enabled} onChange={(enabled) => change({ enabled })} size={16} />
+          <Toggle
+            on={skill.enabled}
+            onChange={(enabled) => update.mutate({ id: skill.id, patch: { enabled } })}
+            size={16}
+          />
         </div>
       </div>
 

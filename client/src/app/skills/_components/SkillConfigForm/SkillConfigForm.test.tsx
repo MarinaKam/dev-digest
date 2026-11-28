@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { screen, cleanup, fireEvent } from "@testing-library/react";
-import { SKILL, renderWithIntl } from "../test-utils";
+import { SKILL, renderWithIntl, withIntl } from "../test-utils";
 
 const updateMutate = vi.hoisted(() => vi.fn());
 const deleteMutate = vi.hoisted(() => vi.fn());
@@ -40,6 +40,27 @@ describe("SkillConfigForm", () => {
       id: "sk1",
       patch: { description: "Flag untested branches." },
     });
+  });
+
+  it("does not switch a skill back on that was switched off on its card", () => {
+    const { rerender } = renderWithIntl(<SkillConfigForm skill={SKILL} onDeleted={() => {}} />);
+    // The card toggle saved enabled=false; the query cache hands the form the new skill.
+    rerender(withIntl(<SkillConfigForm skill={{ ...SKILL, enabled: false }} onDeleted={() => {}} />));
+    expect(screen.getByRole("button", { name: /^Save$/ })).toBeDisabled();
+
+    fireEvent.change(screen.getByDisplayValue(SKILL.description), { target: { value: "Flag untested branches." } });
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/ }));
+
+    expect(updateMutate.mock.calls[0]?.[0]).toEqual({
+      id: "sk1",
+      patch: { description: "Flag untested branches." },
+    });
+  });
+
+  it("saves the Enabled toggle at once, like the card", () => {
+    renderWithIntl(<SkillConfigForm skill={SKILL} onDeleted={() => {}} />);
+    fireEvent.click(screen.getByRole("switch"));
+    expect(updateMutate.mock.calls[0]?.[0]).toEqual({ id: "sk1", patch: { enabled: false } });
   });
 
   it("shows the directive hint under the description", () => {
