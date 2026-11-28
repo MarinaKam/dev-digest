@@ -2,7 +2,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  carriedFindings,
   classifyFile,
+  isSuppressed,
   computeVerdict,
   evaluateGate,
   fingerprintOf,
@@ -11,6 +13,7 @@ import {
   isDocsOnly,
   mirrorCounterpart,
   overrideReason,
+  reviewPlan,
   validateReview,
 } from './lib.mjs';
 
@@ -30,8 +33,33 @@ test('guardedAction finds a push, a pull request creation and a merge', () => {
   assert.equal(guardedAction('gh pr merge 12 --squash'), 'gh pr merge');
 });
 
+test('guardedAction sees through global flags, a path prefix, a redirection and backticks', () => {
+  assert.equal(guardedAction('gh -R owner/repo pr create --fill'), 'gh pr create');
+  assert.equal(guardedAction('gh --repo owner/repo pr merge 1'), 'gh pr merge');
+  assert.equal(guardedAction('gh pr -R owner/repo create'), 'gh pr create');
+  assert.equal(guardedAction('/usr/bin/git push'), 'git push');
+  assert.equal(guardedAction('git --git-dir .git --work-tree . push'), 'git push');
+  assert.equal(guardedAction("echo it\\'s; git push; echo \\'"), 'git push');
+  assert.equal(guardedAction('git push>/dev/null'), 'git push');
+  assert.equal(guardedAction('echo `git push`'), 'git push');
+});
+
+test('guardedAction is not hidden by an apostrophe in a here-document or a comment', () => {
+  assert.equal(guardedAction("git commit -F - <<EOF\nfix: don't crash\nEOF\ngit push && echo 'done'"), 'git push');
+  assert.equal(guardedAction("# don't forget\ngit push # it's ready"), 'git push');
+});
+
+test('guardedAction reads a long run of flags in linear time', () => {
+  const started = Date.now();
+  assert.equal(guardedAction(`git ${'-c '.repeat(5000)}status; git push`), 'git push');
+  assert.equal(guardedAction(`gh ${'-R '.repeat(5000)}x`), null);
+  assert.equal(guardedAction(`gh pr ${'-R '.repeat(5000)}x`), null);
+  assert.ok(Date.now() - started < 1000, `took ${Date.now() - started} ms`);
+});
+
 test('guardedAction ignores commands that only mention a guarded word', () => {
   assert.equal(guardedAction('git stash push -m wip'), null);
+  assert.equal(guardedAction('git --no-pager stash push -m wip'), null);
   assert.equal(guardedAction('git log --grep push'), null);
   assert.equal(guardedAction('git commit -m "prepare git push"'), null);
   assert.equal(guardedAction("git commit -m 'docs: gh pr create gate'"), null);
@@ -49,6 +77,18 @@ test('overrideReason reads a reason from the command or the environment, or --no
   assert.equal(overrideReason('PR_SELF_REVIEW_OVERRIDE= git push', {}), null);
   assert.equal(overrideReason('PR_SELF_REVIEW_OVERRIDE="  " git push', {}), null);
   assert.equal(overrideReason('git push', {}), null);
+});
+
+test('overrideReason counts only an override that belongs to the guarded command', () => {
+  assert.equal(overrideReason('git commit --no-verify -m x && git push', {}), null);
+  assert.equal(overrideReason('git commit -m "note PR_SELF_REVIEW_OVERRIDE=later" && git push', {}), null);
+  assert.equal(overrideReason('echo PR_SELF_REVIEW_OVERRIDE=x; git push', {}), null);
+  assert.equal(overrideReason('git push -m "--no-verify"', {}), null);
+  assert.equal(overrideReason('git add . && PR_SELF_REVIEW_OVERRIDE=hotfix git push', {}), 'hotfix');
+  assert.equal(overrideReason('git commit -m x && git push --no-verify', {}), '--no-verify');
+  assert.equal(overrideReason('PR_SELF_REVIEW_OVERRIDE=a git push && gh pr create --fill', {}), null);
+  assert.equal(overrideReason('echo x > --no-verify git push', {}), null);
+  assert.equal(overrideReason('echo " PR_SELF_REVIEW_OVERRIDE=sneaky" git push', {}), null);
 });
 
 test('globToRegExp supports **, * and literal dots', () => {
@@ -72,7 +112,8 @@ test('classifyFile routes by the project map, then falls back to the extension',
 });
 
 test('isDocsOnly is true only for a non-empty list of documentation files', () => {
-  assert.equal(isDocsOnly(['README.md', 'docs/a.mdx']), true);
+  assert.equal(isDocsOnly(['README.md', 'docs/a.md']), true);
+  assert.equal(isDocsOnly(['README.md', 'docs/a.mdx']), false);
   assert.equal(isDocsOnly(['README.md', 'src/a.ts']), false);
   assert.equal(isDocsOnly([]), false);
 });
@@ -138,6 +179,14 @@ test('computeVerdict blocks when no check passed, so skipping every check cannot
   assert.equal(computeVerdict({ checks: [], findings: [] }).verdict, 'blocked');
 });
 
+test('a suppression is a reason in words; anything else does not suppress', () => {
+  assert.equal(isSuppressed({ suppressed: 'internal admin tool' }), true);
+  for (const value of [true, 1, '', '   ', null, undefined, {}]) assert.equal(isSuppressed({ suppressed: value }), false);
+  const result = computeVerdict({ checks: [{ name: 'lint', status: 'pass' }], findings: [{ ...critical, suppressed: true }] });
+  assert.equal(result.verdict, 'blocked');
+  assert.match(validateReview({ fingerprint: 'f', checks: [], findings: [{ ...critical, suppressed: true }] }).join(' '), /suppressed/);
+});
+
 test('computeVerdict does not count a finding suppressed with a reason', () => {
   const result = computeVerdict({ checks: [{ name: 'lint', status: 'pass' }], findings: [{ ...critical, suppressed: 'accepted: internal admin tool' }] });
   assert.equal(result.verdict, 'pass');
@@ -167,4 +216,52 @@ test('evaluateGate denies a missing, stale or blocked verdict', () => {
 test('evaluateGate allows a documentation-only or empty change without a verdict', () => {
   assert.equal(evaluateGate({ committed: 'c9', docsOnly: true, empty: false }, null).allow, true);
   assert.equal(evaluateGate({ committed: 'c9', docsOnly: false, empty: true }, null).allow, true);
+});
+
+const CONFIG_PATH = '.claude/pr-self-review.config.json';
+const reviewed = { mergeBase: 'base1', files: { 'api/a.ts': 'h1', 'web/B.tsx': 'h2', 'web/C.tsx': 'h3' } };
+const plan = (content, overrides = {}) =>
+  reviewPlan({ previous: reviewed, mergeBase: 'base1', content: new Map(content), configPath: CONFIG_PATH, ...overrides });
+
+test('reviewPlan reviews only the files whose content differs from the last review', () => {
+  const result = plan([['api/a.ts', 'h1'], ['web/B.tsx', 'changed'], ['web/New.tsx', 'h4']]);
+  assert.equal(result.mode, 'incremental');
+  assert.deepEqual(result.files, ['web/B.tsx', 'web/New.tsx']);
+  assert.deepEqual(result.removed, ['web/C.tsx']);
+  assert.equal(plan(Object.entries(reviewed.files)).files.length, 0);
+});
+
+test('reviewPlan falls back to a full review without an earlier one, on a moved base or a changed config', () => {
+  const content = [['api/a.ts', 'h1'], ['web/B.tsx', 'changed']];
+  const all = ['api/a.ts', 'web/B.tsx'];
+  for (const overrides of [{ previous: null }, { previous: { verdict: 'pass' } }, { mergeBase: 'base2' }]) {
+    const result = plan(content, overrides);
+    assert.equal(result.mode, 'full', JSON.stringify(overrides));
+    assert.ok(result.reason);
+    assert.deepEqual(result.files, all);
+  }
+  const withConfig = plan([...content, [CONFIG_PATH, 'new']]);
+  assert.equal(withConfig.mode, 'full');
+  assert.match(withConfig.reason, /config/);
+});
+
+test('reviewPlan widens the review to the whole folder of a changed instruction file', () => {
+  const inFolder = plan([['api/a.ts', 'h1'], ['web/B.tsx', 'h2'], ['web/C.tsx', 'h3'], ['web/AGENTS.md', 'new']]);
+  assert.equal(inFolder.mode, 'incremental');
+  assert.deepEqual(inFolder.files, ['web/AGENTS.md', 'web/B.tsx', 'web/C.tsx']);
+  assert.deepEqual(inFolder.widenedBy, ['web/AGENTS.md']);
+  const atRoot = plan([['api/a.ts', 'h1'], ['web/B.tsx', 'h2'], ['web/C.tsx', 'h3'], ['CLAUDE.md', 'new']]);
+  assert.deepEqual(atRoot.files, ['CLAUDE.md', 'api/a.ts', 'web/B.tsx', 'web/C.tsx']);
+});
+
+test('carriedFindings keeps the findings of files that were not reviewed again and are still in the change', () => {
+  const previous = [
+    { severity: 'critical', file: 'api/a.ts' },
+    { severity: 'warning', file: 'web/B.tsx' },
+    { severity: 'note', file: 'web/C.tsx' },
+    { severity: 'note' },
+  ];
+  const incremental = plan([['api/a.ts', 'h1'], ['web/B.tsx', 'changed']]);
+  assert.deepEqual(carriedFindings(previous, incremental, new Set(['api/a.ts', 'web/B.tsx'])), [previous[0]]);
+  assert.deepEqual(carriedFindings(previous, plan([], { previous: null }), new Set(['api/a.ts'])), []);
 });

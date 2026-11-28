@@ -7,7 +7,7 @@ its shape. The agent does not load this file; the procedure is in
 
 ## Version
 
-**1.2.0** (2026-11-27). The version is recorded in the `metadata.version`
+**1.3.0** (2026-11-27). The version is recorded in the `metadata.version`
 field of `SKILL.md` and in the changelog below.
 
 | Version | Date | Change |
@@ -19,6 +19,7 @@ field of `SKILL.md` and in the changelog below.
 | 1.1.0 | 2026-11-27 | Every skill of a bucket runs when the bucket has changed files; an empty bucket loads nothing. Expansions inside `${ }`, arithmetic and unquoted here-documents are read for commands, and a word the text does not settle counts as a possible guarded subcommand |
 | 1.1.1 | 2026-11-27 | I/O inside a package the project declares pure is critical |
 | 1.2.0 | 2026-11-27 | Back to a simple pre-hook script: `check-gate.sh` with a plain text match on the command, the verdict in `.claude/.pr-self-review.json`, and the escape hatch (`PR_SELF_REVIEW_OVERRIDE=<reason>` or `--no-verify`) read from the command. The shell lexer of 1.0.1 to 1.1.1 is removed |
+| 1.3.0 | 2026-11-27 | A second review of the same branch reads only the files that changed since the recorded one: the verdict keeps a hash per file and every finding, `scope` prints the files to review, and the script carries the other findings. A record with a failed check does not mark files as reviewed. The command is matched word by word instead of with one pattern: an override counts only on the guarded command, `gh` global flags and a path in front of `git` are matched, `git stash push` behind a global flag no longer counts as a push; only `*.md` is documentation; a symbolic link has one fingerprint on disk and in the commit; reading the verdict no longer creates the state folder |
 
 ## Need
 
@@ -173,6 +174,12 @@ Checked in a live session: with the hook registered and no verdict recorded,
   person's own terminal is not seen. A git `pre-push` hook that runs
   `gate.mjs check` would cover pushes at the level of git; the skill does not
   install one.
+- The same growth started again while 1.3.0 was written: reviewer notes on the
+  new incremental mode led to a review id, an integrity check of the verdict
+  file, reading of `sh -c` and `eval`, and a `--full` option. All four were
+  removed before the release. A note about a command spelling the hook misses,
+  or about a verdict file edited by hand, describes a documented limit; it is
+  reported, not fixed.
 - The escape hatch can be typed by the agent as easily as by the user. The
   skill forbids it and every use is logged, but nothing enforces who typed it.
 - The verdict is per checkout, not per branch: reviewing one branch and

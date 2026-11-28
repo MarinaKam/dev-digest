@@ -130,6 +130,8 @@ report so the next reviewer sees it.
 
 - `status` is `pass`, `fail` or `not_run`; `not_run` needs `detail`.
 - `severity` is `critical`, `warning` or `note`.
+- `file` of a critical finding is the path as `scope` prints it; the script
+  refuses any other spelling, because the finding could not be carried.
 - A critical finding needs `file`, an integer `line`, `rule`, `skill` and a
   non-empty `evidence`. The script refuses the file otherwise: a block without
   a quoted line cannot be checked by anyone.
@@ -147,6 +149,31 @@ counts it as part of the change.
   committed unchanged, the committed content has the same fingerprint and the
   gate opens.
 - Any other content, including one more commit, is unreviewed: the gate closes.
+
+## Reviewing again after a change
+
+The verdict file also keeps the content hash of every reviewed file, the base
+the branch was compared with, and every finding. The next `scope` compares the
+files with it and puts in `review.files` only those whose content is different.
+
+- A finding of a file that was not reviewed again is carried into the new
+  verdict by the script. A carried critical keeps the gate closed.
+- A finding of a file that is reviewed again, or that left the change, is
+  dropped; the new pass states what is true for that file now. So is a finding
+  that names no file.
+- A changed instruction file (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) puts every
+  changed file of its folder back in `review.files`: those files were reviewed
+  against other rules. One at the repository root puts back everything.
+- Everything is reviewed again when no review is recorded, when the branch has
+  a new base (the same file then has a different diff), or when the review
+  config changed.
+- A record with a failed check does not count as a review: no reviewer ran, so
+  the next `scope` still lists every file that record would have covered.
+- To review everything again on purpose (an owner skill listed in
+  [routing.md](routing.md) changed, for example), delete
+  `.claude/.pr-self-review.json` and run `scope`.
+
+The checks are never narrowed.
 
 ## The hook
 
@@ -189,7 +216,8 @@ anything.
 The hook is a plain text match on the command, not a shell parser. It is a
 reminder that cannot be forgotten, not a security boundary: a push hidden in a
 script, an alias or a nested shell is not seen, and neither is anything a
-person types in their own terminal.
+person types in their own terminal. It judges the checked-out branch, also when the command pushes
+another one.
 
 ### Escape hatch
 
@@ -200,6 +228,10 @@ both written to `.claude/.pr-self-review.log` with the command and the commit:
 PR_SELF_REVIEW_OVERRIDE="hotfix, review follows in the PR" git push
 git push --no-verify
 ```
+
+The override counts only on the guarded command itself: the variable in front
+of it, `--no-verify` among its own arguments. One on another command of the
+same line (`git commit --no-verify && git push`) does not open the gate.
 
 The decision to use one is the user's. The agent never adds either on its own
 and never offers one as the next step.

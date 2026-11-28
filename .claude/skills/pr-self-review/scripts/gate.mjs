@@ -10,17 +10,20 @@
 // The verdict is stored in .claude/.pr-self-review.json. Keep that file out of version
 // control (the project ignores it); the script never counts it as part of the change.
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import {
+  carriedFindings,
   classifyFile,
   computeVerdict,
   evaluateGate,
   fingerprintOf,
   guardedAction,
   isDocsOnly,
+  isSuppressed,
   mirrorCounterpart,
   overrideReason,
+  reviewPlan,
   validateReview,
 } from './lib.mjs';
 
@@ -30,6 +33,7 @@ const OVERRIDE_LOG = '.claude/.pr-self-review.log';
 const STATE_FILES = new Set([VERDICT_FILE, OVERRIDE_LOG]);
 const BASE_CANDIDATES = ['origin/main', 'main', 'origin/master', 'master'];
 const DELETED = 'deleted';
+const COMMIT_ID = /^[0-9a-f]{40,64}$/;
 const EXIT_DENY_HOOK = 2;
 
 function git(root, args, input) {
@@ -81,29 +85,34 @@ function changedPaths(root, args) {
   return pairs;
 }
 
-function headBlobs(root) {
+function commitBlobs(root, commit) {
   const blobs = new Map();
-  for (const entry of git(root, ['ls-tree', '-r', '-z', 'HEAD']).split('\0').filter(Boolean)) {
+  for (const entry of git(root, ['ls-tree', '-r', '-z', commit]).split('\0').filter(Boolean)) {
     const [meta, path] = entry.split('\t');
     blobs.set(path, meta.split(' ')[2]);
   }
   return blobs;
 }
 
+/** Hashes files as git stores them: a regular file by its content, a symbolic link by its target. */
 function worktreeHashes(root, paths) {
-  const files = paths.filter((path) => {
-    const stat = lstatSync(join(root, path), { throwIfNoEntry: false });
-    return stat?.isFile();
-  });
-  if (files.length === 0) return new Map();
-  const hashes = git(root, ['hash-object', '--stdin-paths'], `${files.join('\n')}\n`).trim().split('\n');
-  return new Map(files.map((path, index) => [path, hashes[index]]));
+  const stats = paths.map((path) => [path, lstatSync(join(root, path), { throwIfNoEntry: false })]);
+  const files = stats.filter(([, stat]) => stat?.isFile()).map(([path]) => path);
+  const links = stats.filter(([, stat]) => stat?.isSymbolicLink()).map(([path]) => path);
+  const hashes = files.length
+    ? git(root, ['hash-object', '--stdin-paths'], `${files.join('\n')}\n`).trim().split('\n')
+    : [];
+  const linkHashes = links.map((path) => git(root, ['hash-object', '--stdin'], readlinkSync(join(root, path))).trim());
+  return new Map([
+    ...files.map((path, index) => [path, hashes[index]]),
+    ...links.map((path, index) => [path, linkHashes[index]]),
+  ]);
 }
 
 /** The change as committed: path -> blob hash, and path -> status. */
-function committedState(root, mergeBase) {
-  const blobs = headBlobs(root);
-  const pairs = changedPaths(root, [mergeBase, 'HEAD']).filter(([path]) => !STATE_FILES.has(path));
+function committedState(root, mergeBase, commit = 'HEAD') {
+  const blobs = commitBlobs(root, commit);
+  const pairs = changedPaths(root, [mergeBase, commit]).filter(([path]) => !STATE_FILES.has(path));
   return {
     content: new Map(pairs.map(([path, status]) => [path, status === 'D' ? DELETED : blobs.get(path)])),
     status: new Map(pairs),
@@ -136,20 +145,45 @@ function mirrorDrift(state, otherContent, mirrors) {
 }
 
 function unchangedContent(root, target) {
-  const blobs = target === 'head' ? headBlobs(root) : null;
+  const blobs = target === 'head' ? commitBlobs(root, 'HEAD') : null;
   return (path) => (blobs ? blobs.get(path) : worktreeHashes(root, [path]).get(path)) ?? DELETED;
 }
 
-function describeFiles(state, config) {
+function describeFiles(state, config, plan) {
+  const inReview = new Set(plan.files);
   const files = [...state.status.entries()]
-    .map(([path, status]) => ({ path, status, ...classifyFile(path, config) }))
+    .map(([path, status]) => ({ path, status, ...classifyFile(path, config), review: inReview.has(path) }))
     .sort((left, right) => (left.path < right.path ? -1 : 1));
-  const buckets = {};
-  for (const file of files) buckets[file.bucket] = [...(buckets[file.bucket] ?? []), file.path];
-  return { files, buckets };
+  const buckets = Object.create(null);
+  const reviewBuckets = Object.create(null);
+  for (const file of files) {
+    buckets[file.bucket] = [...(buckets[file.bucket] ?? []), file.path];
+    if (file.review) reviewBuckets[file.bucket] = [...(reviewBuckets[file.bucket] ?? []), file.path];
+  }
+  return { files, buckets, reviewBuckets };
 }
 
-function readScope(root, target) {
+/**
+ * What the last recorded review covered: the content hash of every file, the base it was
+ * compared with, and its findings. A verdict written before files were recorded is rebuilt
+ * from its commit, and only when that commit still gives the recorded fingerprint.
+ */
+function previousReview(root, record, base) {
+  if (!record) return null;
+  if (record.version >= 2) return record.files ? record : null;
+  if (!COMMIT_ID.test(record.head ?? '')) return null;
+  try {
+    const mergeBase = git(root, ['merge-base', record.head, base]).trim();
+    const { content } = committedState(root, mergeBase, record.head);
+    if (!Object.values(record.fingerprint ?? {}).includes(fingerprintOf(content))) return null;
+    return { files: Object.fromEntries(content), mergeBase, findings: record.criticals ?? [] };
+  } catch {
+    return null;
+  }
+}
+
+/** The scope printed to the agent, with the pieces `record` needs to store the review. */
+function inspect(root, target) {
   const config = loadConfig(root);
   const base = baseRef(root, config);
   const mergeBase = git(root, ['merge-base', 'HEAD', base]).trim();
@@ -157,7 +191,11 @@ function readScope(root, target) {
   const worktree = worktreeState(root, mergeBase);
   const state = target === 'head' ? committed : worktree;
   const committedFingerprint = fingerprintOf(committed.content);
-  return {
+  const previous = previousReview(root, readRecord(root), base);
+  const plan = reviewPlan({ previous, mergeBase, content: state.content, configPath: CONFIG_PATH });
+  const carried = carriedFindings(previous?.findings, plan, new Set(state.content.keys()));
+  const { files, buckets, reviewBuckets } = describeFiles(state, config, plan);
+  const scope = {
     target,
     base,
     mergeBase,
@@ -170,8 +208,15 @@ function readScope(root, target) {
     docsOnly: isDocsOnly([...state.content.keys()]),
     mirrorDrift: mirrorDrift(state, unchangedContent(root, target), config.mirrors),
     hasConfig: existsSync(join(root, CONFIG_PATH)),
-    ...describeFiles(state, config),
+    review: { ...plan, buckets: reviewBuckets, carriedFindings: carried.length },
+    files,
+    buckets,
   };
+  return { scope, content: state.content, carried, previous };
+}
+
+function readScope(root, target) {
+  return inspect(root, target).scope;
 }
 
 function stateFile(root, name) {
@@ -181,7 +226,7 @@ function stateFile(root, name) {
 }
 
 function readRecord(root) {
-  const file = stateFile(root, VERDICT_FILE);
+  const file = join(root, VERDICT_FILE);
   if (!existsSync(file)) return null;
   try {
     return JSON.parse(readFileSync(file, 'utf8'));
@@ -206,7 +251,7 @@ function summaryLine(result) {
 function runScope(root, args) {
   const flag = args.indexOf('--target');
   const target = targetOf(flag === -1 ? undefined : args[flag + 1]);
-  process.stdout.write(`${JSON.stringify(readScope(root, target), null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify(inspect(root, target).scope, null, 2)}\n`);
   return 0;
 }
 
@@ -215,28 +260,47 @@ function runRecord(root, args) {
   const review = JSON.parse(readFileSync(resolve(args[0]), 'utf8'));
   const errors = validateReview(review);
   if (errors.length) throw new Error(`The review file is incomplete:\n- ${errors.join('\n- ')}`);
-  const scope = readScope(root, targetOf(review.target));
+  const { scope, content, carried, previous } = inspect(root, targetOf(review.target));
   if (scope.fingerprint !== review.fingerprint) {
     throw new Error('The files changed during the review. Run "scope" again and review the new state.');
   }
+  const stray = review.findings.filter((finding) => finding.severity === 'critical' && !content.has(finding.file));
+  if (stray.length) {
+    const paths = stray.map((finding) => finding.file).join(', ');
+    throw new Error(`A critical finding names a file that is not in the change: ${paths}. Write the path as "scope" prints it.`);
+  }
   const mirrorCheck = { name: 'mirrored copies', status: scope.mirrorDrift.length ? 'fail' : 'pass' };
   const checks = [...review.checks, ...(scope.mirrorDrift.length || loadConfig(root).mirrors ? [mirrorCheck] : [])];
-  const result = computeVerdict({ checks, findings: review.findings });
+  const findings = [...carried, ...review.findings];
+  const result = computeVerdict({ checks, findings });
+  // Reviewers do not run after a failed check, so such a record must not mark files as reviewed.
+  const reviewed =
+    result.failedChecks.length > 0
+      ? { files: previous?.files, mergeBase: previous?.mergeBase, findings: previous?.findings }
+      : { files: Object.fromEntries(content), mergeBase: scope.mergeBase, findings };
   const record = {
-    version: 1,
+    version: 2,
     ...result,
     target: scope.target,
     branch: scope.branch,
     head: scope.head,
     base: scope.base,
+    mergeBase: reviewed.mergeBase,
     fingerprint: { [scope.target === 'head' ? 'committed' : 'worktree']: scope.fingerprint },
     checks,
-    criticals: review.findings.filter((finding) => finding.severity === 'critical' && !finding.suppressed),
+    criticals: findings.filter((finding) => finding.severity === 'critical' && !isSuppressed(finding)),
+    findings: reviewed.findings,
+    review: { mode: scope.review.mode, reviewed: scope.review.files.length, carried: carried.length },
+    files: reviewed.files,
     skills: review.skills ?? [],
     recordedAt: new Date().toISOString(),
   };
   writeFileSync(stateFile(root, VERDICT_FILE), `${JSON.stringify(record, null, 2)}\n`);
   process.stdout.write(`${summaryLine(result)}\n`);
+  if (scope.review.mode === 'incremental') {
+    const { reviewed, carried: kept } = record.review;
+    process.stdout.write(`Reviewed ${reviewed} of ${content.size} changed files; ${kept} findings carried from the last review.\n`);
+  }
   return 0;
 }
 

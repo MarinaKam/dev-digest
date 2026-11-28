@@ -2,7 +2,7 @@
 // Every test works in its own throwaway git repository under the system temp folder.
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -189,6 +189,7 @@ test('an override with a reason opens the gate and is logged', (t) => {
   assert.match(log, /--no-verify/);
   assert.equal(log.trim().split('\n').length, 3);
   assert.equal(hook(repo, 'PR_SELF_REVIEW_OVERRIDE= git push').status, 2);
+  assert.equal(hook(repo, 'git commit --no-verify -m x && git push').status, 2);
 });
 
 test('the verdict file is never part of the reviewed change', (t) => {
@@ -227,4 +228,122 @@ test('check reports the gate state with its exit code', (t) => {
   assert.equal(gate(repo, ['check']).status, 1);
   record(repo, passingReview(repo));
   assert.equal(gate(repo, ['check']).status, 0);
+});
+
+const WARNING = { severity: 'warning', file: 'api/src/a.ts', line: 1, rule: 'r', skill: 's', evidence: 'e' };
+
+test('after a recorded review, scope asks to review only the files that changed since', (t) => {
+  const repo = makeRepo(t);
+  write(repo, 'web/src/New.tsx', 'export const New = () => null;\n');
+  commit(repo, 'frontend');
+  const first = scope(repo);
+  assert.equal(first.review.mode, 'full');
+  assert.deepEqual(first.review.files, ['api/src/a.ts', 'web/src/New.tsx']);
+  assert.equal(record(repo, passingReview(repo)).status, 0);
+  assert.deepEqual(scope(repo).review.files, []);
+
+  write(repo, 'web/src/New.tsx', 'export const New = () => 1;\n');
+  commit(repo, 'fix');
+  const second = scope(repo);
+  assert.equal(second.review.mode, 'incremental');
+  assert.deepEqual(second.review.files, ['web/src/New.tsx']);
+  assert.deepEqual(second.review.buckets, { frontend: ['web/src/New.tsx'] });
+  assert.equal(second.files.length, 2, 'the whole change is still listed and fingerprinted');
+});
+
+test('an incremental record carries the findings of untouched files, so an old critical still blocks', (t) => {
+  const repo = makeRepo(t);
+  write(repo, 'web/src/New.tsx', 'export const New = () => null;\n');
+  commit(repo, 'frontend');
+  assert.match(record(repo, passingReview(repo, 'head', [CRITICAL, { ...WARNING, file: 'web/src/New.tsx' }])).stdout, /BLOCKED/);
+
+  write(repo, 'web/src/New.tsx', 'export const New = () => 1;\n');
+  commit(repo, 'fix the frontend only');
+  const still = record(repo, passingReview(repo));
+  assert.match(still.stdout, /BLOCKED \(1 critical, 0 warning/);
+  assert.match(still.stdout, /1 of 2 changed files/);
+
+  write(repo, 'api/src/a.ts', 'export const a = 3;\n');
+  commit(repo, 'fix the critical');
+  const fixed = record(repo, passingReview(repo, 'head', [WARNING]));
+  assert.match(fixed.stdout, /PASS \(0 critical, 1 warning/);
+  assert.equal(hook(repo, 'git push').status, 0);
+});
+
+test('a record with a failed check does not mark the files as reviewed', (t) => {
+  const repo = makeRepo(t);
+  write(repo, 'api/src/b.ts', 'export const b = 1;\n');
+  commit(repo, 'second file');
+  const failed = { ...passingReview(repo), checks: [{ name: 'typecheck', status: 'fail' }] };
+  assert.match(record(repo, failed).stdout, /BLOCKED/);
+  write(repo, 'api/src/a.ts', 'export const a = 3;\n');
+  commit(repo, 'fix the type error');
+  const next = scope(repo).review;
+  assert.equal(next.mode, 'full');
+  assert.deepEqual(next.files, ['api/src/a.ts', 'api/src/b.ts']);
+
+  assert.equal(record(repo, passingReview(repo)).status, 0);
+  write(repo, 'api/src/b.ts', 'export const b = 2;\n');
+  commit(repo, 'break a check');
+  assert.match(record(repo, { ...passingReview(repo), checks: [{ name: 'typecheck', status: 'fail' }] }).stdout, /BLOCKED/);
+  assert.deepEqual(scope(repo).review.files, ['api/src/b.ts'], 'the file changed since the last real review is still to review');
+});
+
+test('record refuses a critical finding on a path that scope did not print', (t) => {
+  const repo = makeRepo(t);
+  const result = record(repo, passingReview(repo, 'head', [{ ...CRITICAL, file: './api/src/a.ts' }]));
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /as "scope" prints it/);
+});
+
+test('a changed instruction file sends its whole folder back to review; a changed config sends everything', (t) => {
+  const repo = makeRepo(t);
+  write(repo, 'web/src/New.tsx', 'export const New = () => null;\n');
+  commit(repo, 'frontend');
+  assert.equal(record(repo, passingReview(repo)).status, 0);
+  write(repo, 'api/AGENTS.md', '# rules\n');
+  commit(repo, 'rules');
+  assert.deepEqual(scope(repo).review.files, ['api/AGENTS.md', 'api/src/a.ts']);
+  assert.equal(record(repo, passingReview(repo)).status, 0);
+  write(repo, '.claude/pr-self-review.config.json', JSON.stringify({ ...CONFIG, skip: [] }));
+  commit(repo, 'config');
+  const result = scope(repo).review;
+  assert.equal(result.mode, 'full');
+  assert.equal(result.files.length, 4);
+});
+
+test('a verdict recorded by an older version is rebuilt from its commit', (t) => {
+  const repo = makeRepo(t);
+  assert.equal(record(repo, passingReview(repo)).status, 0);
+  const file = join(repo, '.claude', '.pr-self-review.json');
+  const stored = JSON.parse(readFileSync(file, 'utf8'));
+  const { files: _files, findings: _findings, mergeBase: _mergeBase, review: _review, ...old } = stored;
+  writeFileSync(file, JSON.stringify({ ...old, version: 1 }));
+  write(repo, 'api/src/b.ts', 'export const b = 1;\n');
+  commit(repo, 'more');
+  const result = scope(repo).review;
+  assert.equal(result.mode, 'incremental');
+  assert.deepEqual(result.files, ['api/src/b.ts']);
+});
+
+test('a symbolic link has the same fingerprint on disk and in the commit', (t) => {
+  const repo = makeRepo(t);
+  symlinkSync('a.ts', join(repo, 'api/src/link.ts'));
+  commit(repo, 'link');
+  const result = scope(repo, 'worktree');
+  assert.equal(result.uncommitted, false);
+  assert.equal(result.fingerprint, result.committed);
+});
+
+test('reading the gate state does not create the state folder', (t) => {
+  const repo = mkdtempSync(join(tmpdir(), 'pr-self-review-test-'));
+  t.after(() => rmSync(repo, { recursive: true, force: true }));
+  git(repo, 'init', '-q', '-b', 'main');
+  write(repo, 'a.ts', 'export const a = 1;\n');
+  commit(repo, 'base');
+  git(repo, 'checkout', '-q', '-b', 'feat/x');
+  write(repo, 'a.ts', 'export const a = 2;\n');
+  commit(repo, 'change');
+  assert.equal(hook(repo, 'git push').status, 2);
+  assert.equal(existsSync(join(repo, '.claude')), false);
 });
