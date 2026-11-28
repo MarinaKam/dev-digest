@@ -190,12 +190,25 @@ test('retriesUntilDeadline repeats a wait only when the step allows more than th
   }
 });
 
-test('stepTimeout: the step\'s own timeout when recording, never more than the flow\'s in a dry run', () => {
+test('stepTimeout: the step\'s own timeout, capped only after a skipped data change', () => {
+  // A recording, and a dry run before any skipped change: the step's own timeout.
   assert.equal(stepTimeout({ timeout: 240_000 }, 20_000, false), 240_000);
   assert.equal(stepTimeout({}, 20_000, false), 20_000);
-  // A dry run performs no change, so a wait for a model run could only fail: fail fast.
+  // After a skipped change the step can only be "not verified": fail as fast as before.
   assert.equal(stepTimeout({ timeout: 240_000 }, 20_000, true), 20_000);
   assert.equal(stepTimeout({ timeout: 5_000 }, 20_000, true), 5_000);
-  // With the cap, a dry-run wait is never retried past one attempt.
+  assert.equal(stepTimeout({}, 20_000, true), 20_000);
+  // With the cap a wait after a skipped change is never retried past one attempt.
   assert.equal(retriesUntilDeadline(['wait', '--fn', 'x'], stepTimeout({ timeout: 240_000 }, 20_000, true), 20_000), false);
+});
+
+test('retriesUntilDeadline: direct actions, dry-run probes and setup waits', () => {
+  for (const name of ['click', 'fill', 'hover']) {
+    assert.equal(retriesUntilDeadline([name, '#save'], 20_000, 20_000), true);
+  }
+  // A dry-run probe of a click is `wait <selector>`: retried only with a longer step timeout.
+  assert.equal(retriesUntilDeadline(['wait', '#save'], 20_000, 20_000), false);
+  assert.equal(retriesUntilDeadline(['wait', '#save'], 60_000, 20_000), true);
+  // startWait and setup run with exactly the flow's timeout: one attempt, as before.
+  assert.equal(retriesUntilDeadline(['wait', '--text', 'Ready'], 20_000, 20_000), false);
 });

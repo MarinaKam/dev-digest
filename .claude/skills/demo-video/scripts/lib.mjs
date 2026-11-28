@@ -78,13 +78,15 @@ export function holdAfter(step, pace) {
 }
 
 /**
- * How long a step may take. A dry run starts no model run and performs no data
- * change, so a long wait for one could only fail: it is capped at the flow's
- * timeout, and the step is reported as not verified as fast as before.
+ * How long a step may take: its own `timeout`, else the flow's. In a dry run a
+ * step after a skipped data change can only be reported as not verified (it may
+ * wait for a model run that never started), so it is capped at the flow's
+ * timeout and reported as fast as before. Steps before any skipped change keep
+ * their own timeout, as in a recording.
  */
-export function stepTimeout(step, flowTimeout, dry) {
+export function stepTimeout(step, flowTimeout, afterSkippedChange) {
   const own = step.timeout ?? flowTimeout;
-  return dry ? Math.min(own, flowTimeout) : own;
+  return afterSkippedChange ? Math.min(own, flowTimeout) : own;
 }
 
 /**

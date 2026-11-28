@@ -98,19 +98,22 @@ async function requireApp(baseUrl) {
   }
 }
 
+/** The flow's timeout: agent-browser's own wait timeout and every step's default. */
+const flowTimeoutOf = (flow) => flow.timeout ?? DEFAULT_TIMEOUT_MS;
+
 function createBrowser(flow) {
   const env = {
     ...process.env,
     AGENT_BROWSER_SESSION: SESSION,
     AGENT_BROWSER_INIT_SCRIPTS: join(HERE, 'overlay.js'),
     // Let agent-browser's own waits give up first, so a failed step reports its reason.
-    AGENT_BROWSER_DEFAULT_TIMEOUT: String(flow.timeout ?? DEFAULT_TIMEOUT_MS),
+    AGENT_BROWSER_DEFAULT_TIMEOUT: String(flowTimeoutOf(flow)),
     ...(flow.colorScheme ? { AGENT_BROWSER_COLOR_SCHEME: flow.colorScheme } : {}),
     ...(args.includes('--headed') ? { AGENT_BROWSER_HEADED: '1' } : {}),
   };
   const ab = (commandArgs, timeout) => run(BIN, commandArgs, { env, timeout });
   /** `find` and the direct actions do not wait for their target, so retry until the timeout. */
-  const flowTimeout = flow.timeout ?? DEFAULT_TIMEOUT_MS;
+  const flowTimeout = flowTimeoutOf(flow);
   const abRetry = async (commandArgs, timeout) => {
     const deadline = Date.now() + timeout;
     const retry = retriesUntilDeadline(commandArgs, timeout, flowTimeout);
@@ -167,9 +170,9 @@ function createRecorder(browser, output) {
   };
 }
 
-async function playStep(step, context) {
-  const { browser, flow, baseUrl, pace } = context;
-  const timeout = stepTimeout(step, flow.timeout ?? DEFAULT_TIMEOUT_MS, DRY);
+async function playStep(step, context, afterSkippedChange) {
+  const { browser, baseUrl, pace, flowTimeout } = context;
+  const timeout = stepTimeout(step, flowTimeout, DRY && afterSkippedChange);
   if (step.caption !== undefined) {
     browser.script(`window.__demoVideo && window.__demoVideo.caption(${JSON.stringify(step.caption)})`);
     await pause(holdAfter(step, pace));
@@ -205,7 +208,7 @@ async function playSteps(context, recorder) {
     const label = `${String(index + 1).padStart(2)}/${steps.length} ${describe(step)}`;
     try {
       if (step.offCamera) recorder.stop();
-      const outcome = await playStep(step, context);
+      const outcome = await playStep(step, context, report.firstSkipped > 0);
       if (step.offCamera) recorder.start();
       if (outcome === 'played') {
         if (step.changesData) report.changed.push(describe(step));
@@ -261,7 +264,7 @@ async function main() {
 
   const browser = createBrowser(flow);
   const recorder = createRecorder(browser, output);
-  const context = { browser, flow, baseUrl, pace: { ...DEFAULT_PACE, ...flow.pace } };
+  const context = { browser, flow, baseUrl, pace: { ...DEFAULT_PACE, ...flow.pace }, flowTimeout: flowTimeoutOf(flow) };
   const [width, height] = flow.viewport ?? DEFAULT_VIEWPORT;
 
   try {
@@ -276,7 +279,7 @@ async function main() {
   try {
     browser.ab(['set', 'viewport', String(width), String(height), String(flow.scale ?? DEFAULT_SCALE)]);
     browser.ab(['open', `${baseUrl}${flow.start ?? '/'}`]);
-    const timeout = flow.timeout ?? DEFAULT_TIMEOUT_MS;
+    const timeout = context.flowTimeout;
     if (flow.startWait) await browser.abRetry(resolveArgs(flow.startWait, baseUrl), timeout);
     // Setup commands shape the first frame (a filter, a scroll) and are never filmed.
     for (const command of flow.setup ?? []) await browser.abRetry(resolveArgs(command, baseUrl), timeout);
