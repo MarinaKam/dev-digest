@@ -179,11 +179,13 @@ d('review runs with skills', () => {
     const s = await newSkill('version-kept');
     await link(agent, [s]);
     for (const body of ['v2 body', 'v3 body']) {
-      await app.inject({ method: 'PUT', url: `/skills/${s}`, payload: { body } });
+      const res = await app.inject({ method: 'PUT', url: `/skills/${s}`, payload: { body } });
+      expect(res.statusCode).toBe(200);
     }
     const { runId, user } = await run(agent);
     expect(user).toContain('<skill name="version-kept" version="3">');
-    await app.inject({ method: 'PUT', url: `/skills/${s}`, payload: { body: 'v4 body' } });
+    const v4 = await app.inject({ method: 'PUT', url: `/skills/${s}`, payload: { body: 'v4 body' } });
+    expect(v4.statusCode).toBe(200);
     const after = await readTrace(runId);
     expect(after.prompt_assembly.skills_used).toEqual([{ name: 'version-kept', version: 3 }]);
   });

@@ -83,7 +83,7 @@ export class SkillsRepository {
       const [row] = await tx
         .update(t.skills)
         .set({ ...patch, version })
-        .where(eq(t.skills.id, id))
+        .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, id)))
         .returning();
       if (!row) return undefined;
       if (newVersion) {

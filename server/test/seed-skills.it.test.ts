@@ -55,18 +55,6 @@ d('seed: Test Quality and API Contract reviewers', () => {
     expect(await linkedNames('API Contract Reviewer')).toEqual(API_CONTRACT);
   });
 
-  it('a reseed keeps the user unlinking and deleting seeded skills', async () => {
-    const db = pg.handle.db;
-    const [agent] = await db.select().from(t.agents).where(eq(t.agents.name, 'Test Quality Reviewer'));
-    if (!agent) throw new Error('agent not seeded');
-    await db.delete(t.agentSkills).where(eq(t.agentSkills.agentId, agent.id));
-    await db.delete(t.skills).where(eq(t.skills.name, 'flaky-test-patterns'));
-    await seed(db);
-    expect(await linkedNames('Test Quality Reviewer')).toEqual([]);
-    expect(await db.select().from(t.skills).where(eq(t.skills.name, 'flaky-test-patterns'))).toHaveLength(0);
-    expect(await linkedNames('API Contract Reviewer')).toEqual(API_CONTRACT);
-  });
-
   it('every seeded skill is enabled, manual, v1, with a description within 1024 characters', async () => {
     const skills = await pg.handle.db.select().from(t.skills);
     for (const s of skills) {
@@ -105,5 +93,41 @@ d('seed: an agent and its skills are created together', () => {
     if (!agent) throw new Error('agent not seeded');
     const links = await pg.handle.db.select().from(t.agentSkills).where(eq(t.agentSkills.agentId, agent.id));
     expect(links).toHaveLength(4);
+  });
+});
+
+/** A reseed (dev.sh seeds on every start) keeps what the user changed. Own database: it mutates. */
+d('seed: a reseed keeps the user changes', () => {
+  let pg: PgFixture;
+
+  beforeAll(async () => {
+    pg = await startPg();
+    await seed(pg.handle.db);
+  });
+  afterAll(async () => {
+    await pg?.stop();
+  });
+
+  async function linkedNames(agentName: string): Promise<string[]> {
+    const rows = await pg.handle.db
+      .select({ name: t.skills.name })
+      .from(t.agentSkills)
+      .innerJoin(t.agents, eq(t.agentSkills.agentId, t.agents.id))
+      .innerJoin(t.skills, eq(t.agentSkills.skillId, t.skills.id))
+      .where(eq(t.agents.name, agentName))
+      .orderBy(asc(t.agentSkills.order));
+    return rows.map((r) => r.name);
+  }
+
+  it('a reseed keeps the user unlinking and deleting seeded skills', async () => {
+    const db = pg.handle.db;
+    const [agent] = await db.select().from(t.agents).where(eq(t.agents.name, 'Test Quality Reviewer'));
+    if (!agent) throw new Error('agent not seeded');
+    await db.delete(t.agentSkills).where(eq(t.agentSkills.agentId, agent.id));
+    await db.delete(t.skills).where(eq(t.skills.name, 'flaky-test-patterns'));
+    await seed(db);
+    expect(await linkedNames('Test Quality Reviewer')).toEqual([]);
+    expect(await db.select().from(t.skills).where(eq(t.skills.name, 'flaky-test-patterns'))).toHaveLength(0);
+    expect(await linkedNames('API Contract Reviewer')).toEqual(API_CONTRACT);
   });
 });

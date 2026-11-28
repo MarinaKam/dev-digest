@@ -170,7 +170,7 @@ const SkillFields = z.object({
 export const CreateSkill = SkillFields.extend({
   source: z.enum(['manual', 'imported_file']).optional(),
   version_note: VersionNote,
-});
+}).strict();
 export type CreateSkill = z.infer<typeof CreateSkill>;
 
 export const UpdateSkill = SkillFields.partial().extend({ version_note: VersionNote }).strict();

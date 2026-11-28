@@ -2,6 +2,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import type { DbExecutor } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
 import type { RunSummary, RunTrace } from '@devdigest/shared';
+import { RESTARTED_RUN_ERROR } from '../constants.js';
 
 // ---- in-flight / history --------------------------------------------------
 
@@ -125,10 +126,6 @@ export async function cancelRunIfRunning(
     .returning({ id: t.agentRuns.id });
   return rows.length > 0;
 }
-
-/** Error of a run that the API cut off by restarting; the timeline shows it. */
-export const RESTARTED_RUN_ERROR =
-  'The API restarted while this run was in progress, so it stopped. Run the review again.';
 
 /** On boot: any run still 'running' is orphaned (its process died / restarted),
  *  so mark it failed and say why. Prevents permanently stuck "running" runs in

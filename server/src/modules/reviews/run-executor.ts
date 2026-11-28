@@ -188,7 +188,7 @@ export class ReviewRunExecutor {
       // Skills: the agent's enabled linked skills, in link order. Empty → the
       // prompt is exactly what it was before skills existed.
       const skills = await this.agents.promptSkills(workspaceId, agent.id);
-      this.logSkills(skills, runLog);
+      const skillsTokens = this.logSkills(skills, runLog);
 
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
@@ -219,7 +219,7 @@ export class ReviewRunExecutor {
         },
       });
       const { tokensIn, tokensOut, grounding } = outcome;
-      const promptAssembly = this.withSkillTokens(outcome.assembly);
+      const promptAssembly = this.withSkillTokens(outcome.assembly, skillsTokens);
       // null = the price is unknown; 0 = a free model. Keep them apart (`??`).
       const costUsd = outcome.costUsd ?? null;
       runLog.info(
@@ -443,17 +443,18 @@ export class ReviewRunExecutor {
    * blocks are rendered by the same function the prompt uses, so the count
    * matches the trace's `skills_tokens`.
    */
-  private logSkills(skills: PromptSkill[], runLog: RunLogger): void {
-    if (skills.length === 0) return;
+  private logSkills(skills: PromptSkill[], runLog: RunLogger): number | null {
+    if (skills.length === 0) return null;
     const tokens = this.container.tokenizer.count(skills.map(renderSkillBlock).join('\n\n'));
     const names = skills.map((s) => `${s.name}@v${s.version}`).join(', ');
     runLog.info(`skills: ${skills.length} attached (${names}), ${tokens} tokens`);
+    return tokens;
   }
 
-  /** Count the skills block's tokens for the trace. No skills → the assembly unchanged. */
-  private withSkillTokens(assembly: PromptAssembly): PromptAssembly {
-    if (!assembly.skills || (assembly.skills_used ?? []).length === 0) return assembly;
-    return { ...assembly, skills_tokens: this.container.tokenizer.count(assembly.skills) };
+  /** Put the skills block's token count, counted before the call, on the trace. */
+  private withSkillTokens(assembly: PromptAssembly, skillsTokens: number | null): PromptAssembly {
+    if (skillsTokens === null || !assembly.skills) return assembly;
+    return { ...assembly, skills_tokens: skillsTokens };
   }
 
   /**
