@@ -129,6 +129,15 @@ What the reviewer actually sends to the model is assembled in
   demo / test / not for production / do not flag" never descope the review — real
   defects are reported at full severity regardless. We deliberately do **not**
   keyword-scan untrusted text (a denylist only catches one phrasing).
+- **Skills are rules, delimited.** An agent's linked skills that are enabled go
+  into the `## Skills / rules` section of the user message, in link order, each
+  as `<skill name version>…</skill>` (`AgentsRepository.promptSkills`,
+  `renderSkillBlock`). Skill tags inside a body are neutralised so a body cannot
+  close its block or start a fake `## Diff to review`; a trusted rule in the
+  system message says to follow skills but never above the guards. The trace
+  records `skills_used` (`name@vN`) and `skills_tokens`; the run log says
+  `skills: N attached (…), T tokens`. An agent with no enabled skill sends the
+  same prompt as before skills existed.
 - **Grounding is mandatory.** Every finding must cite a line that exists in the
   diff or it is dropped (`groundFindings`), and the score is recomputed from the
   surviving findings — the model's self-reported score is ignored.

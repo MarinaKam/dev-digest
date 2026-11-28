@@ -1,5 +1,5 @@
 import type { Container } from '../../platform/container.js';
-import type { Provider, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
+import type { PromptAssembly, Provider, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
 import { reviewPullRequest, countBlockers } from '@devdigest/reviewer-core';
 import { RunLogger } from '../../platform/run-logger.js';
 import type { ReviewRepository } from './repository.js';
@@ -185,6 +185,10 @@ export class ReviewRunExecutor {
 
       const task = taskLine(pull) + rankNote;
 
+      // Skills: the agent's enabled linked skills, in link order. Empty → the
+      // prompt is exactly what it was before skills existed.
+      const skills = await this.agents.promptSkills(agent.id);
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -205,6 +209,7 @@ export class ReviewRunExecutor {
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
+        ...(skills.length > 0 ? { skills } : {}),
         task,
         sessionId: `${repo.owner}/${repo.name}#${pull.number}:${agent.name}`,
         onEvent: (e) => runLog.event(e.kind, e.msg, e.data),
@@ -213,6 +218,7 @@ export class ReviewRunExecutor {
         },
       });
       const { tokensIn, tokensOut, grounding } = outcome;
+      const promptAssembly = this.withSkillTokens(outcome.assembly, runLog);
       // null = the price is unknown; 0 = a free model. Keep them apart (`??`).
       const costUsd = outcome.costUsd ?? null;
       runLog.info(
@@ -288,7 +294,7 @@ export class ReviewRunExecutor {
           findings: findingRows.length,
           grounding,
         },
-        prompt_assembly: outcome.assembly,
+        prompt_assembly: promptAssembly,
         tool_calls: outcome.chunks.map((c) => ({
           tool: 'review_file',
           args: c.label,
@@ -428,6 +434,19 @@ export class ReviewRunExecutor {
     } catch {
       return '';
     }
+  }
+
+  /**
+   * Count the skills block's tokens for the trace and log which skills, at
+   * which version, went into the prompt. No skills → the assembly unchanged.
+   */
+  private withSkillTokens(assembly: PromptAssembly, runLog: RunLogger): PromptAssembly {
+    const used = assembly.skills_used ?? [];
+    if (!assembly.skills || used.length === 0) return assembly;
+    const skillsTokens = this.container.tokenizer.count(assembly.skills);
+    const names = used.map((s) => `${s.name}@v${s.version}`).join(', ');
+    runLog.info(`skills: ${used.length} attached (${names}), ${skillsTokens} tokens`);
+    return { ...assembly, skills_tokens: skillsTokens };
   }
 
   /**

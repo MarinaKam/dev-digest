@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import type { DbExecutor } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import type { CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
+import type { PromptSkill } from '@devdigest/reviewer-core';
 import { DEFAULT_AGENT_DESCRIPTION, INITIAL_AGENT_VERSION } from './constants.js';
 import { isConfigChange } from './helpers.js';
 
@@ -217,6 +218,24 @@ export class AgentsRepository {
       .where(eq(t.agentSkills.agentId, agentId))
       .orderBy(asc(t.agentSkills.order));
     return rows.map((r) => ({ skill: r.skill, order: r.order }));
+  }
+
+  /**
+   * The skills a review of this agent sends: linked AND enabled, in link
+   * order, at their current version.
+   */
+  async promptSkills(agentId: string): Promise<PromptSkill[]> {
+    return this.db
+      .select({
+        name: t.skills.name,
+        version: t.skills.version,
+        description: t.skills.description,
+        body: t.skills.body,
+      })
+      .from(t.agentSkills)
+      .innerJoin(t.skills, eq(t.agentSkills.skillId, t.skills.id))
+      .where(and(eq(t.agentSkills.agentId, agentId), eq(t.skills.enabled, true)))
+      .orderBy(asc(t.agentSkills.order));
   }
 
   /** How many of the given skill ids exist in the workspace. */
