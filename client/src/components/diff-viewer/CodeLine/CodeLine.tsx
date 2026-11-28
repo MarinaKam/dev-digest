@@ -35,6 +35,7 @@ export function CodeLine({ ln, path, threads, commenting }: CodeLineProps) {
   const showAdd = hover && !!target && !composing;
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: the wrapper only tracks hover to reveal the "+" button; keyboard users reach that button directly
     <div
       style={cs.rowWrap}
       onMouseEnter={() => setHover(true)}

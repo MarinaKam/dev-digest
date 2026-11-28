@@ -226,6 +226,7 @@ export function useRunEvents(runIds: string[]) {
   const [running, setRunning] = React.useState(false);
   const key = runIds.join(",");
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for the contents of runIds; the array itself is new on every render
   React.useEffect(() => {
     if (runIds.length === 0) return;
     setEvents([]);
@@ -265,7 +266,6 @@ export function useRunEvents(runIds: string[]) {
       for (const es of sources) es.close();
       setRunning(false);
     };
-    // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for the contents of runIds; the array itself is new on every render
   }, [key]);
 
   return { events, running };

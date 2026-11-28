@@ -116,6 +116,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
               <span style={{ color: c.border, fontWeight: 700 }}>{c.icon}</span>
               <span style={{ flex: 1 }}>{t.message}</span>
               <button
+                type="button"
                 onClick={() => setItems((prev) => prev.filter((x) => x.id !== t.id))}
                 style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 16 }}
                 aria-label="Dismiss"

@@ -38,6 +38,7 @@ export function InlineComposer({ commenting, path, line, side, inReplyTo, onClos
     }
   };
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: the wrapper catches Escape and Cmd/Ctrl+Enter typed in the textarea inside it
     <div
       style={cs.thread}
       onKeyDown={(e) => {

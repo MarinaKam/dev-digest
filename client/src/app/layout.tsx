@@ -18,6 +18,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang={locale} data-theme="dark" data-density="regular" suppressHydrationWarning>
       <head>
         {/* set theme before paint to avoid FOUC */}
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script from lib/theme, no user input; it must run before first paint */}
         <script dangerouslySetInnerHTML={{ __html: themeNoFlashScript }} />
       </head>
       {/* suppressHydrationWarning: browser extensions (Grammarly, translators, …)
