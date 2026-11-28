@@ -77,3 +77,33 @@ d('seed: Test Quality and API Contract reviewers', () => {
     }
   });
 });
+
+/** A seed that fails while linking an agent's skills leaves no half-made agent behind. */
+d('seed: an agent and its skills are created together', () => {
+  let pg: PgFixture;
+
+  beforeAll(async () => {
+    pg = await startPg();
+  });
+  afterAll(async () => {
+    await pg?.stop();
+  });
+
+  it('a failure on the links rolls the agent back, and the next seed completes it', async () => {
+    const sql = pg.handle.sql;
+    await sql.unsafe(
+      "create function fault_links() returns trigger language plpgsql as $$ begin raise exception 'injected fault'; end $$; " +
+        'create trigger fault_links before insert on agent_skills for each row execute function fault_links();',
+    );
+    await expect(seed(pg.handle.db)).rejects.toThrow();
+    await sql.unsafe('drop trigger fault_links on agent_skills; drop function fault_links();');
+    const half = await pg.handle.db.select().from(t.agents).where(eq(t.agents.name, 'Test Quality Reviewer'));
+    expect(half).toHaveLength(0);
+
+    await seed(pg.handle.db);
+    const [agent] = await pg.handle.db.select().from(t.agents).where(eq(t.agents.name, 'Test Quality Reviewer'));
+    if (!agent) throw new Error('agent not seeded');
+    const links = await pg.handle.db.select().from(t.agentSkills).where(eq(t.agentSkills.agentId, agent.id));
+    expect(links).toHaveLength(4);
+  });
+});

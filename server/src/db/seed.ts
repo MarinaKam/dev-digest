@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { createDb, type Db } from './client.js';
+import { createDb, type Db, type DbExecutor } from './client.js';
 import * as t from './schema.js';
 import { eq, and } from 'drizzle-orm';
 import {
@@ -241,38 +241,37 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       createdBy: userId,
     },
   ];
-  const created = new Map<string, string>();
+  // An agent and its skills (spec 003) are created together, in one
+  // transaction: a failure while linking must not leave an agent that every
+  // later seed skips because it exists. Skills are seeded only for an agent
+  // this run creates, so a reseed (dev.sh seeds on every start) never re-links
+  // or recreates skills the user unlinked or deleted.
+  const skillSets = new Map<string, SeedSkill[]>([
+    ['Test Quality Reviewer', TEST_QUALITY_SKILLS],
+    ['API Contract Reviewer', API_CONTRACT_SKILLS],
+  ]);
   for (const a of seedAgents) {
     const [existing] = await db
       .select()
       .from(t.agents)
       .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, a.name)));
     if (existing) continue;
-    const [row] = await db.insert(t.agents).values(a).returning({ id: t.agents.id });
-    if (row) created.set(a.name, row.id);
-  }
-
-  // ---- skills of the skill-driven reviewers (spec 003) ----
-  // Only for an agent this run created: dev.sh seeds on every start, and a
-  // reseed must not re-link or recreate skills the user unlinked or deleted.
-  const skillSets: Array<[string, SeedSkill[]]> = [
-    ['Test Quality Reviewer', TEST_QUALITY_SKILLS],
-    ['API Contract Reviewer', API_CONTRACT_SKILLS],
-  ];
-  for (const [agentName, list] of skillSets) {
-    const agentId = created.get(agentName);
-    if (agentId) await seedAgentSkills(db, workspaceId, agentId, list);
+    await db.transaction(async (tx) => {
+      const [row] = await tx.insert(t.agents).values(a).returning({ id: t.agents.id });
+      const skills = skillSets.get(a.name);
+      if (row && skills) await seedAgentSkills(tx, workspaceId, row.id, skills);
+    });
   }
 
   return { workspaceId, userId };
 }
 
 /**
- * For a freshly created agent: create each skill (with its v1 snapshot) unless
- * one of that name exists, and link them in the given order. Existing skills
- * are reused as they are, so a user's edits survive.
+ * For a freshly created agent, inside its transaction: create each skill (with
+ * its v1 snapshot) unless one of that name exists, and link them in the given
+ * order. Existing skills are reused as they are, so a user's edits survive.
  */
-async function seedAgentSkills(db: Db, workspaceId: string, agentId: string, list: SeedSkill[]) {
+async function seedAgentSkills(db: DbExecutor, workspaceId: string, agentId: string, list: SeedSkill[]) {
   const ids: string[] = [];
   for (const s of list) {
     const [existing] = await db
@@ -283,16 +282,13 @@ async function seedAgentSkills(db: Db, workspaceId: string, agentId: string, lis
       ids.push(existing.id);
       continue;
     }
-    const id = await db.transaction(async (tx) => {
-      const [row] = await tx
-        .insert(t.skills)
-        .values({ workspaceId, ...s, source: 'manual', enabled: true, version: 1 })
-        .returning();
-      if (!row) throw new Error(`seed: skill ${s.name} was not inserted`);
-      await tx.insert(t.skillVersions).values({ skillId: row.id, version: 1, body: row.body, note: 'Created' });
-      return row.id;
-    });
-    ids.push(id);
+    const [row] = await db
+      .insert(t.skills)
+      .values({ workspaceId, ...s, source: 'manual', enabled: true, version: 1 })
+      .returning();
+    if (!row) throw new Error(`seed: skill ${s.name} was not inserted`);
+    await db.insert(t.skillVersions).values({ skillId: row.id, version: 1, body: row.body, note: 'Created' });
+    ids.push(row.id);
   }
   await db.insert(t.agentSkills).values(ids.map((skillId, order) => ({ agentId, skillId, order })));
 }
