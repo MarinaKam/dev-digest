@@ -85,6 +85,7 @@ export function probeArgs(cmd) {
     const tail = rest.slice(actionAt + (hasText ? 2 : 1));
     return ['find', ...rest.slice(0, actionAt), 'hover', ...tail];
   }
+  // `agent-browser wait <selector>` waits for the element to appear (see `wait --help`).
   if (DIRECT_ACTIONS.includes(name) && rest.length > 0) return ['wait', rest[0]];
   return null;
 }

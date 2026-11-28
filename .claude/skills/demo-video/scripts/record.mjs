@@ -28,6 +28,7 @@ const DEFAULT_VIEWPORT = [1440, 900];
 // while it records at an emulated scale, so every click misses. Keep 1 until that is fixed.
 const DEFAULT_SCALE = 1;
 const DEFAULT_TIMEOUT_MS = 15_000;
+const APP_CHECK_TIMEOUT_MS = 10_000;
 const DEFAULT_PACE = { afterAction: 500, beforeClick: 300, caption: 1800 };
 const DRY_RUN_PAUSE_MS = 100;
 const RETRY_EVERY_MS = 400;
@@ -82,7 +83,8 @@ function requireTools(tools) {
 
 async function requireApp(baseUrl) {
   try {
-    const response = await fetch(baseUrl);
+    // Without a timeout a server that accepts the connection and never answers hangs the run.
+    const response = await fetch(baseUrl, { signal: AbortSignal.timeout(APP_CHECK_TIMEOUT_MS) });
     if (response.status >= 500) throw new Error(`HTTP ${response.status}`);
   } catch (error) {
     throw new Error(`the web app is not reachable at ${baseUrl} (${error.message}); start it or set DEMO_BASE_URL`);
