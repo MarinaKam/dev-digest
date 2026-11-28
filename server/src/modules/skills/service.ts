@@ -161,5 +161,11 @@ export class SkillsService {
 /** The last path segment of a URL, for the draft's fallback name. */
 function fileNameOf(url: string): string {
   const segment = new URL(url).pathname.split('/').filter(Boolean).pop();
-  return segment ? decodeURIComponent(segment) : 'skill.md';
+  if (!segment) return 'skill.md';
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    // A malformed escape (`%ZZ`) keeps the raw name instead of failing the import.
+    return segment;
+  }
 }

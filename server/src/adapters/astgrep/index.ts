@@ -18,8 +18,8 @@
  * `parseChangedFiles` helper (which reads files diff-scoped under `root`).
  */
 import { parse, Lang, type SgNode } from '@ast-grep/napi';
-import { readFile } from 'node:fs/promises';
-import { extname, join } from 'node:path';
+import { readCloneFile } from '../../platform/clone-files.js';
+import { extname } from 'node:path';
 
 import type {
   ParsedImport,
@@ -594,7 +594,8 @@ export async function parseChangedFiles(
 
     let source: string;
     try {
-      source = await readFile(join(root, rel), 'utf8');
+      // A changed path comes from the repository: only a regular file inside the clone.
+      source = await readCloneFile(root, rel);
     } catch {
       continue;
     }

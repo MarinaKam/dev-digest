@@ -1,6 +1,6 @@
 import { simpleGit, type SimpleGit } from 'simple-git';
 import { join } from 'node:path';
-import { mkdir, readFile, access, rm } from 'node:fs/promises';
+import { mkdir, access, rm } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import type {
   GitClient,
@@ -11,6 +11,7 @@ import type {
   GitCommit,
 } from '@devdigest/shared';
 import { parseUnifiedDiff } from './diff-parser.js';
+import { readCloneFile } from '../../platform/clone-files.js';
 
 /**
  * Depth fetched by `sync()`. Deeper than the shallow clone (CLONE_DEPTH=1) so the
@@ -126,8 +127,9 @@ export class SimpleGitClient implements GitClient {
     }));
   }
 
+  /** A regular file inside the clone only: a symlink or `..` out of it throws. */
   async readFile(repo: RepoRef, path: string): Promise<string> {
-    return readFile(join(this.clonePathFor(repo), path), 'utf8');
+    return readCloneFile(this.clonePathFor(repo), path);
   }
 }
 

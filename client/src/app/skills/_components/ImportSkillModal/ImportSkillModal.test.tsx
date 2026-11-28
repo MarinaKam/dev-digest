@@ -7,7 +7,11 @@ const previewMutate = vi.hoisted(() => vi.fn());
 const createMutate = vi.hoisted(() => vi.fn());
 const previewState = vi.hoisted(() => ({ data: undefined as unknown, error: null as Error | null }));
 const urlMutate = vi.hoisted(() => vi.fn());
-const urlState = vi.hoisted(() => ({ data: undefined as unknown, error: null as Error | null }));
+const urlState = vi.hoisted(() => ({
+  data: undefined as unknown,
+  error: null as Error | null,
+  variables: undefined as string | undefined,
+}));
 
 vi.mock("@/lib/hooks/skills", () => ({
   useImportPreview: () => ({
@@ -20,6 +24,7 @@ vi.mock("@/lib/hooks/skills", () => ({
     mutate: urlMutate,
     data: urlState.data,
     error: urlState.error,
+    variables: urlState.variables,
     isPending: false,
   }),
   useCreateSkill: () => ({ mutate: createMutate, isPending: false, error: null }),
@@ -55,6 +60,7 @@ afterEach(() => {
   urlMutate.mockClear();
   urlState.data = undefined;
   urlState.error = null;
+  urlState.variables = undefined;
 });
 
 function open() {
@@ -169,6 +175,7 @@ describe("ImportSkillModal", () => {
 
     it("shows the injection lines and saves the skill disabled, as imported_url", () => {
       urlState.data = FLAGGED;
+      urlState.variables = URL;
       openUrlTab();
       fireEvent.change(screen.getByLabelText("URL (https:// only)"), { target: { value: URL } });
       expect(screen.getByText("Injection detected — do not enable")).toBeInTheDocument();
@@ -190,5 +197,16 @@ describe("ImportSkillModal", () => {
         "Could not import from the URL: The host localhost is not a public address",
       );
     });
+  });
+
+  it("records the URL that was downloaded even when the field was edited after the preview", () => {
+    const fetched = "https://example.com/fetched.md";
+    urlState.data = { ...PREVIEW, draft: { ...PREVIEW.draft, source: "imported_url" } };
+    urlState.variables = fetched;
+    open();
+    fireEvent.click(screen.getByRole("button", { name: "Import from URL" }));
+    fireEvent.change(screen.getByLabelText("URL (https:// only)"), { target: { value: "https://example.com/other.md" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save skill" }));
+    expect(createMutate.mock.calls[0]?.[0]).toMatchObject({ version_note: `Imported from ${fetched}` });
   });
 });

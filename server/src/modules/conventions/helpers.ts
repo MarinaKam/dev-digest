@@ -59,11 +59,22 @@ export function normaliseRule(rule: string): string {
   return rule.toLowerCase().replace(/\s+/g, ' ').trim().replace(/[.\s]+$/, '');
 }
 
-/** A repo-relative path the model may cite: no absolute path, no `..`, no backslash. */
+/**
+ * A repo-relative path the model may see and cite: no absolute path, no `..`,
+ * no backslash, and no character that could end the prompt's `source="…"`
+ * label or start a tag (quotes, angle brackets, backticks, control chars). A
+ * repository names its files, so a name is untrusted text like the content.
+ */
 export function isSafeRelativePath(path: string): boolean {
-  if (!path || path.includes('\0') || path.includes('\\')) return false;
+  if (!path || [...path].some(isUnsafePathChar)) return false;
   if (path.startsWith('/') || /^[a-zA-Z]:/.test(path)) return false;
   return path.split('/').every((part) => part !== '..' && part !== '');
+}
+
+/** A control character, a quote, an angle bracket, a backtick or a backslash. */
+function isUnsafePathChar(ch: string): boolean {
+  const code = ch.charCodeAt(0);
+  return code < 0x20 || code === 0x7f || `"'<>\`\\`.includes(ch);
 }
 
 /** The head of a file as sent to the model: at most MAX_FILE_LINES lines and MAX_FILE_CHARS characters. */

@@ -20,9 +20,9 @@
 import type { CodeSymbol, RepoRef } from '@devdigest/shared';
 import type { Container } from '../../platform/container.js';
 import type { ParsedImport, ParsedInvocationHead, ParsedSymbol } from './ports.js';
-import { readFile } from 'node:fs/promises';
-import { extname, join } from 'node:path';
+import { extname } from 'node:path';
 import { RepoIntelRepository, type FullSymbolRow } from './repository.js';
+import { readCloneFile } from '../../platform/clone-files.js';
 import type {
   BlastCallerRow,
   BlastChangedSymbol,
@@ -786,6 +786,7 @@ function enclosingSymbolName(
   return inFile[0]?.name ?? fromPath.split('/').pop() ?? fromPath;
 }
 
+/** A regular file inside the clone, or null (missing, or a symlink / `..` out of it). */
 async function readClone(clonePath: string, file: string): Promise<string | null> {
-  return readFile(join(clonePath, file), 'utf8').catch(() => null);
+  return readCloneFile(clonePath, file).catch(() => null);
 }

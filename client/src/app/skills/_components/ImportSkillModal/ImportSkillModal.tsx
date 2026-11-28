@@ -97,7 +97,8 @@ export function ImportSkillModal({ onClose, onCreated }: ImportSkillModalProps) 
           <ImportReview
             key={`${source}-${seq}`}
             preview={preview.data}
-            origin={source === "url" ? url.trim() : undefined}
+            // The URL that was downloaded, not the field: it may have been edited since.
+            origin={source === "url" ? urlPreview.variables : undefined}
             onClose={onClose}
             onCreated={onCreated}
           />

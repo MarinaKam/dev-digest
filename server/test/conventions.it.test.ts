@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
@@ -14,6 +14,7 @@ import {
   MockSecretsProvider,
 } from '../src/adapters/mocks.js';
 import * as t from '../src/db/schema.js';
+import { SimpleGitClient } from '../src/adapters/git/simple-git.js';
 import type { ConventionCandidate, ConventionList, Skill } from '@devdigest/shared';
 
 const hasDocker = await dockerAvailable();
@@ -367,6 +368,47 @@ d('conventions extractor', () => {
     } finally {
       release();
       await app3.close();
+    }
+  });
+
+  it('never sends a file outside the clone to the model, whatever the repository symlinks', async () => {
+    const SECRET = 'OPENROUTER_API_KEY=sk-must-not-leave-this-machine';
+    const cloneDir = await mkdtemp(join(tmpdir(), 'conv-symlink-'));
+    try {
+      // The real git adapter reads <cloneDir>/<owner>/<name>; the repository
+      // committed package.json and a source file as links to a local secret.
+      const repoDir = join(cloneDir, 'acme', 'payments-api');
+      for (const [path, text] of Object.entries(FILES)) {
+        await mkdir(join(repoDir, path, '..'), { recursive: true });
+        await writeFile(join(repoDir, path), text);
+      }
+      await writeFile(join(cloneDir, 'secret.env'), SECRET);
+      await symlink('../../secret.env', join(repoDir, 'package.json'));
+      await symlink(join(cloneDir, 'secret.env'), join(repoDir, 'src', 'leak.ts'));
+      await pg.handle.db.update(t.repos).set({ clonePath: repoDir }).where(eq(t.repos.id, repoId));
+
+      const spy = new MockLLMProvider('openai', { structuredBySchema: { ConventionExtraction: { conventions: [] } } });
+      const app5 = await buildApp({
+        config: config(),
+        db: pg.handle.db,
+        overrides: { embedder: new MockEmbedder(), git: new SimpleGitClient(cloneDir), secrets, llm: { openrouter: spy } },
+      });
+      try {
+        const res = await app5.inject({ method: 'POST', url: `/repos/${repoId}/conventions/extract`, payload: {} });
+        expect(res.statusCode).toBe(200);
+        const req = spy.calls[0]?.req as { messages: Array<{ content: string }> };
+        const prompt = req.messages.map((m) => m.content).join('\n');
+        expect(prompt).toContain('file:src/routes/users.ts');
+        expect(prompt).not.toContain(SECRET);
+        expect(prompt).not.toContain('file:package.json');
+        const rows = await pg.handle.db.select().from(t.conventions);
+        expect(rows.some((r) => (r.evidenceSnippet ?? '').includes(SECRET))).toBe(false);
+      } finally {
+        await app5.close();
+      }
+    } finally {
+      await pg.handle.db.update(t.repos).set({ clonePath: clone }).where(eq(t.repos.id, repoId));
+      await rm(cloneDir, { recursive: true, force: true });
     }
   });
 });
