@@ -56,9 +56,11 @@ function checkUrl(raw: string): URL {
 /** Downloads a skill file over https with the SSRF guard of spec 004. */
 export class SafeTextFetcher implements TextFetcher {
   async fetchText(raw: string, limits: TextFetchLimits): Promise<FetchedText> {
+    // One deadline for the whole download: every redirect hop and the body.
+    const deadline = Date.now() + limits.timeoutMs;
     let url = checkUrl(raw);
     for (let hop = 0; hop <= limits.maxRedirects; hop += 1) {
-      const res = await this.open(url, limits.timeoutMs);
+      const res = await this.open(url, deadline);
       const status = res.statusCode ?? 0;
       if (status >= 300 && status < 400 && res.headers.location) {
         res.resume();
@@ -76,27 +78,31 @@ export class SafeTextFetcher implements TextFetcher {
           `The URL returned ${contentType || 'no content type'}, not a text file. Use the raw file URL.`,
         );
       }
-      const text = await readCapped(res, limits.maxBytes);
+      const text = await readCapped(res, limits.maxBytes, deadline);
       return { text, finalUrl: url.toString(), contentType };
     }
     throw new ValidationError(`More than ${limits.maxRedirects} redirects`);
   }
 
-  private open(url: URL, timeoutMs: number): Promise<IncomingMessage> {
+  /** Send the request and resolve with the response headers, before the deadline. */
+  private open(url: URL, deadline: number): Promise<IncomingMessage> {
     return new Promise((resolve, reject) => {
+      const left = Math.max(0, deadline - Date.now());
       const req = request(
         url,
         {
           method: 'GET',
           lookup: guardedLookup,
           headers: { accept: 'text/markdown, text/plain;q=0.9, */*;q=0.1', 'user-agent': 'DevDigest-skill-import' },
-          timeout: timeoutMs,
+          timeout: left,
         },
         resolve,
       );
-      const timer = setTimeout(() => req.destroy(new ExternalServiceError('The download timed out')), timeoutMs);
+      // Covers connecting and waiting for headers; the body has its own timer
+      // in readCapped against the same deadline.
+      const timer = setTimeout(() => req.destroy(timedOut()), left);
       req.on('response', () => clearTimeout(timer));
-      req.on('timeout', () => req.destroy(new ExternalServiceError('The download timed out')));
+      req.on('timeout', () => req.destroy(timedOut()));
       req.on('error', (err) => {
         clearTimeout(timer);
         reject(err instanceof ValidationError || err instanceof ExternalServiceError
@@ -108,25 +114,51 @@ export class SafeTextFetcher implements TextFetcher {
   }
 }
 
-/** Read the body, failing as soon as it passes `maxBytes` (the size header is not trusted). */
-function readCapped(res: IncomingMessage, maxBytes: number): Promise<string> {
+function timedOut(): ExternalServiceError {
+  return new ExternalServiceError('The download timed out');
+}
+
+/**
+ * Read the body, failing as soon as it passes `maxBytes` (the size header is
+ * not trusted) or when `deadline` (epoch ms) passes before the body ends, so a
+ * server that sends headers and then trickles bytes cannot hold the request.
+ */
+export function readCapped(res: IncomingMessage, maxBytes: number, deadline: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;
+    let settled = false;
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn();
+    };
+    const timer = setTimeout(
+      () => finish(() => {
+        res.destroy();
+        reject(timedOut());
+      }),
+      Math.max(0, deadline - Date.now()),
+    );
     res.on('data', (chunk: Buffer) => {
       size += chunk.length;
       if (size > maxBytes) {
-        res.destroy();
-        reject(new PayloadTooLargeError(`The file is larger than ${maxBytes} bytes`));
+        finish(() => {
+          res.destroy();
+          reject(new PayloadTooLargeError(`The file is larger than ${maxBytes} bytes`));
+        });
         return;
       }
       chunks.push(chunk);
     });
-    res.on('end', () => {
-      const buf = Buffer.concat(chunks);
-      if (buf.includes(0)) return reject(new ValidationError('The file is not text'));
-      resolve(buf.toString('utf8'));
-    });
-    res.on('error', (err) => reject(new ExternalServiceError(`The download failed: ${err.message}`)));
+    res.on('end', () =>
+      finish(() => {
+        const buf = Buffer.concat(chunks);
+        if (buf.includes(0)) reject(new ValidationError('The file is not text'));
+        else resolve(buf.toString('utf8'));
+      }),
+    );
+    res.on('error', (err) => finish(() => reject(new ExternalServiceError(`The download failed: ${err.message}`))));
   });
 }
