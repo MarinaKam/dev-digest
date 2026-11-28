@@ -20,25 +20,44 @@ export interface SkillArchive {
   skipped: SkippedFile[];
 }
 
+/** Optional observer of each inflated chunk's size (for tests and diagnostics). */
+export interface ArchiveReadOptions {
+  onChunk?: (bytes: number) => void;
+}
+
+/**
+ * Compressed bytes fed to the inflater per step. One step can inflate at most
+ * ~1032× its input (the deflate ceiling), so 16 KB keeps any single output near
+ * 16 MB, and reading stops at the first step past the core limit.
+ */
+const FEED_SLICE = 16 * 1024;
+
 interface EntryInfo {
   index: number;
   name: string;
 }
 
 /** Pick and decompress the skill core of a `.zip`; throw 422 / 413 on a bad archive. */
-export function readSkillArchive(bytes: Uint8Array): SkillArchive {
+export function readSkillArchive(bytes: Uint8Array, options: ArchiveReadOptions = {}): SkillArchive {
   const entries = listEntries(bytes);
   const files = entries.filter((e) => !e.name.endsWith('/'));
   const core = pickCore(files);
-  const inflated = inflateEntry(bytes, core);
+  const inflated = inflateEntry(bytes, core, options);
   const skipped = files
     .filter((f) => f.index !== core.index)
     .map((f): SkippedFile => ({ path: f.name, reason: isMarkdown(f.name) ? 'extra_markdown' : 'not_markdown' }));
   return { corePath: core.name, core: strFromU8(inflated), skipped };
 }
 
-/** Run one streaming pass; `onEntry` sees each entry in order and may start it. */
-function streamEntries(bytes: Uint8Array, onEntry: (file: UnzipFile, index: number) => void): void {
+/**
+ * Run one streaming pass in `FEED_SLICE` steps; `onEntry` sees each entry in
+ * order and may start it. The pass ends early once `stop()` is true.
+ */
+function streamEntries(
+  bytes: Uint8Array,
+  onEntry: (file: UnzipFile, index: number) => void,
+  stop: () => boolean = () => false,
+): void {
   let index = 0;
   const unzip = new Unzip((file) => {
     onEntry(file, index);
@@ -46,7 +65,10 @@ function streamEntries(bytes: Uint8Array, onEntry: (file: UnzipFile, index: numb
   });
   unzip.register(UnzipInflate);
   try {
-    unzip.push(bytes, true);
+    for (let at = 0; at < bytes.length && !stop(); at += FEED_SLICE) {
+      const end = Math.min(at + FEED_SLICE, bytes.length);
+      unzip.push(bytes.subarray(at, end), end === bytes.length);
+    }
   } catch (err) {
     if (err instanceof ValidationError || err instanceof PayloadTooLargeError) throw err;
     throw new ValidationError('The file is not a readable zip archive', { cause: (err as Error).message });
@@ -71,7 +93,7 @@ function listEntries(bytes: Uint8Array): EntryInfo[] {
 }
 
 /** Decompress only the entry at `target.index`, aborting past `MAX_CORE_BYTES`. */
-function inflateEntry(bytes: Uint8Array, target: EntryInfo): Uint8Array {
+function inflateEntry(bytes: Uint8Array, target: EntryInfo, options: ArchiveReadOptions): Uint8Array {
   const chunks: Uint8Array[] = [];
   let total = 0;
   let done = false;
@@ -86,6 +108,7 @@ function inflateEntry(bytes: Uint8Array, target: EntryInfo): Uint8Array {
         failure = new ValidationError(`Could not decompress ${target.name}`, { cause: err.message });
         return;
       }
+      options.onChunk?.(chunk.length);
       total += chunk.length;
       if (total > MAX_CORE_BYTES) {
         failure = tooLarge(target.name);
@@ -96,7 +119,7 @@ function inflateEntry(bytes: Uint8Array, target: EntryInfo): Uint8Array {
       if (final) done = true;
     };
     file.start();
-  });
+  }, () => failure !== undefined || done);
   if (failure) throw failure;
   if (!done) throw new ValidationError(`Could not decompress ${target.name}`);
   const out = new Uint8Array(total);

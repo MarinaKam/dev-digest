@@ -78,6 +78,24 @@ describe('readSkillArchive', () => {
     expect(status(() => readSkillArchive(lying))).toBe(413);
   });
 
+  it('stops a highly compressible core early with 413', () => {
+    // 64 MiB of zeros deflates to ~64 KB; it must not be inflated in one piece.
+    const bomb = zipSync({ 'SKILL.md': new Uint8Array(64 * 1024 * 1024) }, { level: 9 });
+    setDeclaredSize(bomb, 'SKILL.md', 10);
+    let calls = 0;
+    const seen: number[] = [];
+    expect(status(() => readSkillArchive(bomb, {
+      onChunk: (n: number) => {
+        calls++;
+        seen.push(n);
+      },
+    }))).toBe(413);
+    // Every inflated chunk stays far below the whole payload, and work stops right after the limit.
+    expect(Math.max(...seen)).toBeLessThan(32 * 1024 * 1024);
+    expect(seen.slice(0, -1).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(MAX_CORE_BYTES);
+    expect(calls).toBeGreaterThan(0);
+  });
+
   it('is 422 for bytes that are not a zip', () => {
     expect(status(() => readSkillArchive(strToU8('not a zip')))).toBe(422);
   });
