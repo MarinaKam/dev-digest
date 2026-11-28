@@ -40,6 +40,10 @@ Next.js web app. Talks to the API on `:3001`; has no backend logic of its own.
   their nearest shared `_components/` or to `src/components/`.
 - State that must survive a reload or be linkable (active tab, filter) lives
   in the URL query. Server state lives only in the TanStack Query cache.
+- A view handles its own loading, error and empty states from the hook's
+  flags, with `Skeleton`, `ErrorState` and `EmptyState`. There are no
+  `loading.tsx` or `error.tsx` files; do not add them for one screen.
+- Every screen renders inside `AppShell` and passes its breadcrumb as `crumb`.
 - Where the `next-best-practices` skill recommends a server-first pattern,
   this section wins.
 
