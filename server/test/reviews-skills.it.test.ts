@@ -171,16 +171,16 @@ d('review runs with skills', () => {
 
   it('trace keeps the version sent', async () => {
     const agent = await newAgent();
-    const s = await newSkill('edge-case-coverage');
+    const s = await newSkill('version-kept');
     await link(agent, [s]);
     for (const body of ['v2 body', 'v3 body']) {
       await app.inject({ method: 'PUT', url: `/skills/${s}`, payload: { body } });
     }
     const { runId, user } = await run(agent);
-    expect(user).toContain('<skill name="edge-case-coverage" version="3">');
+    expect(user).toContain('<skill name="version-kept" version="3">');
     await app.inject({ method: 'PUT', url: `/skills/${s}`, payload: { body: 'v4 body' } });
     const after = await readTrace(runId);
-    expect(after.prompt_assembly.skills_used).toEqual([{ name: 'edge-case-coverage', version: 3 }]);
+    expect(after.prompt_assembly.skills_used).toEqual([{ name: 'version-kept', version: 3 }]);
   });
 
   it('records skills_tokens and a run-log line', async () => {
