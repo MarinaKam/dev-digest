@@ -64,3 +64,21 @@ describe('assemblePrompt — ## PR description', () => {
     expect((assembly.pr_description as string).length).toBe(4000);
   });
 });
+
+describe('assemblePrompt — output language', () => {
+  const sys = systemOf({ system: 'AGENT-SYS', diff: 'DIFF' });
+
+  it('tells every agent to write its findings in English', () => {
+    expect(sys).toMatch(/OUTPUT LANGUAGE/);
+    expect(sys).toMatch(/in English/);
+  });
+
+  it('holds whatever language the reviewed content uses', () => {
+    expect(sys).toMatch(/whatever language/i);
+  });
+
+  it('comes after the agent prompt and the injection guard', () => {
+    expect(sys.indexOf('AGENT-SYS')).toBeLessThan(sys.indexOf('SECURITY'));
+    expect(sys.indexOf('SECURITY')).toBeLessThan(sys.indexOf('OUTPUT LANGUAGE'));
+  });
+});
