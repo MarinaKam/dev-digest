@@ -25,7 +25,7 @@ only if it is not obvious from reading the code.
 
 ## Tool & Library Notes
 <!-- Quirks and gotchas of dependencies and tooling. -->
-- **2026-11-27** — `agent-browser find <locator> ... <action>` does not wait for its target: on an element that renders a moment later it exits 1 at once ("none match name"), while `wait --text` / `wait --url` do wait. Put a `wait` step before a `find` on content that loads, or retry the command (agent-browser 0.45.0). Evidence: `.claude/skills/demo-video/scripts/record.mjs:101`.
+- **2026-11-27** — `agent-browser find <locator> ... <action>` does not wait for its target: on an element that renders a moment later it exits 1 at once ("none match name"), while `wait --text` / `wait --url` do wait. Put a `wait` step before a `find` on content that loads, or retry the command (agent-browser 0.45.0). Evidence: `.claude/skills/demo-video/scripts/record.mjs:98`.
 
 ## Recurring Errors & Fixes
 <!-- Errors seen more than once, with the fix. -->
