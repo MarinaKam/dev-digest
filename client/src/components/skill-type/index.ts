@@ -1,1 +1,1 @@
-export { SKILL_TYPE_COLORS, SkillTypeBadge } from "./SkillTypeBadge";
+export { SKILL_TYPE_COLORS, SkillTypeBadge, tintOf } from "./SkillTypeBadge";

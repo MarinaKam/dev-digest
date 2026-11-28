@@ -51,6 +51,16 @@ export function diffPrefix(kind: DiffKind): string {
   return " ";
 }
 
+/**
+ * The viewer's time zone. The app configures no global `timeZone` for
+ * next-intl, and its formatter reports an error for every date formatted
+ * without one; the versions load in the browser, so the browser's zone is the
+ * right one.
+ */
+export function viewerTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
 /** True when the two texts differ in at least one line. */
 export function hasChanges(diff: DiffLine[]): boolean {
   return diff.some((line) => line.kind !== "same");

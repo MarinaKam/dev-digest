@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Badge, ErrorState, Icon, Skeleton, Tabs } from "@devdigest/ui";
+import { SkillTypeBadge } from "@/components/skill-type";
 import { useSkill } from "@/lib/hooks/skills";
 import { SkillConfigForm } from "../SkillConfigForm";
 import { SkillPreview } from "../SkillPreview";
@@ -35,19 +36,18 @@ export function SkillEditor({ skillId, tab, onTab, onDeleted }: SkillEditorProps
   }
 
   const tabs = TABS.map((item) => ({ key: item.key, label: t(item.labelKey), icon: item.icon }));
-  const color = typeColor(skill.type);
 
   return (
     <div style={s.main}>
       <div style={s.header}>
-        <Icon.Sparkles size={18} style={s.icon(color)} />
+        <div style={s.iconBox(typeColor(skill.type))}>
+          <Icon.Sparkles size={15} />
+        </div>
         <h1 className="mono" style={s.h1}>
           {skill.name}
         </h1>
-        <Badge color={color} bg={`${color}1a`}>
-          {t(`card.type.${skill.type}`)}
-        </Badge>
-        <Badge color="var(--text-secondary)" mono>
+        <SkillTypeBadge type={skill.type} label={t(`card.type.${skill.type}`)} />
+        <Badge color="var(--text-secondary)" icon="GitCommit" mono>
           {t("editor.version", { version: skill.version })}
         </Badge>
       </div>

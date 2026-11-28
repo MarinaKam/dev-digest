@@ -2,11 +2,9 @@
 
 import { useTranslations } from "next-intl";
 import { FormField, SelectInput, TextInput } from "@devdigest/ui";
-import { SKILL_BODY_MAX, SKILL_DESCRIPTION_MAX } from "../constants";
-import type { SkillType } from "@devdigest/shared";
 import { BodyEditor } from "../BodyEditor";
-import { SKILL_TYPES } from "../constants";
-import { validateSkillForm, type SkillFormValues } from "../helpers";
+import { SKILL_BODY_MAX, SKILL_DESCRIPTION_MAX, SKILL_TYPES } from "../constants";
+import { isSkillType, validateSkillForm, type SkillFormValues } from "../helpers";
 import { s } from "./styles";
 
 interface SkillFieldsProps {
@@ -39,6 +37,7 @@ export function SkillFields({ values, onChange, unsaved }: SkillFieldsProps) {
       <FormField label={t("fields.name")} required hint={nameHint}>
         <TextInput
           mono
+          aria-label={t("fields.name")}
           value={values.name}
           onChange={(name) => onChange({ name })}
           placeholder={t("fields.namePlaceholder")}
@@ -46,12 +45,18 @@ export function SkillFields({ values, onChange, unsaved }: SkillFieldsProps) {
         />
       </FormField>
       <FormField label={t("fields.description")} required hint={descriptionHint}>
-        <TextInput value={values.description} onChange={(description) => onChange({ description })} />
+        <TextInput
+          aria-label={t("fields.description")}
+          value={values.description}
+          onChange={(description) => onChange({ description })}
+        />
       </FormField>
       <FormField label={t("fields.type")}>
         <SelectInput
           value={values.type}
-          onChange={(type) => onChange({ type: type as SkillType })}
+          onChange={(type) => {
+            if (isSkillType(type)) onChange({ type });
+          }}
           options={typeOptions}
         />
       </FormField>

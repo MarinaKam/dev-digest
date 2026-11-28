@@ -64,17 +64,18 @@ export function SkillConfigForm({ skill, onDeleted }: SkillConfigFormProps) {
     <div style={s.wrap}>
       <div style={s.header}>
         <h2 style={s.h2}>{t("config.title")}</h2>
-        <Badge color="var(--text-secondary)" mono>
+        <Badge color="var(--text-secondary)" icon="GitCommit" mono>
           {t("editor.version", { version: skill.version })}
         </Badge>
-        <div style={s.enabledLabel}>
+        {/* biome-ignore lint/a11y/noLabelWithoutControl: Toggle renders a role="switch" button, a labelable element, so the label names it */}
+        <label style={s.enabledLabel}>
           {t("config.enabled")}
           <Toggle
             on={skill.enabled}
             onChange={(enabled) => update.mutate({ id: skill.id, patch: { enabled } })}
             size={16}
           />
-        </div>
+        </label>
       </div>
 
       <SkillFields values={form} onChange={change} unsaved={bodyChanged} />
@@ -95,7 +96,7 @@ export function SkillConfigForm({ skill, onDeleted }: SkillConfigFormProps) {
           {update.isPending ? t("config.saving") : t("config.save")}
         </Button>
         <Button
-          kind="secondary"
+          kind="ghost"
           onClick={() => {
             setForm(toFormValues(skill));
             setVersionNote("");
@@ -104,12 +105,22 @@ export function SkillConfigForm({ skill, onDeleted }: SkillConfigFormProps) {
         >
           {t("config.cancel")}
         </Button>
+        {bodyChanged && (
+          <span style={s.snapshotNote}>
+            {t.rich("config.snapshotNote", {
+              version: skill.version + 1,
+              b: (chunks) => <strong style={s.snapshotVersion}>{chunks}</strong>,
+            })}
+          </span>
+        )}
       </div>
-      {bodyChanged && <div style={s.snapshotNote}>{t("config.snapshotNote", { version: skill.version + 1 })}</div>}
 
       <div style={s.danger}>
-        <span style={s.dangerTitle}>{t("config.dangerTitle")}</span>
-        <Button kind="danger" icon="Trash" onClick={handleDelete} disabled={remove.isPending}>
+        <div style={s.dangerText}>
+          <div style={s.dangerTitle}>{t("config.dangerTitle")}</div>
+          <div style={s.dangerBody}>{t("config.dangerBody")}</div>
+        </div>
+        <Button kind="danger" size="sm" icon="Trash" onClick={handleDelete} disabled={remove.isPending}>
           {remove.isPending ? t("config.deleting") : t("config.deleteSkill")}
         </Button>
       </div>

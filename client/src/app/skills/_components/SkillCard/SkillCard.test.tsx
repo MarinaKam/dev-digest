@@ -40,7 +40,7 @@ describe("SkillCard", () => {
   it("the toggle updates enabled and does not select the card", () => {
     const onSelect = vi.fn();
     renderWithIntl(<SkillCard skill={SKILL} onSelect={onSelect} />);
-    fireEvent.click(screen.getByRole("switch"));
+    fireEvent.click(screen.getByRole("switch", { name: "Enabled: edge-case-coverage" }));
 
     expect(updateMutate).toHaveBeenCalledWith({ id: "sk1", patch: { enabled: false } });
     expect(onSelect).not.toHaveBeenCalled();

@@ -1,8 +1,9 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Card, Markdown } from "@devdigest/ui";
+import { Card } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
+import { MarkdownBody } from "../MarkdownBody";
 import { s } from "./styles";
 
 interface SkillPreviewProps {
@@ -16,7 +17,9 @@ export function SkillPreview({ skill }: SkillPreviewProps) {
     <div style={s.wrap}>
       <h2 style={s.h2}>{t("preview.title")}</h2>
       <p style={s.subtitle}>{t("preview.subtitle")}</p>
-      <Card>{skill.body ? <Markdown>{skill.body}</Markdown> : <span style={s.empty}>{t("preview.empty")}</span>}</Card>
+      <Card>
+        {skill.body ? <MarkdownBody>{skill.body}</MarkdownBody> : <span style={s.empty}>{t("preview.empty")}</span>}
+      </Card>
     </div>
   );
 }

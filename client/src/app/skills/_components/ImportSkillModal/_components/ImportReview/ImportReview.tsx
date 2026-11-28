@@ -2,9 +2,10 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Badge, Button, Card, Markdown } from "@devdigest/ui";
+import { Badge, Button, Card } from "@devdigest/ui";
 import type { SkillImportPreview } from "@devdigest/shared";
 import { useCreateSkill } from "@/lib/hooks/skills";
+import { MarkdownBody } from "../../../MarkdownBody";
 import { SkillFields } from "../../../SkillFields";
 import { hasErrors, validateSkillForm, type SkillFormValues } from "../../../helpers";
 import { s } from "../../styles";
@@ -106,15 +107,11 @@ export function ImportReview({ preview, onClose, onCreated }: ImportReviewProps)
       <section style={s.section}>
         <div style={s.sectionTitle}>{t("import.previewTitle")}</div>
         <Card style={s.rendered}>
-          <Markdown>{form.body}</Markdown>
+          <MarkdownBody>{form.body}</MarkdownBody>
         </Card>
       </section>
 
-      {create.error && (
-        <div role="alert" style={s.error}>
-          {t("import.saveFailed", { message: create.error.message })}
-        </div>
-      )}
+      {/* A failed save is reported by the global mutation error toast. */}
       <div style={s.actions}>
         <Button kind="secondary" onClick={onClose}>
           {t("import.cancel")}

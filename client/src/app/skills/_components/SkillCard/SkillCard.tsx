@@ -1,8 +1,9 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Badge, Icon, Toggle } from "@devdigest/ui";
+import { Icon, Toggle } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
+import { SkillTypeBadge } from "@/components/skill-type";
 import { useUpdateSkill } from "@/lib/hooks/skills";
 import { typeColor } from "../helpers";
 import { s } from "./styles";
@@ -17,7 +18,6 @@ interface SkillCardProps {
 export function SkillCard({ skill, active, onSelect }: SkillCardProps) {
   const t = useTranslations("skills");
   const update = useUpdateSkill();
-  const color = typeColor(skill.type);
 
   return (
     <div style={s.card(!!active, skill.enabled)}>
@@ -32,25 +32,26 @@ export function SkillCard({ skill, active, onSelect }: SkillCardProps) {
       />
       <div style={s.content}>
         <div style={s.headerRow}>
-          <div style={s.iconBox(color)}>
+          <div style={s.iconBox(typeColor(skill.type))}>
             <Icon.Sparkles size={15} />
           </div>
           <span className="mono" style={s.name}>
             {skill.name}
           </span>
-          <div style={s.toggle}>
+          {/* The UI kit's Toggle takes no aria-label: the label names the switch. */}
+          {/* biome-ignore lint/a11y/noLabelWithoutControl: Toggle renders a role="switch" button, a labelable element */}
+          <label style={s.toggle}>
+            <span style={s.visuallyHidden}>{t("card.enabledLabel", { name: skill.name })}</span>
             <Toggle
               on={skill.enabled}
               onChange={(enabled) => update.mutate({ id: skill.id, patch: { enabled } })}
               size={14}
             />
-          </div>
+          </label>
         </div>
         <div style={s.description}>{skill.description}</div>
         <div style={s.metaRow}>
-          <Badge color={color} bg={`${color}1a`}>
-            {t(`card.type.${skill.type}`)}
-          </Badge>
+          <SkillTypeBadge type={skill.type} label={t(`card.type.${skill.type}`)} />
           <span style={s.metaText}>{t(`card.source.${skill.source}`)}</span>
           <span className="tnum" style={s.metaText}>
             {t("card.agents", { count: skill.used_by.length })}

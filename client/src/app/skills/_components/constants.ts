@@ -22,7 +22,6 @@ export const TABS: readonly SkillTab[] = [
 
 export const SKILL_TYPES: readonly SkillType[] = ["rubric", "convention", "security", "custom"];
 
-
 /** Height of the app shell's top bar; the screen fills the rest of the viewport. */
 export const TOP_BAR_HEIGHT = 52;
 /** Width of the skill list beside the editor. */

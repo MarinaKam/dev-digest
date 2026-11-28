@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Badge } from "@devdigest/ui";
+import { Badge, Icon } from "@devdigest/ui";
 import { countLines, estimateTokens } from "../helpers";
 import { s } from "./styles";
 
@@ -30,11 +30,12 @@ export function BodyEditor({ name, value, onChange, unsaved, invalid }: BodyEdit
   return (
     <div style={s.frame(!!invalid)}>
       <div style={s.header}>
+        <Icon.FileText size={14} style={s.fileIcon} />
         <span className="mono" style={s.filename}>
           {name || "skill"}.md
         </span>
-        {unsaved && <Badge color="var(--warn)">{t("fields.unsaved")}</Badge>}
-        <span className="tnum" style={s.tokens}>
+        {unsaved && <Badge color="var(--text-muted)">{t("fields.unsaved")}</Badge>}
+        <span className="mono tnum" style={s.tokens}>
           {t("fields.tokens", { count: estimateTokens(value) })}
         </span>
       </div>

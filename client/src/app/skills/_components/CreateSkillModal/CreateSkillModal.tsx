@@ -54,11 +54,7 @@ export function CreateSkillModal({ onClose, onCreated }: CreateSkillModalProps) 
         <FormField label={t("fields.enabled")}>
           <Toggle on={form.enabled} onChange={(enabled) => setForm((prev) => ({ ...prev, enabled }))} size={16} />
         </FormField>
-        {create.error && (
-          <div role="alert" style={s.error}>
-            {create.error.message}
-          </div>
-        )}
+        {/* A failed create (409 name taken, 422) is reported by the global mutation error toast. */}
       </div>
     </Modal>
   );

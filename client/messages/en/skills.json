@@ -20,10 +20,6 @@
       "title": "No matching skills",
       "body": "Try a different name."
     },
-    "selectPrompt": {
-      "title": "Select a skill",
-      "body": "Pick a skill on the left to edit it."
-    },
     "editorLoadError": "Could not load this skill."
   },
   "card": {
@@ -55,16 +51,17 @@
   "config": {
     "title": "Configuration",
     "enabled": "Enabled",
-    "save": "Save",
+    "save": "Save skill",
     "versionNote": "Version note",
     "versionNoteHint": "Optional. What this version changes, shown in Version history.",
     "versionNotePlaceholder": "Tightened scope rule",
     "saving": "Saving…",
     "cancel": "Cancel",
     "savedToast": "Skill saved (v{version})",
-    "snapshotNote": "Saving snapshots the body as v{version}",
-    "dangerTitle": "Danger zone",
-    "deleteSkill": "Delete skill",
+    "snapshotNote": "Saving snapshots the body as <b>v{version}</b>",
+    "dangerTitle": "Delete skill",
+    "dangerBody": "Removes it from all agents. This can't be undone.",
+    "deleteSkill": "Delete",
     "deleting": "Deleting…",
     "deleteConfirm": "Delete the skill \"{name}\"? {count, plural, =0 {No agent uses it.} one {1 agent uses it and will lose it.} other {# agents use it and will lose it.}} This cannot be undone.",
     "deletedToast": "Skill deleted"
@@ -82,7 +79,7 @@
     "bodyPlaceholder": "# Rule\nDescribe what the agent must check…",
     "bodyLabel": "Skill body (Markdown)",
     "unsaved": "unsaved",
-    "tokens": "~{count} tokens",
+    "tokens": "{count, plural, one {# token} other {# tokens}}",
     "enabled": "Enabled"
   },
   "preview": {
@@ -92,7 +89,7 @@
   },
   "stats": {
     "usedBy": "Used by",
-    "usedByValue": "{count, plural, one {# agent} other {# agents}}",
+    "usedBySuffix": "{count, plural, one {agent} other {agents}}",
     "listTitle": "Agents using this skill",
     "open": "Open",
     "noUsageTitle": "No usage yet",
@@ -124,7 +121,6 @@
     "versionNote": "Imported from {file}",
     "title": "Import a skill from a file",
     "subtitle": "A .md file or a .zip with a SKILL.md. Nothing is saved until you click Save skill.",
-    "choose": "Choose file",
     "fileLabel": "Skill file (.md or .zip)",
     "reading": "Reading the file…",
     "trustWarning": "An imported skill is somebody else's instructions inside your agent's prompt. Read the body before you save it.",
@@ -143,7 +139,6 @@
     "save": "Save skill",
     "saving": "Saving…",
     "cancel": "Cancel",
-    "previewFailed": "Could not read the file: {message}",
-    "saveFailed": "Could not save the skill: {message}"
+    "previewFailed": "Could not read the file: {message}"
   }
 }

@@ -1,18 +1,36 @@
 import type { CSSProperties } from "react";
+import type { DiffKind } from "./helpers";
 
 export const s = {
   wrap: { maxWidth: 760 } satisfies CSSProperties,
   header: { display: "flex", alignItems: "center", gap: 10 } satisfies CSSProperties,
-  h2: { fontSize: 18, fontWeight: 700 } satisfies CSSProperties,
-  explain: { fontSize: 14, color: "var(--text-secondary)", margin: "4px 0 16px" } satisfies CSSProperties,
-  list: { display: "flex", flexDirection: "column", gap: 10 } satisfies CSSProperties,
-  row: { display: "flex", alignItems: "center", gap: 10 } satisfies CSSProperties,
-  version: { fontSize: 14, fontWeight: 600 } satisfies CSSProperties,
-  meta: { display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 } satisfies CSSProperties,
+  h2: { fontSize: 16, fontWeight: 700 } satisfies CSSProperties,
+  explain: { fontSize: 12.5, color: "var(--text-muted)", margin: "4px 0 16px" } satisfies CSSProperties,
+  list: { listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 } satisfies CSSProperties,
+  item: { display: "flex", flexDirection: "column" } satisfies CSSProperties,
+  row: (current: boolean): CSSProperties => ({
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "12px 14px",
+    borderRadius: 8,
+    border: `1px solid ${current ? "var(--border-strong)" : "var(--border)"}`,
+    background: "var(--bg-elevated)",
+  }),
+  chip: (current: boolean): CSSProperties => ({
+    fontSize: 12.5,
+    fontWeight: 700,
+    padding: "3px 9px",
+    borderRadius: 6,
+    color: current ? "var(--accent-text)" : "var(--text-secondary)",
+    background: current ? "var(--accent-bg)" : "var(--bg-hover)",
+    flexShrink: 0,
+  }),
+  meta: { flex: 1, minWidth: 0 } satisfies CSSProperties,
   noteText: { fontSize: 13, fontWeight: 500, color: "var(--text-primary)" } satisfies CSSProperties,
-  date: { fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
+  date: { fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 } satisfies CSSProperties,
   diff: {
-    margin: "12px 0 0",
+    margin: "8px 0 0",
     padding: "8px 0",
     borderRadius: 6,
     border: "1px solid var(--border)",
@@ -21,12 +39,12 @@ export const s = {
     lineHeight: 1.6,
     overflow: "auto",
   } satisfies CSSProperties,
-  diffLine: (kind: "same" | "removed" | "added"): CSSProperties => ({
+  diffLine: (kind: DiffKind): CSSProperties => ({
     display: "block",
     padding: "0 12px",
     whiteSpace: "pre-wrap",
     color: kind === "removed" ? "var(--crit)" : kind === "added" ? "var(--ok)" : "var(--text-secondary)",
     background: kind === "removed" ? "var(--crit-bg)" : kind === "added" ? "var(--ok-bg)" : "transparent",
   }),
-  note: { fontSize: 13, color: "var(--text-muted)", marginTop: 12 } satisfies CSSProperties,
+  note: { fontSize: 13, color: "var(--text-muted)", marginTop: 8 } satisfies CSSProperties,
 } as const;

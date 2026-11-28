@@ -4,6 +4,7 @@ import {
   SKILL_DESCRIPTION_MAX,
   SKILL_NAME_MAX,
   SKILL_NAME_PATTERN,
+  SKILL_TYPES,
 } from "./constants";
 import { SKILL_TYPE_COLORS } from "@/components/skill-type";
 
@@ -54,6 +55,11 @@ export function countLines(text: string): number {
 
 export function typeColor(type: SkillType): string {
   return SKILL_TYPE_COLORS[type];
+}
+
+/** True when a string (a select's value) is one of the skill types. */
+export function isSkillType(value: string): value is SkillType {
+  return (SKILL_TYPES as readonly string[]).includes(value);
 }
 
 /** Case-insensitive filter over a skill's name. */

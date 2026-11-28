@@ -5,9 +5,19 @@ import {
   countLines,
   estimateTokens,
   filterSkills,
+  isSkillType,
   toFormValues,
   validateSkillForm,
 } from "./helpers";
+
+describe("isSkillType", () => {
+  it("accepts every skill type and rejects anything else", () => {
+    for (const type of ["rubric", "convention", "security", "custom"]) expect(isSkillType(type)).toBe(true);
+    expect(isSkillType("")).toBe(false);
+    expect(isSkillType("Rubric")).toBe(false);
+    expect(isSkillType("other")).toBe(false);
+  });
+});
 
 describe("estimateTokens", () => {
   it("is the character count over four, rounded up", () => {

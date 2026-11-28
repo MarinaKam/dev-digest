@@ -38,6 +38,8 @@ export function ImportSkillModal({ onClose, onCreated }: ImportSkillModalProps) 
           style={s.fileInput}
         />
         {preview.isPending && <div style={s.muted}>{t("import.reading")}</div>}
+        {/* The toast also reports it, but the reason (413 too large, 422 no SKILL.md)
+            is about the chosen file, so it stays next to the file input. */}
         {preview.error && (
           <div role="alert" style={s.error}>
             {t("import.previewFailed", { message: preview.error.message })}

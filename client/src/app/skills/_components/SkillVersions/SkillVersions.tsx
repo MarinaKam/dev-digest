@@ -1,40 +1,41 @@
 "use client";
 
 import React from "react";
-import { useTranslations } from "next-intl";
-import { Badge, Button, Card, ErrorState, Skeleton } from "@devdigest/ui";
+import { useFormatter, useTranslations } from "next-intl";
+import { Badge, Button, ErrorState, Skeleton } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
 import { useSkillVersions, useUpdateSkill } from "@/lib/hooks/skills";
 import { useToast } from "@/lib/toast";
-import { diffPrefix, hasChanges, lineDiff } from "./helpers";
+import { diffPrefix, hasChanges, lineDiff, viewerTimeZone } from "./helpers";
 import { s } from "./styles";
 
 interface SkillVersionsProps {
   skill: Skill;
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString("en", { dateStyle: "medium", timeStyle: "short" });
-}
-
 /** Versions tab: every snapshot of the body, a diff against the current body, restore. */
 export function SkillVersions({ skill }: SkillVersionsProps) {
   const t = useTranslations("skills");
+  const format = useFormatter();
   const toast = useToast();
   const { data, isLoading, isError, refetch } = useSkillVersions(skill.id);
   const update = useUpdateSkill();
   const [diffOf, setDiffOf] = React.useState<number | null>(null);
+  const [restoringOf, setRestoringOf] = React.useState<number | null>(null);
 
   if (isLoading) return <Skeleton height={120} />;
   if (isError || !data) return <ErrorState body={t("versions.loadError")} onRetry={() => refetch()} />;
 
   const versions = [...data].sort((a, b) => b.version - a.version);
+  const timeZone = viewerTimeZone();
 
-  const restore = (version: number, body: string) =>
+  const restore = (version: number, body: string) => {
+    setRestoringOf(version);
     update.mutate(
       { id: skill.id, patch: { body, version_note: t("versions.restoredNote", { version }) } },
       { onSuccess: (saved) => toast.success(t("versions.restoredToast", { version: saved.version })) },
     );
+  };
 
   return (
     <div style={s.wrap}>
@@ -44,27 +45,38 @@ export function SkillVersions({ skill }: SkillVersionsProps) {
       </div>
       <p style={s.explain}>{t("versions.explain")}</p>
 
-      <div style={s.list}>
+      <ul style={s.list}>
         {versions.map((version) => {
           const current = version.version === skill.version;
           const diff = diffOf === version.version ? lineDiff(version.body, skill.body) : null;
+          const restoring = update.isPending && restoringOf === version.version;
           return (
-            <Card key={version.version}>
-              <div style={s.row}>
-                <span className="mono" style={s.version}>
+            <li key={version.version} style={s.item}>
+              <div style={s.row(current)}>
+                <span className="mono" style={s.chip(current)}>
                   {t("versions.version", { version: version.version })}
                 </span>
                 <div style={s.meta}>
-                  {version.note && <span style={s.noteText}>{version.note}</span>}
-                  <span style={s.date}>{formatDate(version.created_at)}</span>
+                  {version.note && <div style={s.noteText}>{version.note}</div>}
+                  <div style={s.date}>
+                    {format.dateTime(new Date(version.created_at), {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                      timeZone,
+                    })}
+                  </div>
                 </div>
-                {current && <Badge color="var(--ok)">{t("versions.current")}</Badge>}
-                {!current && (
+                {current ? (
+                  <Badge color="var(--ok)" bg="var(--ok-bg)" dot>
+                    {t("versions.current")}
+                  </Badge>
+                ) : (
                   <>
                     <Button
-                      kind="secondary"
+                      kind="ghost"
                       size="sm"
-                      data-testid={`diff-v${version.version}`}
+                      icon="Eye"
+                      aria-expanded={diff !== null}
                       onClick={() => setDiffOf(diff ? null : version.version)}
                     >
                       {diff ? t("versions.hideDiff") : t("versions.diff")}
@@ -72,12 +84,12 @@ export function SkillVersions({ skill }: SkillVersionsProps) {
                     <Button
                       kind="secondary"
                       size="sm"
-                      data-testid={`restore-v${version.version}`}
+                      icon="History"
                       onClick={() => restore(version.version, version.body)}
                       // Restoring the current body would save nothing new (spec rule 5b).
                       disabled={update.isPending || version.body === skill.body}
                     >
-                      {t("versions.restore")}
+                      {restoring ? t("versions.restoring") : t("versions.restore")}
                     </Button>
                   </>
                 )}
@@ -96,10 +108,10 @@ export function SkillVersions({ skill }: SkillVersionsProps) {
                   {!hasChanges(diff) && <div style={s.note}>{t("versions.diffEmpty")}</div>}
                 </>
               )}
-            </Card>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </div>
   );
 }

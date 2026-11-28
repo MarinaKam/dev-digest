@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { tintOf } from "@/components/skill-type";
 
 export const s = {
   card: (active: boolean, enabled: boolean): CSSProperties => ({
@@ -22,13 +23,25 @@ export const s = {
   } satisfies CSSProperties,
   /** Content above the select button; clicks fall through to it. */
   content: { position: "relative", pointerEvents: "none" } satisfies CSSProperties,
-  toggle: { pointerEvents: "auto" } satisfies CSSProperties,
+  toggle: { pointerEvents: "auto", display: "flex" } satisfies CSSProperties,
+  /** Read by screen readers, not shown. */
+  visuallyHidden: {
+    position: "absolute",
+    width: 1,
+    height: 1,
+    padding: 0,
+    margin: -1,
+    overflow: "hidden",
+    clip: "rect(0 0 0 0)",
+    whiteSpace: "nowrap",
+    border: 0,
+  } satisfies CSSProperties,
   headerRow: { display: "flex", alignItems: "center", gap: 10 } satisfies CSSProperties,
   iconBox: (color: string): CSSProperties => ({
     width: 26,
     height: 26,
     borderRadius: 7,
-    background: `${color}1a`,
+    background: tintOf(color),
     color,
     display: "grid",
     placeItems: "center",
