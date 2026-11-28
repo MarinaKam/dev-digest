@@ -132,6 +132,24 @@ d('skills routes', () => {
     expect([a.statusCode, b.statusCode].sort()).toEqual([200, 409]);
   });
 
+  it('concurrent reorders of one agent all succeed, and the last one wins', async () => {
+    const [agent] = await agentIds();
+    if (!agent) throw new Error('seed has no agents');
+    const ids = [(await create()).id, (await create()).id, (await create()).id];
+    const orders = [ids, [...ids].reverse(), [ids[1], ids[0], ids[2]], [ids[2], ids[0], ids[1]]];
+    const results = await Promise.all(
+      orders.map((skill_ids) =>
+        app.inject({ method: 'POST', url: `/agents/${agent.id}/skills`, payload: { skill_ids } }),
+      ),
+    );
+    expect(results.map((r) => r.statusCode)).toEqual([200, 200, 200, 200]);
+    const links = (await app.inject({ method: 'GET', url: `/agents/${agent.id}/skills` })).json() as {
+      skill_id: string;
+    }[];
+    expect(links).toHaveLength(3);
+    expect(orders.map((o) => o.join())).toContain(links.map((l) => l.skill_id).join());
+  });
+
   it('GET /skills lists used_by with agent names', async () => {
     const s = await create();
     const [agent] = await agentIds();

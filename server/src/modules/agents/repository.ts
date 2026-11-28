@@ -278,6 +278,10 @@ export class AgentsRepository {
    */
   setSkills(agentId: string, skillIds: string[]): Promise<void> {
     return this.db.transaction(async (tx) => {
+      // Serialize concurrent replacements of one agent's set (a fast reorder sends
+      // several): without the row lock two transactions both delete, then both
+      // insert the same (agent_id, skill_id) and the second fails on the key.
+      await tx.select({ id: t.agents.id }).from(t.agents).where(eq(t.agents.id, agentId)).for('update');
       await tx.delete(t.agentSkills).where(eq(t.agentSkills.agentId, agentId));
       if (skillIds.length === 0) return;
       await tx
