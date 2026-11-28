@@ -73,7 +73,8 @@ flowchart TB
   end
   subgraph Agents["Agents & skills"]
     agents["agents<br/>/agents · /agents/:id · /agents/:id/skills"]
-    skills["skills<br/>/skills · /skills/:id · /skills/:id/versions<br/>/skills/import/preview (1.5 MiB body limit)"]
+    skills["skills<br/>/skills · /skills/:id · /skills/:id/versions<br/>/skills/import/preview (1.5 MiB body limit)<br/>/skills/import/url/preview"]
+    conventions["conventions<br/>/repos/:id/conventions · /extract<br/>/repos/:id/conventions/:conventionId · /skill"]
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
@@ -138,6 +139,24 @@ What the reviewer actually sends to the model is assembled in
   records `skills_used` (`name@vN`) and `skills_tokens`; the run log says
   `skills: N attached (…), T tokens`. An agent with no enabled skill sends the
   same prompt as before skills existed.
+- **Conventions are proposals checked by code** (spec 004). The extractor
+  sends one structured request (`ConventionExtraction`) with files that code
+  picked: config files at the clone root and `repoIntel.getConventionSamples()`.
+  Every file is numbered and wrapped in `<untrusted>`. A proposed rule is kept
+  only if its snippet is found in a file that was sent (whitespace ignored); the
+  stored snippet is the file's own lines. The model is the `conventions` feature
+  model (Settings → Feature Models), default `openrouter`
+  `deepseek/deepseek-v4-flash`, else the cheap model of a provider with a key.
+- **Injection flags on skills are a warning for a person, not a defense.**
+  `injection_flags` (skill DTO and import preview) lists body lines that look
+  like an attempt to override the reviewer; the UI shows them and saves such an
+  import disabled. The defense in the prompt stays the delimiting and the guard
+  above, which do not depend on wording.
+- **The skill import from a URL** (`POST /skills/import/url/preview`) downloads
+  over `https` only, from a host whose every address is public (checked in the
+  DNS lookup the socket uses, and again on each of at most 3 redirects), within
+  10 s and 1 MiB, text content only. It returns the same preview as a file and
+  saves nothing (`src/adapters/http/`).
 - **Grounding is mandatory.** Every finding must cite a line that exists in the
   diff or it is dropped (`groundFindings`), and the score is recomputed from the
   surviving findings — the model's self-reported score is ignored.

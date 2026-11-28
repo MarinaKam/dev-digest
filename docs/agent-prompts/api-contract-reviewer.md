@@ -1,6 +1,8 @@
 # API Contract Reviewer
 
-Seeded by `server/src/db/seed-skills.ts` (`API_CONTRACT_REVIEWER_PROMPT` and `API_CONTRACT_SKILLS`).
+No longer seeded: since the L02 homework the agent is built in the UI from four
+skills (`docs/demos/skills/api-contract/agent-prompt.md`). This page keeps the
+prompt the L02 lab seeded, for the record.
 This agent keeps its domain rules in skills (spec `server/specs/003-review-agent-skills.md`): the prompt
 below holds only the role and the output rules, and the linked skills say what counts as a breaking change.
 
