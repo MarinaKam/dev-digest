@@ -225,10 +225,16 @@ function writeSheet(video) {
 }
 
 function reportVideo(output) {
-  const { duration, sheet } = writeSheet(output);
   const megabytes = statSync(output).size / 1024 / 1024;
-  say(`\nsaved  ${output}  (${Math.round(duration)} s, ${megabytes.toFixed(1)} MB)`);
-  say(`sheet  ${sheet}  (one frame every ${SHEET_EVERY_SECONDS} s: look at it before calling the video done)`);
+  try {
+    const { duration, sheet } = writeSheet(output);
+    say(`\nsaved  ${output}  (${Math.round(duration)} s, ${megabytes.toFixed(1)} MB)`);
+    say(`sheet  ${sheet}  (one frame every ${SHEET_EVERY_SECONDS} s: look at it before calling the video done)`);
+  } catch (error) {
+    // The video is already on disk: a failed contact sheet must not report the recording as failed.
+    say(`\nsaved  ${output}  (${megabytes.toFixed(1)} MB)`);
+    process.stderr.write(`warning: no contact sheet (${error.message.split('\n')[0]}); watch the video itself\n`);
+  }
   if (megabytes > SIZE_WARNING_MB) say(`note   larger than ${SIZE_WARNING_MB} MB: check the upload limit of where it goes`);
 }
 
@@ -265,6 +271,9 @@ async function main() {
     if (flow.startWait) await browser.abRetry(resolveArgs(flow.startWait, baseUrl), timeout);
     // Setup commands shape the first frame (a filter, a scroll) and are never filmed.
     for (const command of flow.setup ?? []) await browser.abRetry(resolveArgs(command, baseUrl), timeout);
+    if (!browser.script('typeof window.__demoVideo').includes('object')) {
+      process.stderr.write('warning: the overlay did not load on this page: no captions, pointer or click ring\n');
+    }
     say(`${DRY ? 'DRY RUN' : 'RECORDING'}  ${flow.name}  (${baseUrl})`);
     recorder.start();
     const report = await playSteps(context, recorder);

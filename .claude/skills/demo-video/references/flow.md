@@ -78,6 +78,8 @@ A `cmd` step can also carry:
 | Click by text | `["find", "text", "Agent runs", "click"]`, add `"--exact"` for an exact match |
 | Fill a field | `["find", "label", "Name", "fill", "Security reviewer"]` |
 | Point at something | `["find", "text", "CRITICAL", "hover"]` |
+| Click or hover by CSS selector | `["click", "#save"]`, `["hover", "#save"]` |
+| Wait for an element | `["wait", "#save"]` (a bare selector waits for the element to appear) |
 | Wait for text | `["wait", "--text", "2 findings"]` |
 | Wait for a route | `["wait", "--url", "/pulls/482"]` |
 | Scroll | `["scroll", "down", "500"]` |
