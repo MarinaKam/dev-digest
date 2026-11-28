@@ -185,9 +185,12 @@ export const SkillVersion = z.object({
 });
 export type SkillVersion = z.infer<typeof SkillVersion>;
 
+/** Base64 length of the largest upload (1 MiB): 4 characters per 3 bytes. */
+export const SKILL_IMPORT_BASE64_MAX = 1_398_104;
+
 export const SkillImportRequest = z.object({
   filename: z.string().min(1).max(255),
-  content_base64: z.string().min(1),
+  content_base64: z.string().min(1).max(SKILL_IMPORT_BASE64_MAX).base64(),
 });
 export type SkillImportRequest = z.infer<typeof SkillImportRequest>;
 
