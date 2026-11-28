@@ -89,7 +89,7 @@ export const SettingsKnown = z.object({
   theme: z.enum(['dark', 'light']).default('dark'),
   density: z.enum(['regular', 'compact']).default('regular'),
   sync_to_folder: z.boolean().default(true),
-  automatic_reviews: z.boolean().default(false),
+  auto_reviews: z.boolean().default(false),
   /** Per-feature model overrides (provider+model), keyed by FeatureModelId. */
   feature_models: z.record(FeatureModelId, FeatureModelChoice).default({}),
 });

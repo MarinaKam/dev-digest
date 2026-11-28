@@ -35,7 +35,9 @@ export default async function settingsRoutes(appBase: FastifyInstance) {
 
   app.put('/settings', { schema: { body: SettingsUpdate } }, async (req) => {
     const { workspaceId, userId } = await getContext(container, req);
-    return service.update(workspaceId, userId, req.body);
+    const saved = await service.update(workspaceId, userId, req.body);
+    const { theme: _theme, ...response } = saved;
+    return response;
   });
 
   app.post(
