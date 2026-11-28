@@ -241,32 +241,38 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       createdBy: userId,
     },
   ];
+  const created = new Map<string, string>();
   for (const a of seedAgents) {
     const [existing] = await db
       .select()
       .from(t.agents)
       .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, a.name)));
-    if (!existing) await db.insert(t.agents).values(a);
+    if (existing) continue;
+    const [row] = await db.insert(t.agents).values(a).returning({ id: t.agents.id });
+    if (row) created.set(a.name, row.id);
   }
 
   // ---- skills of the skill-driven reviewers (spec 003) ----
-  await seedAgentSkills(db, workspaceId, 'Test Quality Reviewer', TEST_QUALITY_SKILLS);
-  await seedAgentSkills(db, workspaceId, 'API Contract Reviewer', API_CONTRACT_SKILLS);
+  // Only for an agent this run created: dev.sh seeds on every start, and a
+  // reseed must not re-link or recreate skills the user unlinked or deleted.
+  const skillSets: Array<[string, SeedSkill[]]> = [
+    ['Test Quality Reviewer', TEST_QUALITY_SKILLS],
+    ['API Contract Reviewer', API_CONTRACT_SKILLS],
+  ];
+  for (const [agentName, list] of skillSets) {
+    const agentId = created.get(agentName);
+    if (agentId) await seedAgentSkills(db, workspaceId, agentId, list);
+  }
 
   return { workspaceId, userId };
 }
 
 /**
- * Create each skill (with its v1 snapshot) unless one of that name exists, and
- * link them to the agent in the given order when the agent has no links yet.
- * Existing skills and links are left alone, so a user's edits survive a reseed.
+ * For a freshly created agent: create each skill (with its v1 snapshot) unless
+ * one of that name exists, and link them in the given order. Existing skills
+ * are reused as they are, so a user's edits survive.
  */
-async function seedAgentSkills(db: Db, workspaceId: string, agentName: string, list: SeedSkill[]) {
-  const [agent] = await db
-    .select()
-    .from(t.agents)
-    .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, agentName)));
-  if (!agent) return;
+async function seedAgentSkills(db: Db, workspaceId: string, agentId: string, list: SeedSkill[]) {
   const ids: string[] = [];
   for (const s of list) {
     const [existing] = await db
@@ -288,11 +294,7 @@ async function seedAgentSkills(db: Db, workspaceId: string, agentName: string, l
     });
     ids.push(id);
   }
-  const links = await db.select().from(t.agentSkills).where(eq(t.agentSkills.agentId, agent.id));
-  if (links.length > 0) return;
-  await db
-    .insert(t.agentSkills)
-    .values(ids.map((skillId, order) => ({ agentId: agent.id, skillId, order })));
+  await db.insert(t.agentSkills).values(ids.map((skillId, order) => ({ agentId, skillId, order })));
 }
 
 // CLI entrypoint
