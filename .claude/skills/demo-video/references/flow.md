@@ -16,12 +16,12 @@ kinds exist only here: `caption` and `pause`.
   "startWait": ["wait", "--url", "/pulls"],
   "setup": [["find", "role", "button", "click", "--name", "All", "--exact"]],
   "timeout": 15000,
-  "pace": { "afterAction": 1200, "caption": 2500 },
+  "pace": { "afterAction": 500, "beforeClick": 300, "caption": 1800 },
   "steps": [
-    { "caption": "Findings can be filtered by severity", "hold": 3000 },
+    { "caption": "Findings can be filtered by severity" },
     { "cmd": ["find", "role", "button", "click", "--name", "Agent runs"], "label": "open the Agent runs tab" },
     { "cmd": ["wait", "--text", "2 findings"], "label": "findings are listed" },
-    { "pause": 2000 }
+    { "pause": 1000 }
   ]
 }
 ```
@@ -37,9 +37,9 @@ kinds exist only here: `caption` and `pause`.
 | `startWait` | none | a `wait` command that must pass before the first frame |
 | `setup` | none | commands run after `startWait` and before the first frame, never filmed: a filter or a scroll that shapes the opening screen. They also run in a dry run, so they must not change data |
 | `timeout` | `15000` | ms a step may take to find its target |
-| `pace.afterAction` | `1200` | ms held after each `cmd` step; a `wait` command gets no default hold |
-| `pace.beforeClick` | `600` | ms the pointer rests on a target before a click |
-| `pace.caption` | `2500` | ms a caption step holds the screen |
+| `pace.afterAction` | `500` | ms held after each `cmd` step; a `wait` command gets no default hold |
+| `pace.beforeClick` | `300` | ms the pointer rests on a target before a click |
+| `pace.caption` | `1800` | ms a caption step holds the screen |
 
 The video is written next to the flow file: `NN-name.mp4`, with `NN-name.sheet.png` (one
 small frame every 3 seconds, for a quick check; it is a thumbnail grid, not the video's
@@ -55,8 +55,8 @@ Each step has exactly one of `cmd`, `caption`, `pause`.
 | Step | Example | Notes |
 |---|---|---|
 | `cmd` | `{ "cmd": ["find", "text", "Agents", "click"], "label": "open Agents" }` | any `agent-browser` command except `chat`; retried until `timeout` when it does not wait on its own |
-| `caption` | `{ "caption": "Each run keeps its cost", "hold": 3000 }` | at most 90 characters; stays on screen until the next caption |
-| `pause` | `{ "pause": 2000 }` | ms of stillness |
+| `caption` | `{ "caption": "Each run keeps its cost" }` | at most 90 characters, aim for 60; stays on screen until the next caption |
+| `pause` | `{ "pause": 1000 }` | ms of stillness |
 
 A `cmd` step can also carry:
 

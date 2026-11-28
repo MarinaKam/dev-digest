@@ -28,7 +28,7 @@ const DEFAULT_VIEWPORT = [1440, 900];
 // while it records at an emulated scale, so every click misses. Keep 1 until that is fixed.
 const DEFAULT_SCALE = 1;
 const DEFAULT_TIMEOUT_MS = 15_000;
-const DEFAULT_PACE = { afterAction: 1200, beforeClick: 600, caption: 2500 };
+const DEFAULT_PACE = { afterAction: 500, beforeClick: 300, caption: 1800 };
 const DRY_RUN_PAUSE_MS = 100;
 const RETRY_EVERY_MS = 400;
 const SHEET_EVERY_SECONDS = 3;

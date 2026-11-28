@@ -4,7 +4,7 @@ placeholder and delete this comment. The scripts rely on these rules:
 - A video starts with "## Video N — <title>", N = 1, 2, 3...
 - "**Status:** ⏳ not recorded" sits right under the heading. After that only status.mjs edits it.
 - One numbered step is one action on the screen, named by its visible label.
-- "Caption:" on the line under a step is the on-screen caption, at most 90 characters.
+- "Caption:" on the line under a step is the on-screen caption: about 60 characters, 90 at most.
 - "**(changes data)**" follows a step that saves, imports, deletes, toggles or starts a run.
 - "*(off camera)*" starts a step whose wait is cut from the video.
 - No step opens a field that holds an API key or a token.

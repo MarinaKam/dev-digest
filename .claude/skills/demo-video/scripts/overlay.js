@@ -11,7 +11,7 @@
   const CAPTION_ID = '__demo_video_caption';
   const RING_MS = 650;
   const CURSOR_ID = '__demo_video_cursor';
-  const GLIDE_MS = 350;
+  const GLIDE_MS = 250;
   const CURSOR_SVG =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22" width="22" height="22">' +
     '<path d="M3 2l15 8.5-6.6 1.4L8 18.5z" fill="#fff" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/></svg>';

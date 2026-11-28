@@ -44,7 +44,7 @@ Skip this section when the scenario file exists and the user asked to record it.
    last one. Leave existing videos and their status lines as they are.
 2. Decide what to show: the user's description, or, without one, what the branch changed
    (`git log --oneline main..HEAD`, `git diff --stat main...HEAD`, the specs it touched). One
-   user-visible feature is one video of 6 to 12 steps, one to two minutes.
+   user-visible feature is one video of 6 to 12 steps, 20 to 45 seconds.
 3. Take every route, label and name from the real app: routes from
    `client/src/app/**/page.tsx`, button and tab labels from a snapshot of the running page
    (section 4) or from `client/messages/en/*.json`, data names from the API (`GET /repos`,
@@ -52,7 +52,8 @@ Skip this section when the scenario file exists and the user asked to record it.
 4. Mark each step that saves, imports, deletes, toggles or starts a run with
    **(changes data)**, and total them under **Changes data:**. Put a long wait in its own
    *(off camera)* step.
-5. Write captions of at most 90 characters that say why the step matters. Captions and the
+5. Write captions of about 60 characters (90 is the limit) that say why the step matters.
+   A short caption is what keeps the video short: it is read in under two seconds. Captions and the
    scenario are in English unless the user asks for another caption language.
 6. Report the file path, one line per video (title, number of steps, what it changes) and any
    precondition the current data does not meet. Wait for the user's go-ahead before recording.
@@ -83,7 +84,7 @@ Skip this section when the scenario file exists and the user asked to record it.
 - `start` plus `startWait` put a ready page on screen before the first frame. If that page
   opens on an empty or default state (a filter that hides the data), fix it in `setup`, which
   runs before the first frame. The first step is a caption with the video's title.
-- Order a screen change as click, `wait`, caption. Give the click `"hold": 400`, so the
+- Order a screen change as click, `wait`, caption. Give the click `"hold": 300`, so the
   caption of the previous screen does not linger over the new one.
 - After a click that loads data, add a `wait --text` or `wait --url` step.
 - The caption bar covers the bottom of the page. When the thing a caption describes is low on
@@ -93,7 +94,9 @@ Skip this section when the scenario file exists and the user asked to record it.
   dry run perform the change, and the recording performs it a second time.
 - Copy every *(off camera)* marker into `"offCamera": true` with a long enough `"timeout"`,
   and follow it with a caption that explains the jump.
-- Give a screen the viewer has to read a `"hold"` of 3000 to 5000.
+- Keep the pace: leave the default holds (a caption stays 1.8 s, then the video moves on).
+  Add a `"hold"` only to the one screen that shows the result, and keep it under 3000. A
+  demo is about 3 seconds per step; a 12-step video is under 45 seconds.
 
 ## 5. Dry run, record, check, mark
 
