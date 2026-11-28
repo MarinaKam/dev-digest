@@ -7,24 +7,17 @@
 //   node gate.mjs check                            exit 0 when the gate is open, 1 when closed
 //   node gate.mjs hook                             PreToolUse hook: reads the tool call on stdin
 //
-// The verdict is stored inside the git directory, so it is never committed.
+// The verdict is stored in .claude/.pr-self-review.json. Keep that file out of version
+// control (the project ignores it); the script never counts it as part of the change.
 import { execFileSync } from 'node:child_process';
-import {
-  appendFileSync,
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  realpathSync,
-  writeFileSync,
-} from 'node:fs';
-import { join, resolve } from 'node:path';
-import { findGuarded, mentionsGuardedWords } from './command.mjs';
+import { appendFileSync, existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import {
   classifyFile,
   computeVerdict,
   evaluateGate,
   fingerprintOf,
+  guardedAction,
   isDocsOnly,
   mirrorCounterpart,
   overrideReason,
@@ -32,7 +25,9 @@ import {
 } from './lib.mjs';
 
 const CONFIG_PATH = '.claude/pr-self-review.config.json';
-const STATE_FOLDER = 'pr-self-review';
+const VERDICT_FILE = '.claude/.pr-self-review.json';
+const OVERRIDE_LOG = '.claude/.pr-self-review.log';
+const STATE_FILES = new Set([VERDICT_FILE, OVERRIDE_LOG]);
 const BASE_CANDIDATES = ['origin/main', 'main', 'origin/master', 'master'];
 const DELETED = 'deleted';
 const EXIT_DENY_HOOK = 2;
@@ -108,7 +103,7 @@ function worktreeHashes(root, paths) {
 /** The change as committed: path -> blob hash, and path -> status. */
 function committedState(root, mergeBase) {
   const blobs = headBlobs(root);
-  const pairs = changedPaths(root, [mergeBase, 'HEAD']);
+  const pairs = changedPaths(root, [mergeBase, 'HEAD']).filter(([path]) => !STATE_FILES.has(path));
   return {
     content: new Map(pairs.map(([path, status]) => [path, status === 'D' ? DELETED : blobs.get(path)])),
     status: new Map(pairs),
@@ -118,7 +113,9 @@ function committedState(root, mergeBase) {
 /** The change as it is on disk: committed, staged, unstaged and untracked files. */
 function worktreeState(root, mergeBase) {
   const untracked = git(root, ['ls-files', '--others', '--exclude-standard', '-z']).split('\0').filter(Boolean);
-  const pairs = [...changedPaths(root, [mergeBase]), ...untracked.map((path) => [path, '?'])];
+  const pairs = [...changedPaths(root, [mergeBase]), ...untracked.map((path) => [path, '?'])].filter(
+    ([path]) => !STATE_FILES.has(path),
+  );
   const hashes = worktreeHashes(root, pairs.map(([path]) => path));
   return {
     content: new Map(pairs.map(([path]) => [path, hashes.get(path) ?? DELETED])),
@@ -178,13 +175,13 @@ function readScope(root, target) {
 }
 
 function stateFile(root, name) {
-  const folder = resolve(root, git(root, ['rev-parse', '--git-path', STATE_FOLDER]).trim());
-  mkdirSync(folder, { recursive: true });
-  return join(folder, name);
+  const file = join(root, name);
+  mkdirSync(dirname(file), { recursive: true });
+  return file;
 }
 
 function readRecord(root) {
-  const file = stateFile(root, 'verdict.json');
+  const file = stateFile(root, VERDICT_FILE);
   if (!existsSync(file)) return null;
   try {
     return JSON.parse(readFileSync(file, 'utf8'));
@@ -238,7 +235,7 @@ function runRecord(root, args) {
     skills: review.skills ?? [],
     recordedAt: new Date().toISOString(),
   };
-  writeFileSync(stateFile(root, 'verdict.json'), `${JSON.stringify(record, null, 2)}\n`);
+  writeFileSync(stateFile(root, VERDICT_FILE), `${JSON.stringify(record, null, 2)}\n`);
   process.stdout.write(`${summaryLine(result)}\n`);
   return 0;
 }
@@ -257,41 +254,13 @@ function denyMessage(action, reason) {
   return [
     `pr-self-review gate: \`${action}\` is blocked. ${reason}`,
     'Run the pr-self-review skill, fix every critical finding, record the verdict, then retry.',
-    'Only the user can override the gate, outside this command. Tell the user it is blocked; do not look for a way around it.',
+    'Only the user decides to override the gate. Tell the user it is blocked; do not add an override yourself.',
   ].join('\n');
-}
-
-/** The repository a folder belongs to, as its shared git directory. Worktrees share one. */
-function repositoryOf(directory) {
-  if (!directory || !existsSync(directory)) return null;
-  const common = tryGit(directory, ['rev-parse', '--git-common-dir']);
-  return common ? realpathSync(resolve(directory, common)) : null;
 }
 
 function logOverride(root, action, reason) {
   const entry = { at: new Date().toISOString(), action, head: tryGit(root, ['rev-parse', 'HEAD']), reason };
-  appendFileSync(stateFile(root, 'overrides.log'), `${JSON.stringify(entry)}\n`);
-}
-
-/**
- * Decides one guarded action. Once an action is recognised, every doubt denies: an unknown
- * folder, a folder that is not a repository, a change that cannot be read.
- */
-function decideGuarded(guarded, sessionDirectory) {
-  if (guarded.directory === null) {
-    return { allow: false, reason: 'The gate cannot tell which folder this command runs in. Run it from the repository, without variables in the path.' };
-  }
-  const target = repositoryOf(guarded.directory);
-  if (!target) return { allow: false, reason: `${guarded.directory} is not a git repository.` };
-  const project = repositoryOf(process.env.CLAUDE_PROJECT_DIR || sessionDirectory);
-  if (project && project !== target) return { allow: true, reason: 'another repository' };
-  const root = git(guarded.directory, ['rev-parse', '--show-toplevel']).trim();
-  const reason = overrideReason(process.env);
-  if (reason) {
-    logOverride(root, guarded.action, reason);
-    return { allow: true, reason: 'overridden by the user' };
-  }
-  return gateState(root);
+  appendFileSync(stateFile(root, OVERRIDE_LOG), `${JSON.stringify(entry)}\n`);
 }
 
 function deny(action, reason) {
@@ -299,24 +268,31 @@ function deny(action, reason) {
   return EXIT_DENY_HOOK;
 }
 
+/**
+ * The PreToolUse hook. Lets every command through except a push, a pull request creation
+ * and a pull request merge, which need a passing verdict for the committed change.
+ */
 function runHook(stdin) {
   let call;
   try {
     call = JSON.parse(stdin);
   } catch {
-    if (!mentionsGuardedWords(stdin)) return 0;
-    return deny('a push or pull request command', 'The gate could not read the tool call.');
+    return 0;
   }
-  const command = call?.tool_input?.command;
-  if (typeof command !== 'string') return 0;
-  const sessionDirectory = call.cwd || process.cwd();
-  const guarded = findGuarded(command, sessionDirectory, { cdpath: Boolean(process.env.CDPATH) });
-  if (!guarded) return 0;
+  const action = guardedAction(call?.tool_input?.command);
+  if (!action) return 0;
+  const root = tryGit(call.cwd || process.cwd(), ['rev-parse', '--show-toplevel']);
+  if (!root) return 0;
   try {
-    const decision = decideGuarded(guarded, sessionDirectory);
-    return decision.allow ? 0 : deny(guarded.action, decision.reason);
+    const reason = overrideReason(call.tool_input.command, process.env);
+    if (reason) {
+      logOverride(root, action, reason);
+      return 0;
+    }
+    const state = gateState(root);
+    return state.allow ? 0 : deny(action, state.reason);
   } catch (error) {
-    return deny(guarded.action, `The gate could not read the change: ${error.message}`);
+    return deny(action, `The gate could not read the change: ${error.message}`);
   }
 }
 

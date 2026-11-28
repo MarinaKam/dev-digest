@@ -7,6 +7,7 @@ import {
   evaluateGate,
   fingerprintOf,
   globToRegExp,
+  guardedAction,
   isDocsOnly,
   mirrorCounterpart,
   overrideReason,
@@ -19,11 +20,35 @@ const CONFIG = {
   mirrors: [['api/shared', 'web/shared']],
 };
 
-test('overrideReason accepts only the environment of the hook process', () => {
-  assert.equal(overrideReason({ PR_SELF_REVIEW_OVERRIDE: 'approved by owner' }), 'approved by owner');
-  assert.equal(overrideReason({ PR_SELF_REVIEW_OVERRIDE: '   ' }), null);
-  assert.equal(overrideReason({}), null);
-  assert.equal(overrideReason(undefined), null);
+test('guardedAction finds a push, a pull request creation and a merge', () => {
+  assert.equal(guardedAction('git push -u origin feat/x'), 'git push');
+  assert.equal(guardedAction('git -C ../repo -c a=b push'), 'git push');
+  assert.equal(guardedAction('cd api && FOO=1 git push'), 'git push');
+  assert.equal(guardedAction('git add . && git commit -m "x" && git push'), 'git push');
+  assert.equal(guardedAction('(git push)'), 'git push');
+  assert.equal(guardedAction('gh pr create --base main --title "x"'), 'gh pr create');
+  assert.equal(guardedAction('gh pr merge 12 --squash'), 'gh pr merge');
+});
+
+test('guardedAction ignores commands that only mention a guarded word', () => {
+  assert.equal(guardedAction('git stash push -m wip'), null);
+  assert.equal(guardedAction('git log --grep push'), null);
+  assert.equal(guardedAction('git commit -m "prepare git push"'), null);
+  assert.equal(guardedAction("git commit -m 'docs: gh pr create gate'"), null);
+  assert.equal(guardedAction('git commit -m "$(cat <<EOF\ngit push is gated\nEOF\n)"'), null);
+  assert.equal(guardedAction('gh pr list'), null);
+  assert.equal(guardedAction('git config push.default current'), null);
+  assert.equal(guardedAction(''), null);
+});
+
+test('overrideReason reads a reason from the command or the environment, or --no-verify', () => {
+  assert.equal(overrideReason('PR_SELF_REVIEW_OVERRIDE="hotfix for prod" git push', {}), 'hotfix for prod');
+  assert.equal(overrideReason('PR_SELF_REVIEW_OVERRIDE=hotfix git push', {}), 'hotfix');
+  assert.equal(overrideReason('git push', { PR_SELF_REVIEW_OVERRIDE: 'approved by owner' }), 'approved by owner');
+  assert.equal(overrideReason('git push --no-verify', {}), '--no-verify');
+  assert.equal(overrideReason('PR_SELF_REVIEW_OVERRIDE= git push', {}), null);
+  assert.equal(overrideReason('PR_SELF_REVIEW_OVERRIDE="  " git push', {}), null);
+  assert.equal(overrideReason('git push', {}), null);
 });
 
 test('globToRegExp supports **, * and literal dots', () => {

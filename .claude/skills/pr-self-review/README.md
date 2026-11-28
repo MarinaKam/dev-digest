@@ -7,7 +7,7 @@ its shape. The agent does not load this file; the procedure is in
 
 ## Version
 
-**1.1.1** (2026-11-27). The version is recorded in the `metadata.version`
+**1.2.0** (2026-11-27). The version is recorded in the `metadata.version`
 field of `SKILL.md` and in the changelog below.
 
 | Version | Date | Change |
@@ -18,6 +18,7 @@ field of `SKILL.md` and in the changelog below.
 | 1.0.3 | 2026-11-27 | One lexer for the shell line replaces three text passes that could disagree: quotes with escapes, `$'...'`, arithmetic, comments and here-documents are read once, and a line that does not close what it opens is refused when it mentions a guarded command |
 | 1.1.0 | 2026-11-27 | Every skill of a bucket runs when the bucket has changed files; an empty bucket loads nothing. Expansions inside `${ }`, arithmetic and unquoted here-documents are read for commands, and a word the text does not settle counts as a possible guarded subcommand |
 | 1.1.1 | 2026-11-27 | I/O inside a package the project declares pure is critical |
+| 1.2.0 | 2026-11-27 | Back to a simple pre-hook script: `check-gate.sh` with a plain text match on the command, the verdict in `.claude/.pr-self-review.json`, and the escape hatch (`PR_SELF_REVIEW_OVERRIDE=<reason>` or `--no-verify`) read from the command. The shell lexer of 1.0.1 to 1.1.1 is removed |
 
 ## Need
 
@@ -46,7 +47,8 @@ rules of its own.
 - A closed catalogue of what is critical, by owner.
 - A refutation pass for every critical before it blocks.
 - An inline suppression with a mandatory reason.
-- A verdict bound to the exact content, stored inside the git directory.
+- A verdict bound to the exact content, stored in
+  `.claude/.pr-self-review.json`.
 - A `PreToolUse` hook that blocks `git push`, `gh pr create` and
   `gh pr merge` without a pass for that content, and a logged override for the
   user.
@@ -147,10 +149,9 @@ Changes made after these runs, **not re-run**:
 
 ### The gate script
 
-`scripts/shell-text.mjs` (reading a shell line as text), `scripts/command.mjs`
-(finding a guarded command and its folder), `scripts/lib.mjs` (verdict logic)
-and `scripts/gate.mjs` (git and file access) are covered by
-`scripts/*.test.mjs`: 58 tests, the integration ones each in a
+`scripts/check-gate.sh` is the hook entry; it runs `scripts/gate.mjs`, which
+reads git and the verdict file. The decisions are in `scripts/lib.mjs`. Both
+are covered by `scripts/*.test.mjs`: 31 tests, the integration ones each in a
 throwaway git repository.
 
 ```bash
@@ -164,41 +165,30 @@ Checked in a live session: with the hook registered and no verdict recorded,
 
 - The review itself was never run end to end on a real working tree with
   subagents; the fixture runs were single-agent.
-- Command detection reads the command text. A probe of 41 further forms, not
-  taken from the tests, leaves 9 unrecognised, all indirect: a persistent
-  alias, a variable holding the whole command, text piped into a shell, an
-  interpreter's `-e`/`-c`, a script, a `make` target, `gh api`, `hub`. A
-  second probe of 29 forms that try to make the gate believe the command runs
-  in another repository found none that does.
-- A later automated review reported three more forms that are **not fixed**: a
-  command substitution inside `${ }` or inside an unquoted here-document body
-  when the surrounding quoting is unusual, and a here-document delimiter built
-  from several quoted pieces. They take deliberate obfuscation to hit. The hook
-  is a convenience that stops an ordinary push without a review, not a
-  security boundary; the git `pre-push` hook is.
-- The gate was hardened several times after an automated security review, each time
-  by a wider rule and not by the reported example. Text analysis of a shell
-  line has no proof of completeness; the two probes are evidence, not a
-  guarantee. `gate.md` lists them as bypasses and names the git
-  `pre-push` hook as the layer that closes them for pushes; that hook is not
-  installed by the skill.
-- The override is read from the environment of the hook process only. An agent
-  that edits the project's settings or writes the verdict file by hand is
-  outside what a local hook can stop; both changes are visible, one in the
-  diff and one as a verdict with no matching review.
-- The verdict is per git directory, not per branch: reviewing one branch and
+- The hook matches the text of the command. Versions 1.0.1 to 1.1.1 tried to
+  read the command the way a shell does, after an automated security review
+  kept finding forms the match missed; that grew into a shell lexer and was
+  removed in 1.2.0. The hook is a reminder for the ordinary case, not a
+  security boundary. A push inside a script, an alias, a nested shell or a
+  person's own terminal is not seen. A git `pre-push` hook that runs
+  `gate.mjs check` would cover pushes at the level of git; the skill does not
+  install one.
+- The escape hatch can be typed by the agent as easily as by the user. The
+  skill forbids it and every use is logged, but nothing enforces who typed it.
+- The verdict is per checkout, not per branch: reviewing one branch and
   switching to another leaves a verdict whose fingerprint does not match, so
   the gate closes, which is the safe side.
 - A reviewer can still record a wrong review. The script checks its form (a
-  critical needs a line and evidence, the fingerprint must match), not its
-  truth.
+  critical needs a line and evidence, the fingerprint must match, at least one
+  check passed), not its truth.
 
 ## Moving the skill into a plugin
 
 The skill folder holds no project name, path or command. What stays in a
 project: `.claude/pr-self-review.config.json` (folder map, skipped files,
-mirrored folders), the hook entry in `.claude/settings.json`, and the check
-commands in its instruction files. The routing table names the owner skills by
+mirrored folders), the hook entry in `.claude/settings.json`, an ignore rule
+for `.claude/.pr-self-review.*`, and the check commands in its instruction
+files. The routing table names the owner skills by
 name; a plugin that ships this skill should ship them too, and a missing one is
 skipped and reported.
 
@@ -212,5 +202,5 @@ skipped and reported.
   gates first, a state marker with a diff hash, an escape hatch, verification
   of criticals, a closed catalogue, a contract-drift check, changed lines only
   and inline suppression. This skill follows that plan; the verdict lives in
-  the git directory instead of a tracked folder, and the gate is a Node script
-  instead of a shell script, so that it can be unit-tested.
+  `check-gate.sh` is a thin shell entry over a Node script, so that the logic
+  can be unit-tested.

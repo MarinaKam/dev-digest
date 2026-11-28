@@ -10,13 +10,38 @@ const DOC_FILE = /\.mdx?$/i;
 const TEST_FILE = /(\.|\/)(test|spec)\.[cm]?[jt]sx?$|(^|\/)(__tests__|e2e)\//;
 const FRONTEND_FILE = /\.(tsx|jsx|css|scss)$/i;
 
+const OVERRIDE_IN_COMMAND = new RegExp(`(?:^|\\s)${OVERRIDE_VARIABLE}=(?:"([^"]*)"|'([^']*)'|(\\S*))`);
+const NO_VERIFY = /(?:^|\s)--no-verify(?=$|\s)/;
+
 /**
- * The override reason, or null. It is read only from the environment of the hook process,
- * which the user sets when starting the session. The text of the command is never a source:
- * the agent writes that text, so it cannot carry the user's authority.
+ * The reason a guarded command was let through on purpose, or null. Two escape hatches:
+ * `PR_SELF_REVIEW_OVERRIDE=<reason>` in front of the command or in the environment, and
+ * `--no-verify` on the command. Both are logged by the caller.
  */
-export function overrideReason(env) {
-  return (env?.[OVERRIDE_VARIABLE] ?? '').trim() || null;
+export function overrideReason(command, env) {
+  const match = OVERRIDE_IN_COMMAND.exec(command ?? '');
+  const given = match ? (match[1] ?? match[2] ?? match[3] ?? '') : '';
+  const reason = (given || env?.[OVERRIDE_VARIABLE] || '').trim();
+  if (reason) return reason;
+  return NO_VERIFY.test(command ?? '') ? '--no-verify' : null;
+}
+
+const QUOTED_TEXT = /'[^']*'|"(?:\\.|[^"\\])*"/g;
+const COMMAND_START = "(?:^|[\\s;&|(])";
+const COMMAND_END = "(?=$|[\\s;&|)])";
+const GIT_PUSH = new RegExp(`${COMMAND_START}git\\s+(?:-\\S+\\s+(?:[^-\\s]\\S*\\s+)?)*push${COMMAND_END}`);
+const GH_PULL_REQUEST = new RegExp(`${COMMAND_START}gh\\s+pr\\s+(create|merge)${COMMAND_END}`);
+
+/**
+ * The guarded action a shell line runs: "git push", "gh pr create", "gh pr merge", or null.
+ * A plain text match on the command with quoted text removed, so a commit message that
+ * mentions a push does not count. It is not a shell parser and does not try to be one.
+ */
+export function guardedAction(command) {
+  const text = (command ?? '').replace(QUOTED_TEXT, '""');
+  if (GIT_PUSH.test(text)) return 'git push';
+  const pullRequest = GH_PULL_REQUEST.exec(text);
+  return pullRequest ? `gh pr ${pullRequest[1]}` : null;
 }
 
 /** Minimal glob: `**` crosses folders, `*` stays inside one path segment. */

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/skills/pr-self-review/scripts/gate.mjs\" hook",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/skills/pr-self-review/scripts/check-gate.sh\"",
             "timeout": 30,
             "statusMessage": "pr-self-review gate"
           }

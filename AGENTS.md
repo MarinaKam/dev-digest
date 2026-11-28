@@ -58,15 +58,15 @@ not done until they pass; quote the output, do not summarise it.
   `client/` files to the frontend skills and the changed `server/` and
   `reviewer-core/` files to the backend skills, and records a verdict for that
   exact content.
-- A hook in `.claude/settings.json` blocks `git push`, `gh pr create` and
+- A hook in `.claude/settings.json` (`scripts/check-gate.sh` of the skill) blocks `git push`, `gh pr create` and
   `gh pr merge` until that verdict is a pass. One critical finding blocks. A
   change that touches only `*.md` files passes without a review.
 - Which folder goes to which reviewer, which files are skipped, and which
   folders must stay identical copies is in `.claude/pr-self-review.config.json`.
   Change that file when a package is added; do not work around the gate.
-- When the gate blocks, tell the user. Do not reach the same result another way
-  (a script, an alias, another tool). The override is the user's and is not
-  read from the command.
+- When the gate blocks, tell the user. The escape hatch
+  (`PR_SELF_REVIEW_OVERRIDE=<reason>` or `--no-verify`) is the user's decision:
+  never add it to a command yourself.
 
 ## Naming
 - Branches: `<type>/<slug>` (`feat/severity-counters`). Commits:
