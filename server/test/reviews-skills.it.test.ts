@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { startPg, dockerAvailable, type PgFixture } from './helpers/pg.js';
-import { waitForPrRuns } from './helpers/runs.js';
+import { readRunTrace, waitForPrRuns } from './helpers/runs.js';
 import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/platform/config.js';
 import { seed } from '../src/db/seed.js';
@@ -135,7 +135,7 @@ d('review runs with skills', () => {
   }
 
   const readTrace = async (runId: string | undefined) =>
-    (await app.inject({ method: 'GET', url: `/runs/${runId}/trace` })).json() as {
+    (await readRunTrace(app, runId ?? '')) as {
       prompt_assembly: { skills_used?: { name: string; version: number }[] | null };
     };
 
