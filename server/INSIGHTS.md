@@ -24,6 +24,7 @@ only if it is not obvious from reading the code.
 - **2026-11-21** — Do not estimate an OpenRouter run's cost as tokens × the model's list price. OpenRouter routes the same model to different upstream providers at different prices: in one batch on `deepseek/deepseek-v4-flash`, ~3K-token runs cost $0.00005 via Baidu Qianfan and $0.00043 via DeepInfra (about 8×). Only `usage.cost` is right; the price book is a fallback for when it is absent. Evidence: `server/src/platform/price-book.ts:35`.
 - **2026-11-21** — A test that proves "a failed run is not counted in the PR cost" by actually failing a run proves nothing about the `status = 'done'` filter: a failed run already has `cost_usd = NULL`, so the `IS NOT NULL` clause alone passes it. To pin the status filter, insert `agent_runs` rows directly with a non-done status AND a cost. Evidence: `server/test/reviews.it.test.ts:407`.
 - **2026-11-27** — Do not switch a service from `new XRepository(container.db)` to a `container.xRepo` getter without reading its tests: `agents-versions.it.test.ts` builds the service over `{ db } as unknown as Container`, and the indexer tests build a container literal with only `git`, `depgraph`, `tokenizer`, `sourceParser`. A getter that the literal lacks is `undefined` at run time while the type check stays green. A new container dependency of the indexer must be added to both literals. Evidence: `server/test/agents-versions.it.test.ts:167`, `server/test/indexer-pipeline.test.ts:132`.
+- **2026-11-27** — Reading a user zip with `unzipSync(bytes, { filter })` and a check on `originalSize` is not a size limit: the header size is whatever the uploader wrote, two entries can share a name (the filter then inflates both), and `unzipSync` inflates a whole entry before any check runs. The skills import streams with `Unzip` + `UnzipInflate`, feeds 16 KB slices, counts the bytes actually produced and stops past the limit; duplicate names are refused. Two automated security reviews caught the first two versions. Evidence: `server/src/modules/skills/import/archive.ts:56`.
 
 ## Codebase Patterns
 <!-- Conventions and architecture decisions specific to this module. -->
@@ -44,6 +45,7 @@ only if it is not obvious from reading the code.
 
 ## Recurring Errors & Fixes
 <!-- Errors seen more than once, with the fix. -->
+- **2026-11-27** — An integration test that creates a skill (or agent) with a fixed name gets `409` once the seed starts creating one with the same name; `seed()` runs in every `*.it.test.ts` `beforeAll`. Name test fixtures so they cannot collide with seed data (`version-kept`, not `edge-case-coverage`). Evidence: `server/test/reviews-skills.it.test.ts:174`.
 
 ## Session Notes
 <!-- What a session accomplished or decided, one line per point, under a `### YYYY-MM-DD` subheading. -->

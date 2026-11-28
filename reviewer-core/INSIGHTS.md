@@ -22,6 +22,7 @@ only if it is not obvious from reading the code.
 
 ## Codebase Patterns
 <!-- Conventions and architecture decisions specific to this module. -->
+- **2026-11-27** — Skills are rules, not data, so they are not wrapped with `wrapUntrusted`: each is its own `<skill name version>` block, every `<skill`/`</skill` in its text is neutralised case- and space-insensitively, and a trusted `SKILL_RULE` is appended to the system message only when a skill is present. An agent with no skill gets a byte-identical prompt. Evidence: `reviewer-core/src/prompt.ts:58`.
 
 ## Tool & Library Notes
 <!-- Quirks and gotchas of dependencies and tooling. -->
@@ -30,6 +31,7 @@ only if it is not obvious from reading the code.
 
 ## Recurring Errors & Fixes
 <!-- Errors seen more than once, with the fix. -->
+- **2026-11-27** — A change to `assemblePrompt`'s input shape is also consumed by the server's own prompt tests (`server/test/prompt-structured.test.ts`, `prompt-callers.test.ts`), which `npm test` here does not run and the server's `tsconfig` does not type-check. Run the server unit lane after any change to `PromptParts`. Evidence: `server/test/prompt-structured.test.ts:17`.
 
 ## Session Notes
 <!-- What a session accomplished or decided, one line per point, under a `### YYYY-MM-DD` subheading. -->
