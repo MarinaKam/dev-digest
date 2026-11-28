@@ -7,7 +7,7 @@ its shape. The agent does not load this file; the procedure is in
 
 ## Version
 
-**1.3.0** (2026-11-27). The version is recorded in the `metadata.version`
+**1.4.0** (2026-11-27). The version is recorded in the `metadata.version`
 field of `SKILL.md` and in the changelog below.
 
 | Version | Date | Change |
@@ -20,6 +20,7 @@ field of `SKILL.md` and in the changelog below.
 | 1.1.1 | 2026-11-27 | I/O inside a package the project declares pure is critical |
 | 1.2.0 | 2026-11-27 | Back to a simple pre-hook script: `check-gate.sh` with a plain text match on the command, the verdict in `.claude/.pr-self-review.json`, and the escape hatch (`PR_SELF_REVIEW_OVERRIDE=<reason>` or `--no-verify`) read from the command. The shell lexer of 1.0.1 to 1.1.1 is removed |
 | 1.3.0 | 2026-11-27 | A second review of the same branch reads only the files that changed since the recorded one: the verdict keeps a hash per file and every finding, `scope` prints the files to review, and the script carries the other findings. A record with a failed check does not mark files as reviewed. The command is matched word by word instead of with one pattern: an override counts only on the guarded command, `gh` global flags and a path in front of `git` are matched, `git stash push` behind a global flag no longer counts as a push; only `*.md` is documentation; a symbolic link has one fingerprint on disk and in the commit; reading the verdict no longer creates the state folder |
+| 1.4.0 | 2026-11-27 | `disable-model-invocation: true`: only the user starts the review (`/pr-self-review`); an agent asks for it. The push gate is unchanged and still blocks until a passing verdict exists |
 
 ## Need
 

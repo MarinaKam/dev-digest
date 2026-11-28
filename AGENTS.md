@@ -54,10 +54,11 @@ not done until they pass; quote the output, do not summarise it.
 - A UI change is also checked in the running app; reload the tab first.
 
 ## Before a push or a pull request
-- Run the `pr-self-review` skill. It runs the checks above, sends the changed
-  `client/` files to the frontend skills and the changed `server/` and
-  `reviewer-core/` files to the backend skills, and records a verdict for that
-  exact content.
+- Ask the user to run `/pr-self-review`. The skill has
+  `disable-model-invocation: true`: only the user starts it, an agent cannot.
+  It runs the checks above, sends the changed `client/` files to the frontend
+  skills and the changed `server/` and `reviewer-core/` files to the backend
+  skills, and records a verdict for that exact content.
 - A hook in `.claude/settings.json` (`scripts/check-gate.sh` of the skill) blocks `git push`, `gh pr create` and
   `gh pr merge` until that verdict is a pass. One critical finding blocks. A
   change that touches only `*.md` files passes without a review.

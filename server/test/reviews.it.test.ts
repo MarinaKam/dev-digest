@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { startPg, dockerAvailable, type PgFixture } from './helpers/pg.js';
-import { waitForPrRuns } from './helpers/runs.js';
+import { readRunTrace, waitForPrRuns } from './helpers/runs.js';
 import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/platform/config.js';
 import { seed } from '../src/db/seed.js';
@@ -203,7 +203,7 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
 
     // a run_traces document was written (single doc)
     const runId = body.runs[0].run_id;
-    const trace = (await app.inject({ method: 'GET', url: `/runs/${runId}/trace` })).json();
+    const trace = await readRunTrace(app, runId);
     expect(trace.config.model).toBe('gpt-4.1');
     expect(trace.stats.grounding).toBe('1/2 passed');
     expect(trace.log.length).toBeGreaterThan(0);
@@ -349,7 +349,7 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
       const row = rows.find((r) => r.id === run.run_id)!;
       expect(run.cost_usd).toBe(row.costUsd);
 
-      const trace = (await app.inject({ method: 'GET', url: `/runs/${run.run_id}/trace` })).json();
+      const trace = await readRunTrace(app, run.run_id);
       expect(trace.stats.cost_usd).toBe(row.costUsd);
       const usageLine = trace.log.find((l: { msg: string }) => l.msg.startsWith('usage:'));
       expect(usageLine?.msg).toContain(`in=${row.tokensIn} out=${row.tokensOut}`);
@@ -399,7 +399,7 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     const [row] = await pg.handle.db.select().from(t.agentRuns).where(eq(t.agentRuns.prId, pr.id));
     expect(row!.status).toBe('failed');
     expect(row!.costUsd).toBeNull();
-    const trace = (await app.inject({ method: 'GET', url: `/runs/${row!.id}/trace` })).json();
+    const trace = await readRunTrace(app, row!.id);
     expect(trace.stats.cost_usd).toBeNull();
     expect((await listedPr(app, repo.id, pr.id)).cost_usd).toBeNull();
     await app.close();

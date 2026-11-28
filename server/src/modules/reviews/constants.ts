@@ -10,3 +10,7 @@
  * model's context.
  */
 export const REVIEW_STRATEGY = 'single-pass' as const;
+
+/** Error of a run that the API cut off by restarting; the timeline shows it. */
+export const RESTARTED_RUN_ERROR =
+  'The API restarted while this run was in progress, so it stopped. Run the review again.';

@@ -78,6 +78,13 @@
       "when": 1795320724611,
       "tag": "0010_elite_satana",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795849156714,
+      "tag": "0011_gifted_tarantula",
+      "breakpoints": true
     }
   ]
 }

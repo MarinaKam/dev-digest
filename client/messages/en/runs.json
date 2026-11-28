@@ -34,7 +34,8 @@
       "memoryPulled": "Memory pulled",
       "specsRead": "Specs read",
       "items": "{count, plural, one {# item} other {# items}}",
-      "none": "none"
+      "none": "none",
+      "skillsLoaded": "Skills loaded"
     },
     "stat": {
       "duration": "DURATION",
@@ -44,7 +45,8 @@
     },
     "prompt": {
       "system": "System",
-      "skills": "Skills (dynamic)",
+      "skills": "Skills",
+      "skillsTokens": "{count} tokens",
       "memory": "Memory (dynamic)",
       "repoMap": "Repo skeleton — repo-intel (dynamic)",
       "specs": "Project context (dynamic)",

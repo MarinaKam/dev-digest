@@ -11,7 +11,7 @@ import { isConfigChange } from './helpers.js';
  * agent side: link/reorder/list for an agent). Workspace-scoped throughout.
  */
 
-import type { AgentRecord, AgentVersionRecord, LinkedSkill } from './types.js';
+import type { AgentRecord, AgentVersionRecord, LinkedSkill, PromptSkillRecord } from './types.js';
 
 export interface InsertAgent {
   workspaceId: string;
@@ -219,6 +219,30 @@ export class AgentsRepository {
     return rows.map((r) => ({ skill: r.skill, order: r.order }));
   }
 
+  /**
+   * The skills a review of this agent sends: linked AND enabled, in link
+   * order, at their current version.
+   */
+  async promptSkills(workspaceId: string, agentId: string): Promise<PromptSkillRecord[]> {
+    return this.db
+      .select({
+        name: t.skills.name,
+        version: t.skills.version,
+        description: t.skills.description,
+        body: t.skills.body,
+      })
+      .from(t.agentSkills)
+      .innerJoin(t.skills, eq(t.agentSkills.skillId, t.skills.id))
+      .where(
+        and(
+          eq(t.agentSkills.agentId, agentId),
+          eq(t.skills.workspaceId, workspaceId),
+          eq(t.skills.enabled, true),
+        ),
+      )
+      .orderBy(asc(t.agentSkills.order));
+  }
+
   /** How many of the given skill ids exist in the workspace. */
   async countSkillsInWorkspace(workspaceId: string, skillIds: string[]): Promise<number> {
     if (skillIds.length === 0) return 0;
@@ -257,13 +281,24 @@ export class AgentsRepository {
    * the list are unlinked. One transaction: when the new set cannot be stored,
    * the old links stay.
    */
-  setSkills(agentId: string, skillIds: string[]): Promise<void> {
+  setSkills(workspaceId: string, agentId: string, skillIds: string[]): Promise<boolean> {
     return this.db.transaction(async (tx) => {
+      // Serialize concurrent replacements of one agent's set (a fast reorder sends
+      // several): without the row lock two transactions both delete, then both
+      // insert the same (agent_id, skill_id) and the second fails on the key.
+      const [locked] = await tx
+        .select({ id: t.agents.id })
+        .from(t.agents)
+        .where(and(eq(t.agents.id, agentId), eq(t.agents.workspaceId, workspaceId)))
+        .for('update');
+      if (!locked) return false;
       await tx.delete(t.agentSkills).where(eq(t.agentSkills.agentId, agentId));
-      if (skillIds.length === 0) return;
-      await tx
-        .insert(t.agentSkills)
-        .values(skillIds.map((skillId, i) => ({ agentId, skillId, order: i })));
+      if (skillIds.length > 0) {
+        await tx
+          .insert(t.agentSkills)
+          .values(skillIds.map((skillId, i) => ({ agentId, skillId, order: i })));
+      }
+      return true;
     });
   }
 }

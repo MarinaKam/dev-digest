@@ -7,20 +7,23 @@ import { useTranslations } from "next-intl";
 import { Icon, Badge, Toggle } from "@devdigest/ui";
 import type { Agent } from "@devdigest/shared";
 import { useDeleteAgent } from "@/lib/hooks/agents";
+import { skillCountsByAgent, useSkills } from "@/lib/hooks/skills";
 import { modelColor } from "./helpers";
 import { s } from "./styles";
 
 interface AgentCardProps {
   ag: Agent;
   active?: boolean;
-  skillCount?: number;
   onClick?: () => void;
   onToggle?: (enabled: boolean) => void;
 }
 
-export function AgentCard({ ag, active, skillCount, onClick, onToggle }: AgentCardProps) {
+export function AgentCard({ ag, active, onClick, onToggle }: AgentCardProps) {
   const t = useTranslations("agents");
   const del = useDeleteAgent();
+  const { data: skills } = useSkills();
+  // No count until the skills are loaded: "0 skills" would read as a real answer.
+  const skillCount = skills ? (skillCountsByAgent(skills).get(ag.id) ?? 0) : null;
   const color = modelColor(ag.model);
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -56,7 +59,7 @@ export function AgentCard({ ag, active, skillCount, onClick, onToggle }: AgentCa
         <span className="mono" style={s.modelChip(color)}>
           {ag.model}
         </span>
-        {skillCount != null && (
+        {skillCount !== null && (
           <Badge color="var(--text-secondary)" icon="Sparkles">
             {t("card.skillCount", { count: skillCount })}
           </Badge>

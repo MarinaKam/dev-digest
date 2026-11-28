@@ -37,3 +37,11 @@ export interface LinkedSkill {
   skill: { id: string; name: string };
   order: number;
 }
+
+/** A skill as a review prompt receives it: linked, enabled, at its current version. */
+export interface PromptSkillRecord {
+  name: string;
+  version: number;
+  description: string;
+  body: string;
+}

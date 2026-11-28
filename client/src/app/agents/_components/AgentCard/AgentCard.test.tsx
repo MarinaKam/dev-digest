@@ -1,9 +1,15 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Agent } from "@devdigest/shared";
 import messages from "../../../../../messages/en/agents.json";
+const skillsData = vi.hoisted(() => ({ data: undefined as unknown }));
+vi.mock("@/lib/hooks/skills", async (orig) => ({
+  ...(await orig<typeof import("@/lib/hooks/skills")>()),
+  useSkills: () => ({ data: skillsData.data }),
+}));
+
 import { AgentCard } from "./AgentCard";
 
 afterEach(cleanup);
@@ -34,12 +40,37 @@ function renderWithIntl(ui: React.ReactElement) {
   );
 }
 
+const used = (id: string) => ({
+  id: `s-${id}`,
+  name: "n",
+  description: "d",
+  type: "rubric",
+  source: "manual",
+  body: "b",
+  enabled: true,
+  version: 1,
+  used_by: [{ id: "ag1", name: "x" }],
+});
+
 describe("AgentCard (smoke)", () => {
-  it("renders the agent name, model chip and skill count", () => {
-    renderWithIntl(<AgentCard ag={AGENT} skillCount={3} />);
+  it("shows the count of skills linked to the agent, read by the card itself", () => {
+    skillsData.data = [used("1"), used("2"), used("3")];
+    renderWithIntl(<AgentCard ag={AGENT} />);
     expect(screen.getByText("Security Reviewer")).toBeInTheDocument();
     expect(screen.getByText("gpt-4.1")).toBeInTheDocument();
     expect(screen.getByText("3 skills")).toBeInTheDocument();
+  });
+
+  it("shows a zero count when no skill is linked to the agent", () => {
+    skillsData.data = [];
+    renderWithIntl(<AgentCard ag={AGENT} />);
+    expect(screen.getByText("0 skills")).toBeInTheDocument();
+  });
+
+  it("shows no skill count while the skills are still loading", () => {
+    skillsData.data = undefined;
+    renderWithIntl(<AgentCard ag={AGENT} />);
+    expect(screen.queryByText(/skills?$/)).not.toBeInTheDocument();
   });
 
   it("falls back to a translated placeholder when description is empty", () => {

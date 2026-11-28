@@ -186,10 +186,10 @@ d('multi-statement writes are atomic', () => {
     const repo = new AgentsRepository(pg.handle.db);
     const agent = await insertAgent(repo);
     const kept = [await insertSkill(), await insertSkill()];
-    await repo.setSkills(agent.id, kept);
+    await repo.setSkills(workspaceId, agent.id, kept);
 
     // The second id is not a skill, so the insert of the new set fails.
-    await expect(repo.setSkills(agent.id, [kept[0] as string, randomUUID()])).rejects.toThrow();
+    await expect(repo.setSkills(workspaceId, agent.id, [kept[0] as string, randomUUID()])).rejects.toThrow();
 
     expect(await repo.skillIdsForAgent(agent.id)).toEqual(kept);
   });
