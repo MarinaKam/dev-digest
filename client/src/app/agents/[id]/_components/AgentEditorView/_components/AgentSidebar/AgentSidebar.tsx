@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button, Dropdown } from "@devdigest/ui";
 import { useAgents, useUpdateAgent } from "@/lib/hooks/agents";
+import { skillCountsByAgent, useSkills } from "@/lib/hooks/skills";
 import { AgentCard } from "../../../../../_components/AgentCard";
 import { s } from "./styles";
 
@@ -22,6 +23,8 @@ export function AgentSidebar({ activeId, tab }: AgentSidebarProps) {
   const router = useRouter();
   const { data: agents = [] } = useAgents();
   const update = useUpdateAgent();
+  const { data: skills } = useSkills();
+  const skillCounts = skillCountsByAgent(skills);
 
   return (
     <div style={s.root}>
@@ -45,6 +48,7 @@ export function AgentSidebar({ activeId, tab }: AgentSidebarProps) {
           <AgentCard
             key={agent.id}
             ag={agent}
+            skillCount={skillCounts.get(agent.id) ?? 0}
             active={agent.id === activeId}
             onClick={() => router.push(`/agents/${agent.id}?tab=${tab}`)}
             onToggle={(enabled) => update.mutate({ id: agent.id, patch: { enabled } })}

@@ -25,6 +25,15 @@ interface TraceBodyProps {
 export function TraceBody({ trace, findings }: TraceBodyProps) {
   const t = useTranslations("runs");
   const stats = trace.stats;
+  const pa = trace.prompt_assembly;
+  // "Skills · 1200 tokens · a@v1, b@v3": only the parts the trace carries.
+  const skillsLabel = [
+    t("trace.prompt.skills"),
+    pa.skills_tokens != null ? t("trace.prompt.skillsTokens", { count: pa.skills_tokens }) : null,
+    pa.skills_used?.length ? pa.skills_used.map((u) => `${u.name}@v${u.version}`).join(", ") : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return (
     <>
       <TraceSection icon="Settings" title={t("trace.configuration")}>
@@ -80,7 +89,7 @@ export function TraceBody({ trace, findings }: TraceBodyProps) {
       <TraceSection icon="FileText" title={t("trace.promptAssembly")} defaultOpen={false}>
         <PromptBlock label={t("trace.prompt.system")} text={trace.prompt_assembly.system} color={PROMPT_COLORS.system} />
         {trace.prompt_assembly.skills != null && (
-          <PromptBlock label={t("trace.prompt.skills")} text={trace.prompt_assembly.skills} color={PROMPT_COLORS.skills} />
+          <PromptBlock label={skillsLabel} text={trace.prompt_assembly.skills} color={PROMPT_COLORS.skills} />
         )}
         {trace.prompt_assembly.memory != null && (
           <PromptBlock label={t("trace.prompt.memory")} text={trace.prompt_assembly.memory} color={PROMPT_COLORS.memory} />

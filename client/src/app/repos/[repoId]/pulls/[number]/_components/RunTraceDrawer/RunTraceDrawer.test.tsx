@@ -82,3 +82,32 @@ describe("Run Trace drawer — COST stat", () => {
     expect(screen.getByText("$0.00")).toBeInTheDocument();
   });
 });
+
+describe("Run Trace drawer — skills block", () => {
+  const open = () => {
+    renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+    fireEvent.click(screen.getByText("Prompt assembly"));
+  };
+
+  it("labels the skills block with tokens and name@version", () => {
+    traceData = {
+      ...TRACE,
+      prompt_assembly: {
+        ...TRACE.prompt_assembly,
+        skills_tokens: 1200,
+        skills_used: [
+          { name: "api-contract", version: 1 },
+          { name: "edge-case-coverage", version: 3 },
+        ],
+      },
+    };
+    open();
+    expect(screen.getByText("Skills · 1200 tokens · api-contract@v1, edge-case-coverage@v3")).toBeInTheDocument();
+  });
+
+  it("shows no skills block when the trace has no skills", () => {
+    traceData = { ...TRACE, prompt_assembly: { ...TRACE.prompt_assembly, skills: null } };
+    open();
+    expect(screen.queryByText(/^Skills/)).not.toBeInTheDocument();
+  });
+});

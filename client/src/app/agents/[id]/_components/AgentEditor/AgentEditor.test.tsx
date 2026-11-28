@@ -11,6 +11,12 @@ vi.mock("@/lib/hooks/agents", () => ({
   useProviderModels: () => ({ data: [{ id: "gpt-4.1", provider: "openai" }] }),
 }));
 
+vi.mock("@/lib/hooks/skills", () => ({
+  useSkills: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),
+  useAgentSkillLinks: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),
+  useSetAgentSkills: () => ({ mutate: vi.fn() }),
+}));
+
 import { AgentEditor } from "./AgentEditor";
 
 afterEach(cleanup);
@@ -44,5 +50,11 @@ describe("A2 Agent Editor (smoke)", () => {
     expect(screen.getByText("Config")).toBeInTheDocument();
     expect(screen.getByText("Configuration")).toBeInTheDocument();
     expect(screen.getByText("Save agent")).toBeInTheDocument();
+  });
+
+  it("renders the Skills tab content for tab=skills", () => {
+    renderWithIntl(<AgentEditor agent={AGENT} tab="skills" onTab={() => {}} />);
+    expect(screen.getByText("No skills yet")).toBeInTheDocument();
+    expect(screen.queryByText("Save agent")).not.toBeInTheDocument();
   });
 });
