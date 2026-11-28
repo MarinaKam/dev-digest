@@ -31,11 +31,15 @@ const COMPONENTS: Components = {
   li: ({ children }) => <li style={s.li}>{children}</li>,
   p: ({ children }) => <p style={s.p}>{children}</p>,
   strong: ({ children }) => <strong style={s.strong}>{children}</strong>,
+  // Skill bodies can come from an untrusted import: links open outside the app
+  // without the opener, and images are never fetched (a remote image would
+  // call its host as soon as the preview shows, before the user saves).
   a: ({ children, href }) => (
-    <a href={href} style={s.link}>
+    <a href={href} style={s.link} target="_blank" rel="noopener noreferrer nofollow">
       {children}
     </a>
   ),
+  img: ({ alt }) => <span style={s.imageAlt}>{alt ? `[${alt}]` : "[image]"}</span>,
   pre: ({ children }) => (
     <InBlock.Provider value={true}>
       <pre className="mono" style={s.pre}>

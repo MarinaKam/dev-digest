@@ -60,6 +60,17 @@ describe("ImportSkillModal", () => {
     expect(createMutate).not.toHaveBeenCalled();
   });
 
+  it("keeps the generated version note within the 200-character limit", () => {
+    previewState.data = { ...PREVIEW, core_path: `${"deep/".repeat(60)}SKILL.md` };
+    open();
+    fireEvent.click(screen.getByRole("button", { name: "Save skill" }));
+    const sent = createMutate.mock.calls[0]?.[0] as { version_note: string } | undefined;
+    if (!sent) throw new Error("create was not called");
+    const note = sent.version_note;
+    expect(note.length).toBeLessThanOrEqual(200);
+    expect(note.startsWith("Imported from")).toBe(true);
+  });
+
   it("accepts .md and .zip files", () => {
     open();
     expect(screen.getByLabelText("Skill file (.md or .zip)")).toHaveAttribute("accept", ".md,.zip");

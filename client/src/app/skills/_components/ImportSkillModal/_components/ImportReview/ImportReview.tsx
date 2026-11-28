@@ -7,6 +7,7 @@ import type { SkillImportPreview } from "@devdigest/shared";
 import { useCreateSkill } from "@/lib/hooks/skills";
 import { MarkdownBody } from "../../../MarkdownBody";
 import { SkillFields } from "../../../SkillFields";
+import { SKILL_VERSION_NOTE_MAX } from "../../../constants";
 import { hasErrors, validateSkillForm, type SkillFormValues } from "../../../helpers";
 import { s } from "../../styles";
 
@@ -38,7 +39,7 @@ export function ImportReview({ preview, onClose, onCreated }: ImportReviewProps)
         type: form.type,
         body: form.body,
         source: "imported_file",
-        version_note: t("import.versionNote", { file: preview.core_path }),
+        version_note: fitVersionNote(t("import.versionNote", { file: preview.core_path })),
       },
       {
         onSuccess: (skill) => {
@@ -122,4 +123,9 @@ export function ImportReview({ preview, onClose, onCreated }: ImportReviewProps)
       </div>
     </>
   );
+}
+
+/** The server rejects a note over SKILL_VERSION_NOTE_MAX; a deep archive path can exceed it. */
+function fitVersionNote(note: string): string {
+  return note.length <= SKILL_VERSION_NOTE_MAX ? note : `${note.slice(0, SKILL_VERSION_NOTE_MAX - 1)}…`;
 }

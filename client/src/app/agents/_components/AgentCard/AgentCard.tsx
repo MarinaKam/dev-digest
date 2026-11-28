@@ -22,7 +22,8 @@ export function AgentCard({ ag, active, onClick, onToggle }: AgentCardProps) {
   const t = useTranslations("agents");
   const del = useDeleteAgent();
   const { data: skills } = useSkills();
-  const skillCount = skillCountsByAgent(skills).get(ag.id) ?? 0;
+  // No count until the skills are loaded: "0 skills" would read as a real answer.
+  const skillCount = skills ? (skillCountsByAgent(skills).get(ag.id) ?? 0) : null;
   const color = modelColor(ag.model);
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -58,9 +59,11 @@ export function AgentCard({ ag, active, onClick, onToggle }: AgentCardProps) {
         <span className="mono" style={s.modelChip(color)}>
           {ag.model}
         </span>
-        <Badge color="var(--text-secondary)" icon="Sparkles">
-          {t("card.skillCount", { count: skillCount })}
-        </Badge>
+        {skillCount !== null && (
+          <Badge color="var(--text-secondary)" icon="Sparkles">
+            {t("card.skillCount", { count: skillCount })}
+          </Badge>
+        )}
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { AgentSkillLink, Skill } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/agents.json";
+import skillsMessages from "../../../../../../../../messages/en/skills.json";
 
 const hooks = vi.hoisted(() => ({
   mutate: vi.fn(),
@@ -71,7 +72,7 @@ afterEach(cleanup);
 
 function renderTab() {
   return render(
-    <NextIntlClientProvider locale="en" messages={{ agents: messages }}>
+    <NextIntlClientProvider locale="en" messages={{ agents: messages, skills: skillsMessages }}>
       <SkillsTab agentId="ag1" />
     </NextIntlClientProvider>,
   );

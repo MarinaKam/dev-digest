@@ -21,6 +21,7 @@ interface SkillsTabProps {
 
 export function SkillsTab({ agentId }: SkillsTabProps) {
   const t = useTranslations("agents");
+  const tSkills = useTranslations("skills");
   const skillsQuery = useSkills();
   const linksQuery = useAgentSkillLinks(agentId);
   const setSkills = useSetAgentSkills();
@@ -181,7 +182,7 @@ export function SkillsTab({ agentId }: SkillsTabProps) {
                 {skill.name}
               </span>
               {off && <span style={s.off}>{t("skills.offGlobally")}</span>}
-              <SkillTypeBadge type={skill.type} />
+              <SkillTypeBadge type={skill.type} label={tSkills(`card.type.${skill.type}`)} />
             </div>
           );
         })}

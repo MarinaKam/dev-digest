@@ -22,6 +22,21 @@ describe("MarkdownBody", () => {
     expect(block).not.toHaveStyle({ background: "var(--bg-hover)" });
   });
 
+  it("does not load images from the body", () => {
+    const { container } = render(<MarkdownBody>{"![tracker](https://evil.example/pixel.png)"}</MarkdownBody>);
+    expect(container.querySelector("img")).toBeNull();
+    expect(screen.getByText(/tracker/)).toBeInTheDocument();
+  });
+
+  it("opens links in a new tab without the opener, and drops javascript: links", () => {
+    render(<MarkdownBody>{"[docs](https://example.com) and [bad](javascript:alert(1))"}</MarkdownBody>);
+    const docs = screen.getByRole("link", { name: "docs" });
+    expect(docs).toHaveAttribute("target", "_blank");
+    expect(docs.getAttribute("rel")).toContain("noopener");
+    const bad = screen.getByText("bad").closest("a");
+    expect(bad?.getAttribute("href") ?? "").not.toMatch(/^javascript:/i);
+  });
+
   it("does not render raw HTML from the body", () => {
     const { container } = render(<MarkdownBody>{'<img src="x" onerror="alert(1)">\n\n<b>raw</b> text'}</MarkdownBody>);
     expect(container.querySelector("img")).toBeNull();

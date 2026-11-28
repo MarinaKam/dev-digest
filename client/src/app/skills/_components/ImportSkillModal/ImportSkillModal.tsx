@@ -22,6 +22,8 @@ export function ImportSkillModal({ onClose, onCreated }: ImportSkillModalProps) 
 
   const choose = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    // Reset the input so choosing the same file again (after fixing it) fires again.
+    e.target.value = "";
     if (!file) return;
     setFileSeq((n) => n + 1);
     preview.mutate(file);

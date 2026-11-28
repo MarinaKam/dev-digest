@@ -67,6 +67,12 @@ describe("AgentCard (smoke)", () => {
     expect(screen.getByText("0 skills")).toBeInTheDocument();
   });
 
+  it("shows no skill count while the skills are still loading", () => {
+    skillsData.data = undefined;
+    renderWithIntl(<AgentCard ag={AGENT} />);
+    expect(screen.queryByText(/skills?$/)).not.toBeInTheDocument();
+  });
+
   it("falls back to a translated placeholder when description is empty", () => {
     renderWithIntl(<AgentCard ag={{ ...AGENT, description: "" }} />);
     expect(screen.getByText("No description")).toBeInTheDocument();

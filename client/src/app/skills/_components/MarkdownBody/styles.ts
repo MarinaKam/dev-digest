@@ -43,4 +43,5 @@ export const s = {
   } satisfies CSSProperties,
   strong: { fontWeight: 650, color: "var(--text-primary)" } satisfies CSSProperties,
   link: { color: "var(--accent-text)", textDecoration: "underline" } satisfies CSSProperties,
+  imageAlt: { color: "var(--text-muted)", fontStyle: "italic" } satisfies CSSProperties,
 } as const;
