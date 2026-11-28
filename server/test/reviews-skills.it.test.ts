@@ -194,9 +194,13 @@ d('review runs with skills', () => {
     await link(agent, [s]);
     const { trace } = await run(agent);
     expect(trace.prompt_assembly.skills_tokens).toBeGreaterThan(0);
-    expect(
-      trace.log.some((l) => /^skills: 1 attached \(token-skill@v1\), \d+ tokens$/.test(l.msg)),
-    ).toBe(true);
+    const skillsAt = trace.log.findIndex((l) => /^skills: 1 attached \(token-skill@v1\), \d+ tokens$/.test(l.msg));
+    expect(skillsAt).toBeGreaterThan(-1);
+    // Logged before the model call, so the live log shows it while the run is in progress.
+    const reviewingAt = trace.log.findIndex((l) => l.msg.startsWith('Reviewing'));
+    expect(reviewingAt).toBeGreaterThan(-1);
+    expect(skillsAt).toBeLessThan(reviewingAt);
+    expect(trace.log[skillsAt]?.msg).toContain(`${trace.prompt_assembly.skills_tokens} tokens`);
   });
 
   it("an agent without skills sends today's prompt", async () => {
